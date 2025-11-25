@@ -17,18 +17,18 @@ trait SchemaEquality {
       r: Schema[_],
       visitedPairs: mutable.Set[(Schema[_], Schema[_])]
     ): Boolean = {
-      implicit lazy val selfEqual: Equal[Schema[_]] = Equal.make(recursiveEqual(_, _, visitedPairs))
+      implicit lazy val selfEqual: Equal[Schema[_]]           = Equal.make(recursiveEqual(_, _, visitedPairs))
       implicit lazy val fieldEqual: Equal[Schema.Field[_, _]] =
         (l: Schema.Field[_, _], r: Schema.Field[_, _]) => {
           l.name === r.name &&
-            l.schema === r.schema &&
-            l.annotations == r.annotations
+          l.schema === r.schema &&
+          l.annotations == r.annotations
         }
       implicit lazy val caseEqual: Equal[Schema.Case[_, _]] =
         (l: Schema.Case[_, _], r: Schema.Case[_, _]) => {
           l.id == r.id &&
-            l.schema === r.schema &&
-            l.annotations == r.annotations
+          l.schema === r.schema &&
+          l.annotations == r.annotations
         }
 
       val pair: (Schema[_], Schema[_]) = (l, r)
@@ -48,32 +48,32 @@ trait SchemaEquality {
             lSet.annotations == rSet.annotations && lSet.elementSchema === rSet.elementSchema
           case (lSeq: Schema.Sequence[_, _, _], rSeq: Schema.Sequence[_, _, _]) =>
             (ignoreTransformations || (lSeq.identity == rSeq.identity)) &&
-              lSeq.annotations == rSeq.annotations &&
-              lSeq.elementSchema === rSeq.elementSchema
+            lSeq.annotations == rSeq.annotations &&
+            lSeq.elementSchema === rSeq.elementSchema
           case (lTransform: Schema.Transform[_, _, _], rTransform: Schema.Transform[_, _, _]) =>
             (ignoreTransformations || (lTransform.identity == rTransform.identity)) &&
-              lTransform.annotations == rTransform.annotations &&
-              lTransform.schema === rTransform.schema
+            lTransform.annotations == rTransform.annotations &&
+            lTransform.schema === rTransform.schema
           case (lPrimitive: Schema.Primitive[_], rPrimitive: Schema.Primitive[_]) =>
             lPrimitive.annotations == rPrimitive.annotations &&
-              lPrimitive.standardType == rPrimitive.standardType
+            lPrimitive.standardType == rPrimitive.standardType
           case (lOptional: Schema.Optional[_], rOptional: Schema.Optional[_]) =>
             lOptional.annotations == rOptional.annotations &&
-              lOptional.schema === rOptional.schema
+            lOptional.schema === rOptional.schema
           case (lFail: Schema.Fail[_], rFail: Schema.Fail[_]) =>
             lFail.annotations == rFail.annotations && lFail.message == rFail.message
           case (lTuple: Schema.Tuple2[_, _], rTuple: Schema.Tuple2[_, _]) =>
             lTuple.annotations == rTuple.annotations &&
-              lTuple.left === rTuple.left &&
-              rTuple.right === rTuple.right
+            lTuple.left === rTuple.left &&
+            rTuple.right === rTuple.right
           case (lEither: Schema.Either[_, _], rEither: Schema.Either[_, _]) =>
             lEither.annotations == rEither.annotations &&
-              lEither.left === rEither.left &&
-              lEither.right === rEither.right
+            lEither.left === rEither.left &&
+            lEither.right === rEither.right
           case (lEither: Schema.Fallback[_, _], rEither: Schema.Fallback[_, _]) =>
             lEither.annotations == rEither.annotations &&
-              lEither.left === rEither.left &&
-              lEither.right === rEither.right
+            lEither.left === rEither.left &&
+            lEither.right === rEither.right
           case (lLazy: Schema.Lazy[_], rLazy: Schema.Lazy[_]) =>
             if (lLazy.schema eq rLazy.schema)
               true

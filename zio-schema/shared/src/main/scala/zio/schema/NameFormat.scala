@@ -9,7 +9,7 @@ object NameFormat {
     if (s.indexOf('_') == -1 && s.indexOf('-') == -1) {
       if (s.isEmpty) s
       else {
-        val ch = s.charAt(0)
+        val ch      = s.charAt(0)
         val fixedCh =
           if (toPascal) toUpperCase(ch)
           else toLowerCase(ch)

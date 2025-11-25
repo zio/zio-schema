@@ -1,20 +1,20 @@
 package zio.schema.codec
 
-import scala.reflect.{ ClassTag, classTag }
+import scala.reflect.{ClassTag, classTag}
 
 import org.bson.codecs.configuration.CodecRegistry
-import org.bson.codecs.{ Codec => BCodec, DecoderContext, EncoderContext }
+import org.bson.codecs.{Codec => BCodec, DecoderContext, EncoderContext}
 import org.bson.conversions.Bson
 import org.bson.io.BasicOutputBuffer
-import org.bson.types.{ Decimal128, ObjectId }
-import org.bson.{ BsonDecimal128, _ }
+import org.bson.types.{Decimal128, ObjectId}
+import org.bson.{BsonDecimal128, _}
 
 import zio.bson.BsonBuilder._
 import zio.bson._
-import zio.schema.{ DeriveGen, DeriveSchema, Schema }
+import zio.schema.{DeriveGen, DeriveSchema, Schema}
 import zio.test._
 import zio.test.diff.Diff
-import zio.{ Chunk, Scope, Task, UIO, ZIO }
+import zio.{Chunk, Scope, Task, UIO, ZIO}
 
 object BsonSchemaCodecSpec extends ZIOSpecDefault {
   case class SimpleClass(a: String, b: Int)
@@ -111,9 +111,9 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
         Customer.gen,
         Customer.example,
         doc(
-          "id"   -> Customer.example.id.value.toBsonValue,
-          "name" -> str(Customer.example.name),
-          "age"  -> int(Customer.example.age),
+          "id"             -> Customer.example.id.value.toBsonValue,
+          "name"           -> str(Customer.example.name),
+          "age"            -> int(Customer.example.age),
           "invitedFriends" -> array(
             Customer.example.invitedFriends.map(_.value.toBsonValue): _*
           )
@@ -159,8 +159,8 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
             SchemaConfig.CaseNameAliasesWithoutDiscriminator.B("str") -> doc("B" -> doc("s" -> str("str")))
           ),
           testDecodeExamples[SchemaConfig.CaseNameAliasesWithoutDiscriminator](
-            doc("A"       -> doc("s" -> str("str"))) -> SchemaConfig.CaseNameAliasesWithoutDiscriminator.A("str"),
-            doc("B"       -> doc("s" -> str("str"))) -> SchemaConfig.CaseNameAliasesWithoutDiscriminator.B("str"),
+            doc("A" -> doc("s" -> str("str")))       -> SchemaConfig.CaseNameAliasesWithoutDiscriminator.A("str"),
+            doc("B" -> doc("s" -> str("str")))       -> SchemaConfig.CaseNameAliasesWithoutDiscriminator.B("str"),
             doc("aAlias1" -> doc("s" -> str("str"))) -> SchemaConfig.CaseNameAliasesWithoutDiscriminator.A("str"),
             doc("bAlias1" -> doc("s" -> str("str"))) -> SchemaConfig.CaseNameAliasesWithoutDiscriminator.B("str"),
             doc("aAlias2" -> doc("s" -> str("str"))) -> SchemaConfig.CaseNameAliasesWithoutDiscriminator.A("str"),
@@ -173,8 +173,8 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
             SchemaConfig.CaseNameAliasesWithDiscriminator.B("str") -> doc("$type" -> str("B"), "s" -> str("str"))
           ),
           testDecodeExamples[SchemaConfig.CaseNameAliasesWithDiscriminator](
-            doc("$type" -> str("A"), "s"       -> str("str")) -> SchemaConfig.CaseNameAliasesWithDiscriminator.A("str"),
-            doc("$type" -> str("B"), "s"       -> str("str")) -> SchemaConfig.CaseNameAliasesWithDiscriminator.B("str"),
+            doc("$type" -> str("A"), "s" -> str("str"))       -> SchemaConfig.CaseNameAliasesWithDiscriminator.A("str"),
+            doc("$type" -> str("B"), "s" -> str("str"))       -> SchemaConfig.CaseNameAliasesWithDiscriminator.B("str"),
             doc("$type" -> str("aAlias1"), "s" -> str("str")) -> SchemaConfig.CaseNameAliasesWithDiscriminator.A("str"),
             doc("$type" -> str("bAlias1"), "s" -> str("str")) -> SchemaConfig.CaseNameAliasesWithDiscriminator.B("str"),
             doc("$type" -> str("aAlias2"), "s" -> str("str")) -> SchemaConfig.CaseNameAliasesWithDiscriminator.A("str"),
@@ -235,7 +235,7 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
             SchemaConfig.TransientField("str", 1) -> doc("b" -> int(1))
           ),
           testDecodeExamples[SchemaConfig.TransientField](
-            doc("b" -> int(1)) -> SchemaConfig.TransientField("defaultValue", 1),
+            doc("b" -> int(1))                    -> SchemaConfig.TransientField("defaultValue", 1),
             doc("a" -> str("str"), "b" -> int(1)) -> SchemaConfig.TransientField("str", 1)
           )
         ),
@@ -315,7 +315,7 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
             BsonConfig.TransientField("str", 1) -> doc("b" -> int(1))
           ),
           testDecodeExamples[BsonConfig.TransientField](
-            doc("b" -> int(1)) -> BsonConfig.TransientField("defaultValue", 1),
+            doc("b" -> int(1))                    -> BsonConfig.TransientField("defaultValue", 1),
             doc("a" -> str("str"), "b" -> int(1)) -> BsonConfig.TransientField("str", 1)
           )
         )
@@ -349,11 +349,11 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
         suite("caseNameAliases without discriminator")(
           testEncodeExamples[MixedConfig.CaseNameAliasesWithoutDiscriminator](
             MixedConfig.CaseNameAliasesWithoutDiscriminator.A("str") -> doc("aName" -> doc("s" -> str("str"))),
-            MixedConfig.CaseNameAliasesWithoutDiscriminator.B("str") -> doc("B"     -> doc("s" -> str("str")))
+            MixedConfig.CaseNameAliasesWithoutDiscriminator.B("str") -> doc("B" -> doc("s" -> str("str")))
           ),
           testDecodeExamples[MixedConfig.CaseNameAliasesWithoutDiscriminator](
-            doc("aName"   -> doc("s" -> str("str"))) -> MixedConfig.CaseNameAliasesWithoutDiscriminator.A("str"),
-            doc("B"       -> doc("s" -> str("str"))) -> MixedConfig.CaseNameAliasesWithoutDiscriminator.B("str"),
+            doc("aName" -> doc("s" -> str("str")))   -> MixedConfig.CaseNameAliasesWithoutDiscriminator.A("str"),
+            doc("B" -> doc("s" -> str("str")))       -> MixedConfig.CaseNameAliasesWithoutDiscriminator.B("str"),
             doc("aAlias1" -> doc("s" -> str("str"))) -> MixedConfig.CaseNameAliasesWithoutDiscriminator.A("str"),
             doc("bAlias1" -> doc("s" -> str("str"))) -> MixedConfig.CaseNameAliasesWithoutDiscriminator.B("str"),
             doc("aAlias2" -> doc("s" -> str("str"))) -> MixedConfig.CaseNameAliasesWithoutDiscriminator.A("str"),
@@ -363,11 +363,11 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
         suite("caseNameAliases with discriminator")(
           testEncodeExamples[MixedConfig.CaseNameAliasesWithDiscriminator](
             MixedConfig.CaseNameAliasesWithDiscriminator.A("str") -> doc("$type" -> str("aName"), "s" -> str("str")),
-            MixedConfig.CaseNameAliasesWithDiscriminator.B("str") -> doc("$type" -> str("B"), "s"     -> str("str"))
+            MixedConfig.CaseNameAliasesWithDiscriminator.B("str") -> doc("$type" -> str("B"), "s" -> str("str"))
           ),
           testDecodeExamples[MixedConfig.CaseNameAliasesWithDiscriminator](
-            doc("$type" -> str("aName"), "s"   -> str("str")) -> MixedConfig.CaseNameAliasesWithDiscriminator.A("str"),
-            doc("$type" -> str("B"), "s"       -> str("str")) -> MixedConfig.CaseNameAliasesWithDiscriminator.B("str"),
+            doc("$type" -> str("aName"), "s" -> str("str"))   -> MixedConfig.CaseNameAliasesWithDiscriminator.A("str"),
+            doc("$type" -> str("B"), "s" -> str("str"))       -> MixedConfig.CaseNameAliasesWithDiscriminator.B("str"),
             doc("$type" -> str("aAlias1"), "s" -> str("str")) -> MixedConfig.CaseNameAliasesWithDiscriminator.A("str"),
             doc("$type" -> str("bAlias1"), "s" -> str("str")) -> MixedConfig.CaseNameAliasesWithDiscriminator.B("str"),
             doc("$type" -> str("aAlias2"), "s" -> str("str")) -> MixedConfig.CaseNameAliasesWithDiscriminator.A("str"),
@@ -428,7 +428,7 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
             MixedConfig.TransientField("str", 1) -> doc("b" -> int(1))
           ),
           testDecodeExamples[MixedConfig.TransientField](
-            doc("b" -> int(1)) -> MixedConfig.TransientField("defaultValue", 1),
+            doc("b" -> int(1))                    -> MixedConfig.TransientField("defaultValue", 1),
             doc("a" -> str("str"), "b" -> int(1)) -> MixedConfig.TransientField("str", 1)
           )
         )
@@ -476,28 +476,26 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
 
     suite("encode")(
       test("toBsonValue") {
-        checkAll(Gen.fromIterable(examples)) {
-          case (value, expectedBson) =>
-            assertTrue(value.toBsonValue == expectedBson)
+        checkAll(Gen.fromIterable(examples)) { case (value, expectedBson) =>
+          assertTrue(value.toBsonValue == expectedBson)
         }
       },
       test("write") {
-        checkAll(Gen.fromIterable(examples)) {
-          case (value, expectedBson) =>
-            for {
-              buffer        <- ZIO.fromAutoCloseable(ZIO.succeed(new BasicOutputBuffer()))
-              writer        <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryWriter(buffer)))
-              documentCodec = Bson.DEFAULT_CODEC_REGISTRY.get(classOf[BsonDocument])
-              codec <- ZIO
-                        .succeed(
-                          zioBsonCodecProvider[T]
-                            .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
-                        )
-              _         <- writeValue(value, codec, writer, false)
-              reader    <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryReader(buffer.getByteBuffers.get(0).asNIO())))
-              document  <- readValue(documentCodec, reader, isDocument = true)
-              bsonValue = document.get("v")
-            } yield assertTrue(bsonValue == expectedBson)
+        checkAll(Gen.fromIterable(examples)) { case (value, expectedBson) =>
+          for {
+            buffer       <- ZIO.fromAutoCloseable(ZIO.succeed(new BasicOutputBuffer()))
+            writer       <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryWriter(buffer)))
+            documentCodec = Bson.DEFAULT_CODEC_REGISTRY.get(classOf[BsonDocument])
+            codec        <- ZIO
+                       .succeed(
+                         zioBsonCodecProvider[T]
+                           .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
+                       )
+            _        <- writeValue(value, codec, writer, false)
+            reader   <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryReader(buffer.getByteBuffers.get(0).asNIO())))
+            document <- readValue(documentCodec, reader, isDocument = true)
+            bsonValue = document.get("v")
+          } yield assertTrue(bsonValue == expectedBson)
         }
       }
     )
@@ -518,21 +516,20 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
         }
       },
       test("read") {
-        checkAll(Gen.fromIterable(examples)) {
-          bsonValue =>
-            for {
-              buffer     <- ZIO.fromAutoCloseable(ZIO.succeed(new BasicOutputBuffer()))
-              writer     <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryWriter(buffer)))
-              valueCodec = Bson.DEFAULT_CODEC_REGISTRY.get(bsonValue.getClass).asInstanceOf[BCodec[BsonValue]]
-              codec <- ZIO
-                        .succeed(
-                          zioBsonCodecProvider[T]
-                            .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
-                        )
-              _      <- writeValue(bsonValue, valueCodec, writer, false)
-              reader <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryReader(buffer.getByteBuffers.get(0).asNIO())))
-              res    <- tryReadValue(codec, reader, false).either
-            } yield assertTrue(res.swap.toOption.get.getMessage.contains(substring))
+        checkAll(Gen.fromIterable(examples)) { bsonValue =>
+          for {
+            buffer    <- ZIO.fromAutoCloseable(ZIO.succeed(new BasicOutputBuffer()))
+            writer    <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryWriter(buffer)))
+            valueCodec = Bson.DEFAULT_CODEC_REGISTRY.get(bsonValue.getClass).asInstanceOf[BCodec[BsonValue]]
+            codec     <- ZIO
+                       .succeed(
+                         zioBsonCodecProvider[T]
+                           .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
+                       )
+            _      <- writeValue(bsonValue, valueCodec, writer, false)
+            reader <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryReader(buffer.getByteBuffers.get(0).asNIO())))
+            res    <- tryReadValue(codec, reader, false).either
+          } yield assertTrue(res.swap.toOption.get.getMessage.contains(substring))
         }
       }
     )
@@ -545,27 +542,25 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
 
     suite("decode")(
       test("as") {
-        checkAll(Gen.fromIterable(examples)) {
-          case (bson, expected) =>
-            assertTrue(bson.as[T].toOption.get == expected)
+        checkAll(Gen.fromIterable(examples)) { case (bson, expected) =>
+          assertTrue(bson.as[T].toOption.get == expected)
         }
       },
       test("read") {
-        checkAll(Gen.fromIterable(examples)) {
-          case (bsonValue, expected) =>
-            for {
-              buffer     <- ZIO.fromAutoCloseable(ZIO.succeed(new BasicOutputBuffer()))
-              writer     <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryWriter(buffer)))
-              valueCodec = Bson.DEFAULT_CODEC_REGISTRY.get(bsonValue.getClass).asInstanceOf[BCodec[BsonValue]]
-              codec <- ZIO
-                        .succeed(
-                          zioBsonCodecProvider[T]
-                            .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
-                        )
-              _      <- writeValue(bsonValue, valueCodec, writer, false)
-              reader <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryReader(buffer.getByteBuffers.get(0).asNIO())))
-              res    <- readValue(codec, reader, false)
-            } yield assertTrue(res == expected)
+        checkAll(Gen.fromIterable(examples)) { case (bsonValue, expected) =>
+          for {
+            buffer    <- ZIO.fromAutoCloseable(ZIO.succeed(new BasicOutputBuffer()))
+            writer    <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryWriter(buffer)))
+            valueCodec = Bson.DEFAULT_CODEC_REGISTRY.get(bsonValue.getClass).asInstanceOf[BCodec[BsonValue]]
+            codec     <- ZIO
+                       .succeed(
+                         zioBsonCodecProvider[T]
+                           .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
+                       )
+            _      <- writeValue(bsonValue, valueCodec, writer, false)
+            reader <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryReader(buffer.getByteBuffers.get(0).asNIO())))
+            res    <- readValue(codec, reader, false)
+          } yield assertTrue(res == expected)
         }
       }
     )
@@ -602,11 +597,11 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
           for {
             buffer <- ZIO.fromAutoCloseable(ZIO.succeed(new BasicOutputBuffer()))
             writer <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryWriter(buffer)))
-            codec <- ZIO
-                      .succeed(
-                        zioBsonCodecProvider[T]
-                          .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
-                      )
+            codec  <- ZIO
+                       .succeed(
+                         zioBsonCodecProvider[T]
+                           .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
+                       )
             _      <- writeValue(t, codec, writer, isDocument)
             reader <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryReader(buffer.getByteBuffers.get(0).asNIO())))
             res    <- readValue(codec, reader, isDocument)
@@ -616,15 +611,15 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
       test("toBsonValue/reader") {
         check(gen) { t =>
           for {
-            buffer     <- ZIO.fromAutoCloseable(ZIO.succeed(new BasicOutputBuffer()))
-            writer     <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryWriter(buffer)))
+            buffer    <- ZIO.fromAutoCloseable(ZIO.succeed(new BasicOutputBuffer()))
+            writer    <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryWriter(buffer)))
             bsonValue  = t.toBsonValue
             valueCodec = Bson.DEFAULT_CODEC_REGISTRY.get(bsonValue.getClass).asInstanceOf[BCodec[BsonValue]]
-            codec <- ZIO
-                      .succeed(
-                        zioBsonCodecProvider[T]
-                          .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
-                      )
+            codec     <- ZIO
+                       .succeed(
+                         zioBsonCodecProvider[T]
+                           .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
+                       )
             _      <- writeValue(bsonValue, valueCodec, writer, isDocument)
             reader <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryReader(buffer.getByteBuffers.get(0).asNIO())))
             res    <- readValue(codec, reader, isDocument)
@@ -634,19 +629,19 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
       test("writer/as") {
         check(gen) { t =>
           for {
-            buffer        <- ZIO.fromAutoCloseable(ZIO.succeed(new BasicOutputBuffer()))
-            writer        <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryWriter(buffer)))
+            buffer       <- ZIO.fromAutoCloseable(ZIO.succeed(new BasicOutputBuffer()))
+            writer       <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryWriter(buffer)))
             documentCodec = Bson.DEFAULT_CODEC_REGISTRY.get(classOf[BsonDocument])
-            codec <- ZIO
-                      .succeed(
-                        zioBsonCodecProvider[T]
-                          .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
-                      )
+            codec        <- ZIO
+                       .succeed(
+                         zioBsonCodecProvider[T]
+                           .get[T](classTag[T].runtimeClass.asInstanceOf[Class[T]], emptyCodecRegistry)
+                       )
             _        <- writeValue(t, codec, writer, isDocument)
             reader   <- ZIO.fromAutoCloseable(ZIO.succeed(new BsonBinaryReader(buffer.getByteBuffers.get(0).asNIO())))
             document <- readValue(documentCodec, reader, isDocument = true)
             bsonValue = if (isDocument) document
-            else document.get("v")
+                        else document.get("v")
             res = bsonValue.as[T]
           } yield assertTrue(res.toOption.get == t)
         }
@@ -657,8 +652,8 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
     gen: Gen[Sized, T],
     example: T,
     bsonExample: BsonValue
-  )(
-    implicit encoder: BsonEncoder[T],
+  )(implicit
+    encoder: BsonEncoder[T],
     decoder: BsonDecoder[T],
     codec: BsonCodec[T],
     diff: Diff[T] = Diff.anyDiff[T]

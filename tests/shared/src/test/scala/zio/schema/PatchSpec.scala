@@ -1,12 +1,12 @@
 package zio.schema
 
 import zio.schema.DeriveSchema.gen
-import zio.schema.SchemaGen.{ SchemaTest, schemasAndGens }
+import zio.schema.SchemaGen.{SchemaTest, schemasAndGens}
 import zio.schema.types.Arities._
-import zio.schema.types.{ Arities, Recursive }
+import zio.schema.types.{Arities, Recursive}
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Scope, URIO }
+import zio.{Scope, URIO}
 
 object PatchSpec extends ZIOSpecDefault {
 
@@ -140,38 +140,36 @@ object PatchSpec extends ZIOSpecDefault {
     schemaConversionFuncOption: Option[Schema[_] => Schema[_]],
     renamingFuncOption: Option[String => String]
   ): List[Spec[Sized with TestConfig, Nothing]] =
-    schemasAndGens.map {
-      case SchemaTest(name, standardType, _) =>
-        val primitiveSchema = Schema.primitive(standardType)
-        val finalSchema = schemaConversionFuncOption.fold[Schema[_]](primitiveSchema) { schemaConversionFunc =>
-          schemaConversionFunc(primitiveSchema)
-        }
-        val finalTestName = renamingFuncOption.fold(name)(renamingFunc => renamingFunc(name))
-        standardType match {
-          case s if s.isInstanceOf[StandardType.MonthDayType.type] =>
-            test(finalTestName) {
-              patchingFunc(finalSchema)
-            } @@ TestAspect.ignore // TODO Leap years!
-          case _ =>
-            test(finalTestName) {
-              patchingFunc(finalSchema)
-            }
-        }
+    schemasAndGens.map { case SchemaTest(name, standardType, _) =>
+      val primitiveSchema = Schema.primitive(standardType)
+      val finalSchema     = schemaConversionFuncOption.fold[Schema[_]](primitiveSchema) { schemaConversionFunc =>
+        schemaConversionFunc(primitiveSchema)
+      }
+      val finalTestName = renamingFuncOption.fold(name)(renamingFunc => renamingFunc(name))
+      standardType match {
+        case s if s.isInstanceOf[StandardType.MonthDayType.type] =>
+          test(finalTestName) {
+            patchingFunc(finalSchema)
+          } @@ TestAspect.ignore // TODO Leap years!
+        case _ =>
+          test(finalTestName) {
+            patchingFunc(finalSchema)
+          }
+      }
     }
 
   private def patchLaw[A](implicit schema: Schema[A]): URIO[Sized with TestConfig, TestResult] = {
     val gen = DeriveGen.gen[A]
-    check(gen <*> gen) {
-      case (l, r) =>
-        val diff = schema.diff(l, r)
-        if (diff.isComparable) {
-          val afterInvert        = diff.invert.invert
-          val patched            = schema.diff(l, r).patch(l)
-          val patchedAfterInvert = afterInvert.patch(l)
-          assert(patched)(isRight(equalTo(r))) && assert(patchedAfterInvert)(isRight(equalTo(r)))
-        } else {
-          assertTrue(true)
-        }
+    check(gen <*> gen) { case (l, r) =>
+      val diff = schema.diff(l, r)
+      if (diff.isComparable) {
+        val afterInvert        = diff.invert.invert
+        val patched            = schema.diff(l, r).patch(l)
+        val patchedAfterInvert = afterInvert.patch(l)
+        assert(patched)(isRight(equalTo(r))) && assert(patchedAfterInvert)(isRight(equalTo(r)))
+      } else {
+        assertTrue(true)
+      }
     }
   }
 
@@ -180,9 +178,8 @@ object PatchSpec extends ZIOSpecDefault {
   )(implicit schema: Schema[A]): URIO[Sized with TestConfig, TestResult] = {
     val gen = DeriveGen.gen[A]
 
-    check(gen.withFilter(leftFilter) <*> gen.withFilter(rightFilter)) {
-      case (l, r) =>
-        assert(assertion(schema.diff(l, r).patch(l)))(isTrue)
+    check(gen.withFilter(leftFilter) <*> gen.withFilter(rightFilter)) { case (l, r) =>
+      assert(assertion(schema.diff(l, r).patch(l)))(isTrue)
     }
   }
 

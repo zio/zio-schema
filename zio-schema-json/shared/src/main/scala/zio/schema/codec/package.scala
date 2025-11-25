@@ -7,7 +7,7 @@ import scala.collection.immutable.ListMap
 import zio.Chunk
 import zio.json.ast.Json
 import zio.schema.annotation.directDynamicMapping
-import zio.schema.{ DynamicValue, Schema, StandardType, TypeId }
+import zio.schema.{DynamicValue, Schema, StandardType, TypeId}
 
 package object json {
   implicit val schemaJson: Schema[Json] =

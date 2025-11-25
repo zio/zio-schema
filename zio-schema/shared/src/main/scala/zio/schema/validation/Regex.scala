@@ -104,7 +104,7 @@ object Regex {
           s"(${loop(regex)}){$n,$m}"
         case Repeat(_, None, None) =>
           throw new IllegalArgumentException("Cannot have no repeat count")
-        case Empty => ""
+        case Empty                  => ""
         case Alternate(left, right) =>
           s"((${loop(left)})|(${loop(right)}))"
         case Regex.Letter =>

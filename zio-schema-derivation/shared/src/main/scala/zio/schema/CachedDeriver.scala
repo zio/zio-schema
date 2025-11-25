@@ -1,11 +1,11 @@
 package zio.schema
 
-import java.util.concurrent.{ ConcurrentHashMap, ConcurrentMap }
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 
 import scala.reflect.ClassTag
 
 import zio.Chunk
-import zio.schema.CachedDeriver.{ Cache, CacheKey }
+import zio.schema.CachedDeriver.{Cache, CacheKey}
 import zio.schema.Deriver.WrappedF
 
 private[schema] class CachedDeriver[F[_]] private (deriver: Deriver[F], val cache: Cache[F]) extends Deriver[F] {
@@ -138,14 +138,14 @@ private[schema] object CachedDeriver {
         case seq: Schema.Sequence[_, _, _]         => WithIdentityObject(fromSchema(seq.elementSchema), seq.identity)
         case seq: Schema.NonEmptySequence[_, _, _] => WithIdentityObject(fromSchema(seq.elementSchema), seq.identity)
         case set: Schema.Set[_]                    => Set(fromSchema(set.elementSchema)).asInstanceOf[CacheKey[A]]
-        case map: Schema.Map[_, _] =>
+        case map: Schema.Map[_, _]                 =>
           Map(fromSchema(map.keySchema), fromSchema(map.valueSchema)).asInstanceOf[CacheKey[A]]
         case map: Schema.NonEmptyMap[_, _] =>
           Map(fromSchema(map.keySchema), fromSchema(map.valueSchema)).asInstanceOf[CacheKey[A]]
         case Schema.Transform(inner, _, _, _, identity) => WithIdentityObject(fromSchema(inner), identity)
         case Schema.Primitive(standardType, _)          => fromStandardType(standardType)
         case optional: Schema.Optional[_]               => Optional(fromSchema(optional.schema)).asInstanceOf[CacheKey[A]]
-        case tuple: Schema.Tuple2[_, _] =>
+        case tuple: Schema.Tuple2[_, _]                 =>
           Tuple2(fromSchema(tuple.left), fromSchema(tuple.right)).asInstanceOf[CacheKey[A]]
         case either: Schema.Either[_, _] =>
           Either(fromSchema(either.leftSchema), fromSchema(either.rightSchema)).asInstanceOf[CacheKey[A]]

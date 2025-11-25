@@ -8,6 +8,7 @@ import scala.annotation.StaticAnnotation
  *
  * This is the dual of `@fieldName`, but for sums rather than products.
  *
- * @param name The alternate name to use for the case.
+ * @param name
+ *   The alternate name to use for the case.
  */
 final case class caseName(name: String) extends StaticAnnotation

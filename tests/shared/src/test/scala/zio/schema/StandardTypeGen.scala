@@ -1,13 +1,13 @@
 package zio.schema
 
-import java.math.{ BigDecimal => JBigDecimal, BigInteger => JBigInt }
+import java.math.{BigDecimal => JBigDecimal, BigInteger => JBigInt}
 
-import zio.schema.PlatformSpecificGen.{ platformSpecificStandardTypeAndGen, platformSpecificStandardTypes }
-import zio.test.{ Gen, Sized }
+import zio.schema.PlatformSpecificGen.{platformSpecificStandardTypeAndGen, platformSpecificStandardTypes}
+import zio.test.{Gen, Sized}
 
 object StandardTypeGen {
 
-  //IMPORTANT! - Updating the following list without updating the schema primitive case set in zio.schema.DynamicValue.schema will trigger a set of very obscure test failures
+  // IMPORTANT! - Updating the following list without updating the schema primitive case set in zio.schema.DynamicValue.schema will trigger a set of very obscure test failures
   val anyStandardType: Gen[Any, StandardType[Any]] = Gen.fromIterable(
     List(
       StandardType.StringType,
@@ -51,7 +51,7 @@ object StandardTypeGen {
 
   type StandardTypeAndGen[A] = (StandardType[A], Gen[Sized, A])
 
-  val anyStandardTypeAndGen: Gen[Any, StandardTypeAndGen[Any]] = {
+  val anyStandardTypeAndGen: Gen[Any, StandardTypeAndGen[Any]] =
     anyStandardType.map { t =>
       t.asInstanceOf[StandardType[_]] match {
         case typ: StandardType.StringType.type         => typ -> Gen.string
@@ -85,5 +85,4 @@ object StandardTypeGen {
         case typ                                       => platformSpecificStandardTypeAndGen(typ.asInstanceOf[StandardType[Any]])
       }
     }.asInstanceOf[Gen[Any, StandardTypeAndGen[Any]]]
-  }
 }

@@ -45,42 +45,68 @@ object DynamicValueGen {
     }
   }
 
-  //scalafmt: { maxColumn = 400 }
+  // scalafmt: { maxColumn = 400 }
   def anyDynamicValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue] =
     schema match {
-      case Schema.Primitive(standardType, _)                                                                                                                                                          => anyPrimitiveDynamicValue(standardType)
-      case s: Schema.Record[A]                                                                                                                                                                        => anyDynamicValueWithStructure(s.fields)
-      case Schema.Enum1(_, case1, _)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk(case1))
-      case Schema.Enum2(_, case1, case2, _)                                                                                                                                                           => anyDynamicValueOfEnum(Chunk(case1, case2))
-      case Schema.Enum3(_, case1, case2, case3, _)                                                                                                                                                    => anyDynamicValueOfEnum(Chunk(case1, case2, case3))
-      case Schema.Enum4(_, case1, case2, case3, case4, _)                                                                                                                                             => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4))
-      case Schema.Enum5(_, case1, case2, case3, case4, case5, _)                                                                                                                                      => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5))
-      case Schema.Enum6(_, case1, case2, case3, case4, case5, case6, _)                                                                                                                               => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6))
-      case Schema.Enum7(_, case1, case2, case3, case4, case5, case6, case7, _)                                                                                                                        => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7))
-      case Schema.Enum8(_, case1, case2, case3, case4, case5, case6, case7, case8, _)                                                                                                                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8))
-      case Schema.Enum9(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, _)                                                                                                          => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9))
-      case Schema.Enum10(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, _)                                                                                                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10))
-      case Schema.Enum11(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, _)                                                                                         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11))
-      case Schema.Enum12(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, _)                                                                                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12))
-      case Schema.Enum13(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, _)                                                                         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13))
-      case Schema.Enum14(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, _)                                                                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14))
-      case Schema.Enum15(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, _)                                                         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15))
-      case Schema.Enum16(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, _)                                                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16))
-      case Schema.Enum17(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, _)                                         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17))
-      case Schema.Enum18(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, _)                                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18))
-      case Schema.Enum19(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, _)                         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19))
-      case Schema.Enum20(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, _)                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20))
-      case Schema.Enum21(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, _)         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21))
-      case Schema.Enum22(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22, _) => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22))
-      case Schema.EnumN(_, cases, _)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk.fromIterable(cases.toSeq))
-      case Schema.Sequence(schema, _, _, _, _)                                                                                                                                                        => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.Sequence(_))
-      case Schema.NonEmptySequence(schema, _, _, _, _)                                                                                                                                                => Gen.chunkOfBounded(1, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.Sequence(_))
-      case Schema.Map(ks, vs, _)                                                                                                                                                                      => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(ks).zip(anyDynamicValueOfSchema(vs))).map(DynamicValue.Dictionary(_))
-      case Schema.NonEmptyMap(ks, vs, _)                                                                                                                                                              => Gen.chunkOfBounded(1, 2)(anyDynamicValueOfSchema(ks).zip(anyDynamicValueOfSchema(vs))).map(DynamicValue.Dictionary(_))
-      case Schema.Set(schema, _)                                                                                                                                                                      => Gen.setOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.SetValue(_))
-      case Schema.Optional(schema, _)                                                                                                                                                                 => Gen.oneOf(anyDynamicSomeValueOfSchema(schema), Gen.const(DynamicValue.NoneValue))
-      case Schema.Tuple2(left, right, _)                                                                                                                                                              => anyDynamicTupleValue(left, right)
-      case Schema.Either(left, right, _) =>
+      case Schema.Primitive(standardType, _)                                                                                                                                                  => anyPrimitiveDynamicValue(standardType)
+      case s: Schema.Record[A]                                                                                                                                                                => anyDynamicValueWithStructure(s.fields)
+      case Schema.Enum1(_, case1, _)                                                                                                                                                          => anyDynamicValueOfEnum(Chunk(case1))
+      case Schema.Enum2(_, case1, case2, _)                                                                                                                                                   => anyDynamicValueOfEnum(Chunk(case1, case2))
+      case Schema.Enum3(_, case1, case2, case3, _)                                                                                                                                            => anyDynamicValueOfEnum(Chunk(case1, case2, case3))
+      case Schema.Enum4(_, case1, case2, case3, case4, _)                                                                                                                                     => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4))
+      case Schema.Enum5(_, case1, case2, case3, case4, case5, _)                                                                                                                              => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5))
+      case Schema.Enum6(_, case1, case2, case3, case4, case5, case6, _)                                                                                                                       => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6))
+      case Schema.Enum7(_, case1, case2, case3, case4, case5, case6, case7, _)                                                                                                                => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7))
+      case Schema.Enum8(_, case1, case2, case3, case4, case5, case6, case7, case8, _)                                                                                                         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8))
+      case Schema.Enum9(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, _)                                                                                                  => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9))
+      case Schema.Enum10(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, _)                                                                                         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10))
+      case Schema.Enum11(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, _)                                                                                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11))
+      case Schema.Enum12(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, _)                                                                         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12))
+      case Schema.Enum13(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, _)                                                                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13))
+      case Schema.Enum14(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, _)                                                         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14))
+      case Schema.Enum15(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, _)                                                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15))
+      case Schema.Enum16(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, _)                                         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16))
+      case Schema.Enum17(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, _)                                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17))
+      case Schema.Enum18(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, _)                         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18))
+      case Schema.Enum19(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, _)                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19))
+      case Schema.Enum20(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, _)         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20))
+      case Schema.Enum21(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, _) => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21))
+      case Schema.Enum22(
+            _,
+            case1,
+            case2,
+            case3,
+            case4,
+            case5,
+            case6,
+            case7,
+            case8,
+            case9,
+            case10,
+            case11,
+            case12,
+            case13,
+            case14,
+            case15,
+            case16,
+            case17,
+            case18,
+            case19,
+            case20,
+            case21,
+            case22,
+            _
+          ) =>
+        anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22))
+      case Schema.EnumN(_, cases, _)                   => anyDynamicValueOfEnum(Chunk.fromIterable(cases.toSeq))
+      case Schema.Sequence(schema, _, _, _, _)         => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.Sequence(_))
+      case Schema.NonEmptySequence(schema, _, _, _, _) => Gen.chunkOfBounded(1, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.Sequence(_))
+      case Schema.Map(ks, vs, _)                       => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(ks).zip(anyDynamicValueOfSchema(vs))).map(DynamicValue.Dictionary(_))
+      case Schema.NonEmptyMap(ks, vs, _)               => Gen.chunkOfBounded(1, 2)(anyDynamicValueOfSchema(ks).zip(anyDynamicValueOfSchema(vs))).map(DynamicValue.Dictionary(_))
+      case Schema.Set(schema, _)                       => Gen.setOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.SetValue(_))
+      case Schema.Optional(schema, _)                  => Gen.oneOf(anyDynamicSomeValueOfSchema(schema), Gen.const(DynamicValue.NoneValue))
+      case Schema.Tuple2(left, right, _)               => anyDynamicTupleValue(left, right)
+      case Schema.Either(left, right, _)               =>
         Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right))
       case Schema.Fallback(left, right, _, _) =>
         Gen.oneOf[Sized, DynamicValue](
@@ -93,7 +119,7 @@ object DynamicValueGen {
       case l @ Schema.Lazy(_)                   => anyDynamicValueOfSchema(l.schema)
       case Schema.Dynamic(_)                    => SchemaGen.anySchema.flatMap(anyDynamicValueOfSchema(_))
     }
-  //scalafmt: { maxColumn = 120 }
+  // scalafmt: { maxColumn = 120 }
 
   def anyDynamicLeftValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue.LeftValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.LeftValue(_))
@@ -102,16 +128,16 @@ object DynamicValueGen {
     anyDynamicValueOfSchema(schema).map(DynamicValue.RightValue(_))
 
   def anyDynamicBothValueOfSchema[A, B](left: Schema[A], right: Schema[A]): Gen[Sized, DynamicValue.BothValue] =
-    anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map {
-      case (l, r) => DynamicValue.BothValue(l, r)
+    anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map { case (l, r) =>
+      DynamicValue.BothValue(l, r)
     }
 
   def anyDynamicSomeValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue.SomeValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.SomeValue(_))
 
   def anyDynamicTupleValue[A, B](left: Schema[A], right: Schema[B]): Gen[Sized, DynamicValue.Tuple] =
-    anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map {
-      case (l, r) => DynamicValue.Tuple(l, r)
+    anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map { case (l, r) =>
+      DynamicValue.Tuple(l, r)
     }
 
   def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[A, _]]): Gen[Sized, DynamicValue.Enumeration] =

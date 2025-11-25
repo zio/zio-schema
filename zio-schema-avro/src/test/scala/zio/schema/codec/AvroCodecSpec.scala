@@ -24,7 +24,7 @@ import org.apache.avro.generic.GenericData
 
 import zio._
 import zio.schema.codec.AvroAnnotations._
-import zio.schema.{ DeriveSchema, Fallback, Schema }
+import zio.schema.{DeriveSchema, Fallback, Schema}
 import zio.stream.ZStream
 import zio.test._
 
@@ -387,12 +387,12 @@ object AvroCodecSpec extends ZIOSpecDefault {
       assertTrue(bytes.length == 6)
     },
     test("Encode Case Class 3") {
-      val ennio = Composer("ennio morricone", "rome", List("legend of 1900", "ecstasy of gold"))
-      val codec = AvroCodec.schemaBasedBinaryCodec[Composer]
-      val bytes = codec.encode(ennio)
+      val ennio          = Composer("ennio morricone", "rome", List("legend of 1900", "ecstasy of gold"))
+      val codec          = AvroCodec.schemaBasedBinaryCodec[Composer]
+      val bytes          = codec.encode(ennio)
       val expectedResult = (Array[Byte](30, 101, 110, 110, 105, 111, 32, 109, 111, 114, 114, 105, 99, 111, 110, 101, 8,
-          114, 111, 109, 101, 4, 28, 108, 101, 103, 101, 110, 100, 32, 111, 102, 32, 49, 57, 48, 48, 30, 101, 99, 115,
-          116, 97, 115, 121, 32, 111, 102, 32, 103, 111, 108, 100, 0))
+        114, 111, 109, 101, 4, 28, 108, 101, 103, 101, 110, 100, 32, 111, 102, 32, 49, 57, 48, 48, 30, 101, 99, 115,
+        116, 97, 115, 121, 32, 111, 102, 32, 103, 111, 108, 100, 0))
       assertTrue(bytes == Chunk.fromArray(expectedResult))
     }
   )
@@ -793,7 +793,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
       val pepperoni =
         Pizza("pepperoni", List(Ingredient("pepperoni", 12, 4.4), Ingredient("onions", 1, 0.4)), false, false, 98)
-      val codec = AvroCodec.schemaBasedBinaryCodec[Pizza]
+      val codec     = AvroCodec.schemaBasedBinaryCodec[Pizza]
       val resultZIO = ZStream
         .fromIterable(List(pepperoni))
         .via(codec.streamEncoder)

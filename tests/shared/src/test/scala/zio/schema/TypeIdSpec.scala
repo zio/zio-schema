@@ -2,7 +2,7 @@ package zio.schema
 
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Scope }
+import zio.{Chunk, Scope}
 
 object TypeIdSpec extends ZIOSpecDefault {
 

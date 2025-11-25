@@ -5,8 +5,8 @@ import scala.collection.immutable.ListMap
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
-import zio.test.{ Sized, TestConfig, _ }
-import zio.{ Chunk, URIO }
+import zio.test.{Sized, TestConfig, _}
+import zio.{Chunk, URIO}
 
 object OrderingSpec extends ZIOSpecDefault {
 
@@ -16,29 +16,28 @@ object OrderingSpec extends ZIOSpecDefault {
       suite("structures")(structureTestCases.map(structureOrderingTest): _*),
       suite("laws")(
         test("reflexivity") {
-          check(anySchemaAndValue) {
-            case (schema, a) => assert(schema.ordering.compare(a, a))(equalTo(0))
+          check(anySchemaAndValue) { case (schema, a) =>
+            assert(schema.ordering.compare(a, a))(equalTo(0))
           }
         },
         test("antisymmetry") {
-          check(genAnyOrderedPair) {
-            case (schema, x, y) => assert(schema.ordering.compare(y, x))(isGreaterThan(0))
+          check(genAnyOrderedPair) { case (schema, x, y) =>
+            assert(schema.ordering.compare(y, x))(isGreaterThan(0))
           }
         },
         test("transitivity") {
-          check(genAnyOrderedTriplet) {
-            case (schema, x, _, z) => assert(schema.ordering.compare(x, z))(isLessThan(0))
+          check(genAnyOrderedTriplet) { case (schema, x, _, z) =>
+            assert(schema.ordering.compare(x, z))(isLessThan(0))
           }
         }
       )
     )
 
   val primitiveOrderingTests: List[Spec[Sized with TestConfig, Nothing]] =
-    schemasAndGens.map {
-      case SchemaTest(name, schema, gen) =>
-        test(s"$name") {
-          primitiveOrderingLaw(gen, schema)
-        }
+    schemasAndGens.map { case SchemaTest(name, schema, gen) =>
+      test(s"$name") {
+        primitiveOrderingLaw(gen, schema)
+      }
     }
 
   private def primitiveOrderingLaw[R, A](
@@ -141,9 +140,9 @@ object OrderingSpec extends ZIOSpecDefault {
     for {
       init <- Gen.chunkOf(genFromSchema(schema))
       rems <- Gen.oneOf(
-               genChunkPairWithOrderedFirstElement(schema),
-               genChunkPairWithOnlyFirstEmpty(schema)
-             )
+                genChunkPairWithOrderedFirstElement(schema),
+                genChunkPairWithOnlyFirstEmpty(schema)
+              )
     } yield (Schema.chunk(schema), init ++ rems._1, init ++ rems._2).asInstanceOf[SchemaAndPair[Any]]
 
   def genChunkPairWithOrderedFirstElement[A](
@@ -172,18 +171,15 @@ object OrderingSpec extends ZIOSpecDefault {
   def genOrderedPairIdentityTransform[A](schema: Schema[A]): Gen[Sized, SchemaAndPair[Any]] =
     for {
       (small, large) <- genOrderedPair(schema)
-    } yield (schema.transformOrFail({ (a: A) =>
-      Right(a)
-    }, { (a: A) =>
-      Right(a)
-    }), small, large).asInstanceOf[SchemaAndPair[Any]]
+    } yield (schema.transformOrFail((a: A) => Right(a), (a: A) => Right(a)), small, large)
+      .asInstanceOf[SchemaAndPair[Any]]
 
   def genOrderedPairDecodeTransform[A](
     schema: Schema[A]
   ): Gen[Sized, SchemaAndPair[DynamicValue]] =
     for {
-      error               <- Gen.boolean
-      (small, large)      <- genOrderedPair(schema)
+      error              <- Gen.boolean
+      (small, large)     <- genOrderedPair(schema)
       encode              = (a: A) => Right(schema.toDynamic(a))
       decode              = schema.fromDynamic(_)
       smallEncoded        = encode(small).toOption.get
@@ -193,11 +189,9 @@ object OrderingSpec extends ZIOSpecDefault {
 
   def genAnyOrderedPairRecord: Gen[Sized, SchemaAndPair[Any]] =
     for {
-      name <- Gen.string(Gen.alphaChar).map(TypeId.parse)
-      schema <- anyStructure(anyTree(1)).map(fieldSet => {
-                 Schema.GenericRecord(name, fieldSet)
-               })
-      pair <- genOrderedPairRecord(schema)
+      name   <- Gen.string(Gen.alphaChar).map(TypeId.parse)
+      schema <- anyStructure(anyTree(1)).map(fieldSet => Schema.GenericRecord(name, fieldSet))
+      pair   <- genOrderedPairRecord(schema)
     } yield pair.asInstanceOf[SchemaAndPair[Any]]
 
   def genOrderedPairRecord[A](schema: Schema.Record[A]): Gen[Sized, SchemaAndPair[A]] = {
@@ -228,19 +222,18 @@ object OrderingSpec extends ZIOSpecDefault {
       val field = fields(currentInd)
       for {
         x   <- genFromSchema(field.schema)
-        d   = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], x)
+        d    = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], x)
         rem <- genEqualFields(fields, currentInd + 1, diffInd)
       } yield (field.name, d, d) +: rem
     }
 
   def genOrderedField[A](field: Schema.Field[A, _]): Gen[Sized, (String, DynamicValue, DynamicValue)] =
-    genOrderedPair(field.schema).map {
-      case (a, b) =>
-        (
-          field.name,
-          DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], a),
-          DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], b)
-        )
+    genOrderedPair(field.schema).map { case (a, b) =>
+      (
+        field.name,
+        DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], a),
+        DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], b)
+      )
     }
 
   def genRandomFields[A](
@@ -253,20 +246,20 @@ object OrderingSpec extends ZIOSpecDefault {
       for {
         x   <- genFromSchema(field.schema)
         y   <- genFromSchema(field.schema)
-        dx  = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], x)
-        dy  = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], y)
+        dx   = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], x)
+        dy   = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], y)
         rem <- genRandomFields(fields, currentInd + 1)
       } yield (field.name, dx, dy) +: rem
     }
 
   def genAnyOrderedPairEnum: Gen[Sized, SchemaAndPair[Any]] =
     anyEnumSchema
-      .flatMap(schema => {
+      .flatMap(schema =>
         Gen.oneOf(
           genOrderedPairEnumSameCase(schema),
           genOrderedPairEnumDiffCase(schema)
         )
-      })
+      )
       .asInstanceOf[Gen[Sized, SchemaAndPair[Any]]]
 
   def genOrderedPairEnumSameCase[A](schema: Schema.Enum[A]): Gen[Sized, SchemaAndPair[A]] =
@@ -274,19 +267,19 @@ object OrderingSpec extends ZIOSpecDefault {
       caseValue              <- Gen.elements(schema.cases.toList: _*)
       (smallCase, largeCase) <- genOrderedDynamicPair(caseValue.schema)
       id                     <- Gen.string(Gen.alphaChar).map(TypeId.parse)
-      small                  = DynamicValue.Enumeration(id, (caseValue.id, smallCase)).toTypedValue(schema).toOption.get
-      large                  = DynamicValue.Enumeration(id, (caseValue.id, largeCase)).toTypedValue(schema).toOption.get
+      small                   = DynamicValue.Enumeration(id, (caseValue.id, smallCase)).toTypedValue(schema).toOption.get
+      large                   = DynamicValue.Enumeration(id, (caseValue.id, largeCase)).toTypedValue(schema).toOption.get
     } yield (schema, small, large)
 
   def genOrderedPairEnumDiffCase[A](schema: Schema.Enum[A]): Gen[Sized, SchemaAndPair[A]] = {
     val cases = schema.cases
     for {
-      smallInd  <- Gen.int(0, cases.size - 2)
-      largeInd  <- Gen.int(smallInd + 1, cases.size - 1)
+      smallInd <- Gen.int(0, cases.size - 2)
+      largeInd <- Gen.int(smallInd + 1, cases.size - 1)
       smallCase = cases(smallInd)
       largeCase = cases(largeInd)
-      small     <- genElemOfCase(schema, smallCase.id, smallCase.schema)
-      large     <- genElemOfCase(schema, largeCase.id, largeCase.schema)
+      small    <- genElemOfCase(schema, smallCase.id, smallCase.schema)
+      large    <- genElemOfCase(schema, largeCase.id, largeCase.schema)
     } yield (schema, small, large)
   }
 
@@ -295,11 +288,11 @@ object OrderingSpec extends ZIOSpecDefault {
     label: String,
     caseSchema: Schema[B]
   ): Gen[Sized, A] =
-    genFromSchema(caseSchema).map(b => {
+    genFromSchema(caseSchema).map { b =>
       val innerValue = caseSchema.toDynamic(b)
       val enumValue  = DynamicValue.Enumeration(enumSchema.id, (label, innerValue))
       enumValue.toTypedValue(enumSchema).toOption.get
-    })
+    }
 
   type SchemaAndPair[A]    = (Schema[A], A, A)
   type SchemaAndTriplet[A] = (Schema[A], A, A, A)
@@ -339,9 +332,9 @@ object OrderingSpec extends ZIOSpecDefault {
   def genOrderedTriplet[A](schema: Schema[A]): Gen[Sized, (A, A, A)] =
     for {
       (x, y) <- genOrderedPair(schema)
-      z <- genFromSchema(schema).withFilter { cur =>
-            schema.ordering.compare(y, cur) < 0
-          }
+      z      <- genFromSchema(schema).withFilter { cur =>
+             schema.ordering.compare(y, cur) < 0
+           }
     } yield (x, y, z)
 
 }

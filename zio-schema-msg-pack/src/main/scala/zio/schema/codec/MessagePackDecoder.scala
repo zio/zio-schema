@@ -6,14 +6,14 @@ import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
-import scala.util.{ Failure, Success, Try }
+import scala.util.{Failure, Success, Try}
 
-import org.msgpack.core.{ MessagePack, MessageUnpacker }
+import org.msgpack.core.{MessagePack, MessageUnpacker}
 
 import zio.schema.codec.DecodeError.MalformedFieldWithPath
 import zio.schema.codec.MessagePackDecoder._
-import zio.schema.{ DynamicValue, Fallback, Schema, StandardType }
-import zio.{ Chunk, ChunkBuilder }
+import zio.schema.{DynamicValue, Fallback, Schema, StandardType}
+import zio.{Chunk, ChunkBuilder}
 
 private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
   private val unpacker = MessagePack.newDefaultUnpacker(bytes.toArray)
@@ -21,7 +21,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
   def decode[A](schema: Schema[A]): Result[A] =
     decodeValue(Chunk.empty, schema)
 
-  //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
+  // scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private def decodeValue[A](path: Path, schema: Schema[A]): Result[A] =
     schema match {
       case Schema.GenericRecord(_, structure, _) =>
@@ -38,41 +38,41 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
       case Schema.Either(left, right, _)               => decodeEither(path, left, right)
       case Schema.Fallback(left, right, fullDecode, _) => decodeFallback(path, left, right, fullDecode)
       case lzy @ Schema.Lazy(_)                        => decodeValue(path, lzy.schema)
-      //case Schema.Meta(_, _)                                                                                                        => decode(path, Schema[MetaSchema]).map(_.toSchema)
-      case s: Schema.CaseClass0[A]                                                           => caseClass0Decoder(path, s)
-      case s: Schema.CaseClass1[_, A]                                                        => caseClass1Decoder(path, s)
-      case s: Schema.CaseClass2[_, _, A]                                                     => caseClass2Decoder(path, s)
-      case s: Schema.CaseClass3[_, _, _, A]                                                  => caseClass3Decoder(path, s)
-      case s: Schema.CaseClass4[_, _, _, _, A]                                               => caseClass4Decoder(path, s)
-      case s: Schema.CaseClass5[_, _, _, _, _, A]                                            => caseClass5Decoder(path, s)
-      case s: Schema.CaseClass6[_, _, _, _, _, _, A]                                         => caseClass6Decoder(path, s)
-      case s: Schema.CaseClass7[_, _, _, _, _, _, _, A]                                      => caseClass7Decoder(path, s)
-      case s: Schema.CaseClass8[_, _, _, _, _, _, _, _, A]                                   => caseClass8Decoder(path, s)
-      case s: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, A]                                => caseClass9Decoder(path, s)
-      case s: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, A]                            => caseClass10Decoder(path, s)
-      case s: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, A]                         => caseClass11Decoder(path, s)
-      case s: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, A]                      => caseClass12Decoder(path, s)
-      case s: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, A]                   => caseClass13Decoder(path, s)
-      case s: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                => caseClass14Decoder(path, s)
-      case s: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]             => caseClass15Decoder(path, s)
-      case s: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]          => caseClass16Decoder(path, s)
-      case s: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]       => caseClass17Decoder(path, s)
-      case s: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]    => caseClass18Decoder(path, s)
-      case s: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] => caseClass19Decoder(path, s)
+      // case Schema.Meta(_, _)                                                                                                        => decode(path, Schema[MetaSchema]).map(_.toSchema)
+      case s: Schema.CaseClass0[A]                                                              => caseClass0Decoder(path, s)
+      case s: Schema.CaseClass1[_, A]                                                           => caseClass1Decoder(path, s)
+      case s: Schema.CaseClass2[_, _, A]                                                        => caseClass2Decoder(path, s)
+      case s: Schema.CaseClass3[_, _, _, A]                                                     => caseClass3Decoder(path, s)
+      case s: Schema.CaseClass4[_, _, _, _, A]                                                  => caseClass4Decoder(path, s)
+      case s: Schema.CaseClass5[_, _, _, _, _, A]                                               => caseClass5Decoder(path, s)
+      case s: Schema.CaseClass6[_, _, _, _, _, _, A]                                            => caseClass6Decoder(path, s)
+      case s: Schema.CaseClass7[_, _, _, _, _, _, _, A]                                         => caseClass7Decoder(path, s)
+      case s: Schema.CaseClass8[_, _, _, _, _, _, _, _, A]                                      => caseClass8Decoder(path, s)
+      case s: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, A]                                   => caseClass9Decoder(path, s)
+      case s: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, A]                               => caseClass10Decoder(path, s)
+      case s: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, A]                            => caseClass11Decoder(path, s)
+      case s: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, A]                         => caseClass12Decoder(path, s)
+      case s: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, A]                      => caseClass13Decoder(path, s)
+      case s: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                   => caseClass14Decoder(path, s)
+      case s: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                => caseClass15Decoder(path, s)
+      case s: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]             => caseClass16Decoder(path, s)
+      case s: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]          => caseClass17Decoder(path, s)
+      case s: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]       => caseClass18Decoder(path, s)
+      case s: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]    => caseClass19Decoder(path, s)
       case s: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
         caseClass20Decoder(path, s)
       case s: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
         caseClass21Decoder(path, s)
       case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
         caseClass22Decoder(path, s)
-      case Schema.Enum1(_, c, _)                              => decodeEnum(path, c)
-      case Schema.Enum2(_, c1, c2, _)                         => decodeEnum(path, c1, c2)
-      case Schema.Enum3(_, c1, c2, c3, _)                     => decodeEnum(path, c1, c2, c3)
-      case Schema.Enum4(_, c1, c2, c3, c4, _)                 => decodeEnum(path, c1, c2, c3, c4)
-      case Schema.Enum5(_, c1, c2, c3, c4, c5, _)             => decodeEnum(path, c1, c2, c3, c4, c5)
-      case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)         => decodeEnum(path, c1, c2, c3, c4, c5, c6)
-      case Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)     => decodeEnum(path, c1, c2, c3, c4, c5, c6, c7)
-      case Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _) => decodeEnum(path, c1, c2, c3, c4, c5, c6, c7, c8)
+      case Schema.Enum1(_, c, _)                                  => decodeEnum(path, c)
+      case Schema.Enum2(_, c1, c2, _)                             => decodeEnum(path, c1, c2)
+      case Schema.Enum3(_, c1, c2, c3, _)                         => decodeEnum(path, c1, c2, c3)
+      case Schema.Enum4(_, c1, c2, c3, c4, _)                     => decodeEnum(path, c1, c2, c3, c4)
+      case Schema.Enum5(_, c1, c2, c3, c4, c5, _)                 => decodeEnum(path, c1, c2, c3, c4, c5)
+      case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)             => decodeEnum(path, c1, c2, c3, c4, c5, c6)
+      case Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)         => decodeEnum(path, c1, c2, c3, c4, c5, c6, c7)
+      case Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _)     => decodeEnum(path, c1, c2, c3, c4, c5, c6, c7, c8)
       case Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _) =>
         decodeEnum(path, c1, c2, c3, c4, c5, c6, c7, c8, c9)
       case Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _) =>
@@ -123,7 +123,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
           fields.get(fieldName) match {
             case Some(fieldSchema) =>
               decodeValue(actualPath, fieldSchema) match {
-                case Left(err) => Left(err)
+                case Left(err)    => Left(err)
                 case Right(value) =>
                   if (index == fields.size) {
                     succeed(m.updated(fieldName, value))
@@ -137,7 +137,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
       }
 
     Try(unpacker.unpackMapHeader()) match {
-      case Failure(err) => fail(path, s"Error reading object header: [$err]")
+      case Failure(err)                                   => fail(path, s"Error reading object header: [$err]")
       case Success(sizeOfMap) if sizeOfMap != fields.size =>
         fail(path, s"Different than expected number of fields. Expected ${fields.size} but received $sizeOfMap")
       case Success(_) => readFields(ListMap.empty, 1)
@@ -153,7 +153,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
       if (n > 0) {
         (decodeValue(path, schema.keySchema), decodeValue(path, schema.valueSchema)) match {
           case (Right(key), Right(value)) => decodeElements(n - 1, m += ((key, value)))
-          case (l, r) =>
+          case (l, r)                     =>
             val key   = l.fold(_.message, _.toString)
             val value = r.fold(_.message, _.toString)
             fail(path, s"Error decoding Map element (key: $key; value: $value)")
@@ -214,7 +214,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
             unscaled  <- data.get("unscaled").asInstanceOf[Option[java.math.BigInteger]]
             precision <- data.get("precision").asInstanceOf[Option[Int]]
             scale     <- data.get("scale").asInstanceOf[Option[Int]]
-            ctx       = new java.math.MathContext(precision)
+            ctx        = new java.math.MathContext(precision)
           } yield new java.math.BigDecimal(unscaled, scale, ctx)
 
           opt match {
@@ -228,13 +228,12 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
           Chunk.fromArray(unpacker.readPayload(size))
         }
       case StandardType.CharType =>
-        decodeString(path).flatMap(
-          decoded =>
-            if (decoded.length == 1)
-              succeed(decoded.charAt(0))
-            else {
-              fail(path, s"""Expected character, found string "$decoded"""")
-            }
+        decodeString(path).flatMap(decoded =>
+          if (decoded.length == 1)
+            succeed(decoded.charAt(0))
+          else {
+            fail(path, s"""Expected character, found string "$decoded"""")
+          }
         )
       case StandardType.UUIDType =>
         decodeString(path).flatMap { uuid =>
@@ -258,7 +257,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
       case StandardType.YearMonthType =>
         decodeRecord(path, MessagePackCodec.yearMonthStructure)
           .map(data => YearMonth.of(data("year").asInstanceOf[Int], data("month").asInstanceOf[Int]))
-      case StandardType.ZoneIdType => decodeString(path).map(ZoneId.of)
+      case StandardType.ZoneIdType     => decodeString(path).map(ZoneId.of)
       case StandardType.ZoneOffsetType =>
         decodeInt(path)
           .map(ZoneOffset.ofTotalSeconds)

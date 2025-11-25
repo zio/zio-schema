@@ -15,14 +15,14 @@ import org.apache.avro.generic.{
   GenericRecord,
   GenericRecordBuilder
 }
-import org.apache.avro.io.{ DecoderFactory, EncoderFactory }
+import org.apache.avro.io.{DecoderFactory, EncoderFactory}
 import org.apache.avro.util.Utf8
-import org.apache.avro.{ Conversions, LogicalTypes, Schema => SchemaAvro }
+import org.apache.avro.{Conversions, LogicalTypes, Schema => SchemaAvro}
 
 import zio.prelude.NonEmptyMap
-import zio.schema.{ Fallback, FieldSet, Schema, StandardType, TypeId }
+import zio.schema.{Fallback, FieldSet, Schema, StandardType, TypeId}
 import zio.stream.ZPipeline
-import zio.{ Chunk, Unsafe }
+import zio.{Chunk, Unsafe}
 
 object AvroCodec {
 
@@ -70,12 +70,12 @@ object AvroCodec {
     }
 
   private def decodeValue[A](raw: Any, schema: Schema[A]): Either[DecodeError, A] = schema match {
-    case Schema.Enum1(_, c1, _)                     => decodeEnum(raw, c1).map(_.asInstanceOf[A])
-    case Schema.Enum2(_, c1, c2, _)                 => decodeEnum(raw, c1, c2).map(_.asInstanceOf[A])
-    case Schema.Enum3(_, c1, c2, c3, _)             => decodeEnum(raw, c1, c2, c3).map(_.asInstanceOf[A])
-    case Schema.Enum4(_, c1, c2, c3, c4, _)         => decodeEnum(raw, c1, c2, c3, c4).map(_.asInstanceOf[A])
-    case Schema.Enum5(_, c1, c2, c3, c4, c5, _)     => decodeEnum(raw, c1, c2, c3, c4, c5).map(_.asInstanceOf[A])
-    case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _) => decodeEnum(raw, c1, c2, c3, c4, c5, c6).map(_.asInstanceOf[A])
+    case Schema.Enum1(_, c1, _)                         => decodeEnum(raw, c1).map(_.asInstanceOf[A])
+    case Schema.Enum2(_, c1, c2, _)                     => decodeEnum(raw, c1, c2).map(_.asInstanceOf[A])
+    case Schema.Enum3(_, c1, c2, c3, _)                 => decodeEnum(raw, c1, c2, c3).map(_.asInstanceOf[A])
+    case Schema.Enum4(_, c1, c2, c3, c4, _)             => decodeEnum(raw, c1, c2, c3, c4).map(_.asInstanceOf[A])
+    case Schema.Enum5(_, c1, c2, c3, c4, c5, _)         => decodeEnum(raw, c1, c2, c3, c4, c5).map(_.asInstanceOf[A])
+    case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)     => decodeEnum(raw, c1, c2, c3, c4, c5, c6).map(_.asInstanceOf[A])
     case Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _) =>
       decodeEnum(raw, c1, c2, c3, c4, c5, c6, c7).map(_.asInstanceOf[A])
     case Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _) =>
@@ -112,57 +112,57 @@ object AvroCodec {
         _.asInstanceOf[A]
       )
     case Schema.Enum21(
-        _,
-        c1,
-        c2,
-        c3,
-        c4,
-        c5,
-        c6,
-        c7,
-        c8,
-        c9,
-        c10,
-        c11,
-        c12,
-        c13,
-        c14,
-        c15,
-        c16,
-        c17,
-        c18,
-        c19,
-        c20,
-        c21,
-        _
+          _,
+          c1,
+          c2,
+          c3,
+          c4,
+          c5,
+          c6,
+          c7,
+          c8,
+          c9,
+          c10,
+          c11,
+          c12,
+          c13,
+          c14,
+          c15,
+          c16,
+          c17,
+          c18,
+          c19,
+          c20,
+          c21,
+          _
         ) =>
       decodeEnum(raw, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         .map(_.asInstanceOf[A])
     case Schema.Enum22(
-        _,
-        c1,
-        c2,
-        c3,
-        c4,
-        c5,
-        c6,
-        c7,
-        c8,
-        c9,
-        c10,
-        c11,
-        c12,
-        c13,
-        c14,
-        c15,
-        c16,
-        c17,
-        c18,
-        c19,
-        c20,
-        c21,
-        c22,
-        _
+          _,
+          c1,
+          c2,
+          c3,
+          c4,
+          c5,
+          c6,
+          c7,
+          c8,
+          c9,
+          c10,
+          c11,
+          c12,
+          c13,
+          c14,
+          c15,
+          c16,
+          c17,
+          c18,
+          c19,
+          c20,
+          c21,
+          c22,
+          _
         ) =>
       decodeEnum(
         raw,
@@ -194,13 +194,13 @@ object AvroCodec {
       ).map(_.asInstanceOf[A])
     case s0 @ Schema.CaseClass0(_, _, _) =>
       decodePrimitiveValues(raw, StandardType.UnitType).map(_ => s0.defaultConstruct())
-    case s1 @ Schema.CaseClass1(_, _, _, _) => decodeCaseClass1(raw, s1)
-    case record: Schema.Record[_]           => decodeRecord(raw, record).map(_.asInstanceOf[A])
+    case s1 @ Schema.CaseClass1(_, _, _, _)   => decodeCaseClass1(raw, s1)
+    case record: Schema.Record[_]             => decodeRecord(raw, record).map(_.asInstanceOf[A])
     case Schema.Sequence(element, f, _, _, _) =>
       decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(f.asInstanceOf[Chunk[Any] => A])
     case nes @ Schema.NonEmptySequence(element, _, _, _, _) =>
       decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(nes.fromChunk.asInstanceOf[Chunk[Any] => A])
-    case Schema.Set(element, _) => decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(_.toSet.asInstanceOf[A])
+    case Schema.Set(element, _)      => decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(_.toSet.asInstanceOf[A])
     case mapSchema: Schema.Map[_, _] =>
       decodeMap(raw, mapSchema.asInstanceOf[Schema.Map[Any, Any]]).map(_.asInstanceOf[A])
     case mapSchema: Schema.NonEmptyMap[_, _] =>
@@ -213,8 +213,8 @@ object AvroCodec {
         )
       ).map(mapSchema.asInstanceOf[Schema.NonEmptyMap[Any, Any]].fromMap(_).asInstanceOf[A])
     case Schema.Transform(schema, f, _, _, _) =>
-      decodeValue(raw, schema).flatMap(
-        a => f(a).left.map(msg => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), msg))
+      decodeValue(raw, schema).flatMap(a =>
+        f(a).left.map(msg => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), msg))
       )
     case Schema.Primitive(standardType, _) => decodePrimitiveValues(raw, standardType)
     case Schema.Optional(schema, _)        => decodeOptionalValue(raw, schema)
@@ -262,13 +262,13 @@ object AvroCodec {
       .flatMap(identity)
 
   private def decodeRecord[A](value: A, schema: Schema.Record[_]) = {
-    val record = value.asInstanceOf[GenericRecord]
-    val fields = schema.fields
+    val record                                                   = value.asInstanceOf[GenericRecord]
+    val fields                                                   = schema.fields
     val decodedFields: Either[DecodeError, ListMap[String, Any]] =
       fields.foldLeft[Either[DecodeError, ListMap[String, Any]]](Right(ListMap.empty)) {
         case (Right(acc), field) =>
-          val fieldName  = field.name
-          val fieldValue = record.get(fieldName)
+          val fieldName    = field.name
+          val fieldValue   = record.get(fieldName)
           val decodedField = decodeValue(fieldValue, field.schema).map { value =>
             acc + (fieldName -> value)
           }
@@ -329,14 +329,14 @@ object AvroCodec {
           .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
       case StandardType.BigDecimalType =>
         val converter = new Conversions.DecimalConversion()
-        val schema = AvroSchemaCodec
+        val schema    = AvroSchemaCodec
           .encodeToApacheAvro(Schema.Primitive(StandardType.BigDecimalType, Chunk.empty))
           .getOrElse(throw new Exception("Avro schema could not be generated for BigDecimal."))
         Try(converter.fromBytes(value.asInstanceOf[ByteBuffer], schema, LogicalTypes.decimal(48, 24))).toEither.left
           .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
       case StandardType.BigIntegerType =>
         val converter = new Conversions.DecimalConversion()
-        val schema = AvroSchemaCodec
+        val schema    = AvroSchemaCodec
           .encodeToApacheAvro(Schema.Primitive(StandardType.BigIntegerType, Chunk.empty))
           .getOrElse(throw new Exception("Avro schema could not be generated for BigInteger."))
         Try(converter.fromBytes(value.asInstanceOf[ByteBuffer], schema, LogicalTypes.decimal(48, 24))).toEither.left
@@ -447,15 +447,15 @@ object AvroCodec {
     }
 
   private def decodeMap(value: Any, schema: Schema.Map[Any, Any]) = {
-    val map = value.asInstanceOf[java.util.Map[Any, Any]]
-    val result: List[(Either[DecodeError, Any], Either[DecodeError, Any])] = map.asScala.toList.map {
-      case (k, v) => (decodeValue(k, schema.keySchema), decodeValue(v, schema.valueSchema))
+    val map                                                                = value.asInstanceOf[java.util.Map[Any, Any]]
+    val result: List[(Either[DecodeError, Any], Either[DecodeError, Any])] = map.asScala.toList.map { case (k, v) =>
+      (decodeValue(k, schema.keySchema), decodeValue(v, schema.valueSchema))
     }
-    val traversed: Either[List[DecodeError], List[(Any, Any)]] = result.partition {
-      case (k, v) => k.isLeft || v.isLeft
+    val traversed: Either[List[DecodeError], List[(Any, Any)]] = result.partition { case (k, v) =>
+      k.isLeft || v.isLeft
     } match {
       case (Nil, decoded) => Right(for ((Right(k), Right(v)) <- decoded) yield (k, v))
-      case (errors, _)    => Left(for ((Left(s), _)          <- errors) yield s)
+      case (errors, _)    => Left(for ((Left(s), _) <- errors) yield s)
     }
 
     val combined: Either[DecodeError, List[(Any, Any)]] = traversed.left.map { errors =>
@@ -471,7 +471,7 @@ object AvroCodec {
   private def decodeSequence[A](a: A, schema: Schema[A]) =
     (a.asInstanceOf[GenericData.AbstractArray[Any]].asScala.map(decodeValue(_, schema)).partition(_.isLeft) match {
       case (errors, decoded) if errors.isEmpty => Right(for (Right(i) <- decoded) yield i)
-      case (errors, _) =>
+      case (errors, _)                         =>
         Left {
           (for (Left(s) <- errors) yield s)
             .foldLeft[DecodeError](DecodeError.MalformedFieldWithPath(Chunk.empty, "Sequence decoding failed."))(
@@ -498,10 +498,10 @@ object AvroCodec {
   private def decodeFallbackValue[A, B](value: Any, schema: Schema.Fallback[A, B]) = {
     var error: Option[DecodeError] = None
 
-    val record = value.asInstanceOf[GenericRecord]
+    val record          = value.asInstanceOf[GenericRecord]
     val left: Option[A] = decodeValue(record.get("_1"), Schema.Optional(schema.left)) match {
       case Right(value) => value
-      case Left(err) => {
+      case Left(err)    => {
         error = Some(err)
         None
       }
@@ -533,12 +533,12 @@ object AvroCodec {
     else decodeInWrapper(schema, value).map(Some(_))
 
   private def encodeValue[A](a: A, schema: Schema[A]): Any = schema match {
-    case Schema.Enum1(_, c1, _)                     => encodeEnum(schema, a, c1)
-    case Schema.Enum2(_, c1, c2, _)                 => encodeEnum(schema, a, c1, c2)
-    case Schema.Enum3(_, c1, c2, c3, _)             => encodeEnum(schema, a, c1, c2, c3)
-    case Schema.Enum4(_, c1, c2, c3, c4, _)         => encodeEnum(schema, a, c1, c2, c3, c4)
-    case Schema.Enum5(_, c1, c2, c3, c4, c5, _)     => encodeEnum(schema, a, c1, c2, c3, c4, c5)
-    case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _) => encodeEnum(schema, a, c1, c2, c3, c4, c5, c6)
+    case Schema.Enum1(_, c1, _)                         => encodeEnum(schema, a, c1)
+    case Schema.Enum2(_, c1, c2, _)                     => encodeEnum(schema, a, c1, c2)
+    case Schema.Enum3(_, c1, c2, c3, _)                 => encodeEnum(schema, a, c1, c2, c3)
+    case Schema.Enum4(_, c1, c2, c3, c4, _)             => encodeEnum(schema, a, c1, c2, c3, c4)
+    case Schema.Enum5(_, c1, c2, c3, c4, c5, _)         => encodeEnum(schema, a, c1, c2, c3, c4, c5)
+    case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)     => encodeEnum(schema, a, c1, c2, c3, c4, c5, c6)
     case Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _) =>
       encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7)
     case Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _) =>
@@ -569,29 +569,29 @@ object AvroCodec {
           .Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _) =>
       encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
     case Schema.Enum21(
-        _,
-        c1,
-        c2,
-        c3,
-        c4,
-        c5,
-        c6,
-        c7,
-        c8,
-        c9,
-        c10,
-        c11,
-        c12,
-        c13,
-        c14,
-        c15,
-        c16,
-        c17,
-        c18,
-        c19,
-        c20,
-        c21,
-        _
+          _,
+          c1,
+          c2,
+          c3,
+          c4,
+          c5,
+          c6,
+          c7,
+          c8,
+          c9,
+          c10,
+          c11,
+          c12,
+          c13,
+          c14,
+          c15,
+          c16,
+          c17,
+          c18,
+          c19,
+          c20,
+          c21,
+          _
         ) =>
       encodeEnum(
         schema,
@@ -619,30 +619,30 @@ object AvroCodec {
         c21
       )
     case Schema.Enum22(
-        _,
-        c1,
-        c2,
-        c3,
-        c4,
-        c5,
-        c6,
-        c7,
-        c8,
-        c9,
-        c10,
-        c11,
-        c12,
-        c13,
-        c14,
-        c15,
-        c16,
-        c17,
-        c18,
-        c19,
-        c20,
-        c21,
-        c22,
-        _
+          _,
+          c1,
+          c2,
+          c3,
+          c4,
+          c5,
+          c6,
+          c7,
+          c8,
+          c9,
+          c10,
+          c11,
+          c12,
+          c13,
+          c14,
+          c15,
+          c16,
+          c17,
+          c18,
+          c19,
+          c20,
+          c21,
+          c22,
+          _
         ) =>
       encodeEnum(
         schema,
@@ -678,7 +678,7 @@ object AvroCodec {
     case Schema.Sequence(element, _, g, _, _)         => encodeSequence(element, g(a))
     case Schema.NonEmptySequence(element, _, g, _, _) => encodeSequence(element, g(a))
     case Schema.Set(element, _)                       => encodeSet(element, a)
-    case mapSchema: Schema.Map[_, _] =>
+    case mapSchema: Schema.Map[_, _]                  =>
       encodeMap(mapSchema.asInstanceOf[Schema.Map[Any, Any]], a.asInstanceOf[scala.collection.immutable.Map[Any, Any]])
     case mapSchema: Schema.NonEmptyMap[_, _] =>
       encodeMap(
@@ -691,20 +691,20 @@ object AvroCodec {
       )
     case Schema.Transform(schema, _, g, _, _) =>
       g(a).map(encodeValue(_, schema)).getOrElse(throw new Exception("Transform failed."))
-    case Schema.Optional(schema, _) => encodeOption(schema, a)
+    case Schema.Optional(schema, _)    => encodeOption(schema, a)
     case Schema.Tuple2(left, right, _) =>
       encodeTuple2(left.asInstanceOf[Schema[Any]], right.asInstanceOf[Schema[Any]], a)
     case Schema.Either(left, right, _)   => encodeEither(left, right, a)
     case s @ Schema.Fallback(_, _, _, _) => encodeFallback(s, a)
     case Schema.Lazy(schema0)            => encodeValue(a, schema0())
-    case Schema.CaseClass0(_, _, _) =>
-      encodeCaseClass(schema, a, Seq.empty: _*) //encodePrimitive((), StandardType.UnitType)
-    case Schema.CaseClass1(_, f, _, _)                      => encodeCaseClass(schema, a, f)
-    case Schema.CaseClass2(_, f0, f1, _, _)                 => encodeCaseClass(schema, a, f0, f1)
-    case Schema.CaseClass3(_, f0, f1, f2, _, _)             => encodeCaseClass(schema, a, f0, f1, f2)
-    case Schema.CaseClass4(_, f0, f1, f2, f3, _, _)         => encodeCaseClass(schema, a, f0, f1, f2, f3)
-    case Schema.CaseClass5(_, f0, f1, f2, f3, f4, _, _)     => encodeCaseClass(schema, a, f0, f1, f2, f3, f4)
-    case Schema.CaseClass6(_, f0, f1, f2, f3, f4, f5, _, _) => encodeCaseClass(schema, a, f0, f1, f2, f3, f4, f5)
+    case Schema.CaseClass0(_, _, _)      =>
+      encodeCaseClass(schema, a, Seq.empty: _*) // encodePrimitive((), StandardType.UnitType)
+    case Schema.CaseClass1(_, f, _, _)                          => encodeCaseClass(schema, a, f)
+    case Schema.CaseClass2(_, f0, f1, _, _)                     => encodeCaseClass(schema, a, f0, f1)
+    case Schema.CaseClass3(_, f0, f1, f2, _, _)                 => encodeCaseClass(schema, a, f0, f1, f2)
+    case Schema.CaseClass4(_, f0, f1, f2, f3, _, _)             => encodeCaseClass(schema, a, f0, f1, f2, f3)
+    case Schema.CaseClass5(_, f0, f1, f2, f3, f4, _, _)         => encodeCaseClass(schema, a, f0, f1, f2, f3, f4)
+    case Schema.CaseClass6(_, f0, f1, f2, f3, f4, f5, _, _)     => encodeCaseClass(schema, a, f0, f1, f2, f3, f4, f5)
     case Schema.CaseClass7(_, f0, f1, f2, f3, f4, f5, f6, _, _) =>
       encodeCaseClass(schema, a, f0, f1, f2, f3, f4, f5, f6)
     case Schema.CaseClass8(_, f0, f1, f2, f3, f4, f5, f6, f7, _, _) =>
@@ -733,28 +733,28 @@ object AvroCodec {
           .CaseClass19(_, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, _, _) =>
       encodeCaseClass(schema, a, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18)
     case Schema.CaseClass20(
-        _,
-        f0,
-        f1,
-        f2,
-        f3,
-        f4,
-        f5,
-        f6,
-        f7,
-        f8,
-        f9,
-        f10,
-        f11,
-        f12,
-        f13,
-        f14,
-        f15,
-        f16,
-        f17,
-        f18,
-        f19,
-        _
+          _,
+          f0,
+          f1,
+          f2,
+          f3,
+          f4,
+          f5,
+          f6,
+          f7,
+          f8,
+          f9,
+          f10,
+          f11,
+          f12,
+          f13,
+          f14,
+          f15,
+          f16,
+          f17,
+          f18,
+          f19,
+          _
         ) =>
       encodeCaseClass(
         schema,
@@ -781,28 +781,28 @@ object AvroCodec {
         f19
       )
     case Schema.CaseClass21(
-        _,
-        f0,
-        f1,
-        f2,
-        f3,
-        f4,
-        f5,
-        f6,
-        f7,
-        f8,
-        f9,
-        f10,
-        f11,
-        f12,
-        f13,
-        f14,
-        f15,
-        f16,
-        f17,
-        f18,
-        f19,
-        tail
+          _,
+          f0,
+          f1,
+          f2,
+          f3,
+          f4,
+          f5,
+          f6,
+          f7,
+          f8,
+          f9,
+          f10,
+          f11,
+          f12,
+          f13,
+          f14,
+          f15,
+          f16,
+          f17,
+          f18,
+          f19,
+          tail
         ) =>
       encodeCaseClass(
         schema,
@@ -830,28 +830,28 @@ object AvroCodec {
         tail._1
       )
     case Schema.CaseClass22(
-        _,
-        f0,
-        f1,
-        f2,
-        f3,
-        f4,
-        f5,
-        f6,
-        f7,
-        f8,
-        f9,
-        f10,
-        f11,
-        f12,
-        f13,
-        f14,
-        f15,
-        f16,
-        f17,
-        f18,
-        f19,
-        tail
+          _,
+          f0,
+          f1,
+          f2,
+          f3,
+          f4,
+          f5,
+          f6,
+          f7,
+          f8,
+          f9,
+          f10,
+          f11,
+          f12,
+          f13,
+          f14,
+          f15,
+          f16,
+          f17,
+          f18,
+          f19,
+          tail
         ) =>
       encodeCaseClass(
         schema,
@@ -886,28 +886,28 @@ object AvroCodec {
 
   private def encodePrimitive[A](a: A, standardType: StandardType[A]): Any =
     standardType match {
-      case StandardType.UnitType   => null
-      case StandardType.StringType => new Utf8(a.asInstanceOf[String])
-      case StandardType.BoolType   => java.lang.Boolean.valueOf(a.asInstanceOf[Boolean])
-      case StandardType.ByteType   => java.lang.Byte.valueOf(a.asInstanceOf[Byte])
-      case StandardType.ShortType  => java.lang.Short.valueOf(a.asInstanceOf[Short])
-      case StandardType.IntType    => java.lang.Integer.valueOf(a.asInstanceOf[Int])
-      case StandardType.LongType   => java.lang.Long.valueOf(a.asInstanceOf[Long])
-      case StandardType.FloatType  => java.lang.Float.valueOf(a.asInstanceOf[Float])
-      case StandardType.DoubleType => java.lang.Double.valueOf(a.asInstanceOf[Double])
-      case StandardType.BinaryType => ByteBuffer.wrap(a.asInstanceOf[Chunk[Byte]].toArray)
-      case StandardType.CharType   => java.lang.Short.valueOf(a.asInstanceOf[Char].toShort)
-      case StandardType.UUIDType   => new Utf8(a.asInstanceOf[UUID].toString)
+      case StandardType.UnitType       => null
+      case StandardType.StringType     => new Utf8(a.asInstanceOf[String])
+      case StandardType.BoolType       => java.lang.Boolean.valueOf(a.asInstanceOf[Boolean])
+      case StandardType.ByteType       => java.lang.Byte.valueOf(a.asInstanceOf[Byte])
+      case StandardType.ShortType      => java.lang.Short.valueOf(a.asInstanceOf[Short])
+      case StandardType.IntType        => java.lang.Integer.valueOf(a.asInstanceOf[Int])
+      case StandardType.LongType       => java.lang.Long.valueOf(a.asInstanceOf[Long])
+      case StandardType.FloatType      => java.lang.Float.valueOf(a.asInstanceOf[Float])
+      case StandardType.DoubleType     => java.lang.Double.valueOf(a.asInstanceOf[Double])
+      case StandardType.BinaryType     => ByteBuffer.wrap(a.asInstanceOf[Chunk[Byte]].toArray)
+      case StandardType.CharType       => java.lang.Short.valueOf(a.asInstanceOf[Char].toShort)
+      case StandardType.UUIDType       => new Utf8(a.asInstanceOf[UUID].toString)
       case StandardType.BigDecimalType =>
         val converter = new Conversions.DecimalConversion()
-        val schema = AvroSchemaCodec
+        val schema    = AvroSchemaCodec
           .encodeToApacheAvro(Schema.Primitive(StandardType.BigDecimalType, Chunk.empty))
           .getOrElse(throw new Exception("Avro schema could not be generated for BigDecimal."))
         converter.toBytes(a.asInstanceOf[java.math.BigDecimal], schema, LogicalTypes.decimal(48, 24))
 
       case StandardType.BigIntegerType =>
         val converter = new Conversions.DecimalConversion()
-        val schema = AvroSchemaCodec
+        val schema    = AvroSchemaCodec
           .encodeToApacheAvro(Schema.Primitive(StandardType.BigIntegerType, Chunk.empty))
           .getOrElse(throw new Exception("Avro schema could not be generated for BigInteger."))
         val transformed = BigDecimal(a.asInstanceOf[java.math.BigInteger])
@@ -963,9 +963,8 @@ object AvroCodec {
 
   private def encodeSequence[A](schema: Schema[A], v: Chunk[A]): Any = {
     val array = new Array[Any](v.size)
-    v.zipWithIndex.foreach {
-      case (a, i) =>
-        array(i) = encodeValue(a, schema)
+    v.zipWithIndex.foreach { case (a, i) =>
+      array(i) = encodeValue(a, schema)
     }
     java.util.Arrays.asList(array: _*)
 
@@ -973,18 +972,16 @@ object AvroCodec {
 
   private def encodeSet[A](schema: Schema[A], v: scala.collection.immutable.Set[A]): Any = {
     val array = new Array[Any](v.size)
-    v.zipWithIndex.foreach {
-      case (a, i) =>
-        array(i) = encodeValue(a, schema)
+    v.zipWithIndex.foreach { case (a, i) =>
+      array(i) = encodeValue(a, schema)
     }
     java.util.Arrays.asList(array: _*)
   }
 
   private def encodeMap[K, V](schema: Schema.Map[K, V], v: Map[K, V]): Any = {
     import scala.jdk.CollectionConverters._
-    val map = v.map {
-      case (k, v) =>
-        encodeValue(k, schema.keySchema) -> encodeValue(v, schema.valueSchema)
+    val map = v.map { case (k, v) =>
+      encodeValue(k, schema.keySchema) -> encodeValue(v, schema.valueSchema)
     }
 
     map.asJava
@@ -1067,8 +1064,8 @@ object AvroCodec {
     val data   = a.asInstanceOf[ListMap[String, _]]
     structure.toChunk
       .map(schema => schema.name -> encodeValue(data(schema.name), schema.schema.asInstanceOf[Schema[Any]]))
-      .foreach {
-        case (name, value) => record.put(name, value)
+      .foreach { case (name, value) =>
+        record.put(name, value)
       }
     record
   }
@@ -1112,9 +1109,9 @@ object AvroCodec {
   private def isUnion[A](schema: Schema[A]): Boolean =
     schema match {
       case _: Schema.Optional[_] => true
-      case enu: Schema.Enum[_] => {
+      case enu: Schema.Enum[_]   => {
         val avroEnumAnnotationExists = AvroSchemaCodec.hasAvroEnumAnnotation(enu.annotations)
-        val isAvroEnumEquivalent = enu.cases.map(_.schema).forall {
+        val isAvroEnumEquivalent     = enu.cases.map(_.schema).forall {
           case (Schema.Transform(Schema.Primitive(standardType, _), _, _, _, _))
               if standardType == StandardType.UnitType && avroEnumAnnotationExists =>
             true

@@ -4,9 +4,11 @@ import scala.collection.immutable.ListMap
 import scala.util.Try
 
 import zio.schema._
-import zio.{ Chunk, Unsafe }
+import zio.{Chunk, Unsafe}
 
-/** This exercise is based on John DeGoes' Spartan training on ZIO-Schema from 2021-11-04
+/**
+ * This exercise is based on John DeGoes' Spartan training on ZIO-Schema from
+ * 2021-11-04
  */
 private[example7] object Problem {
 
@@ -45,9 +47,8 @@ private[example7] object Problem {
     )(implicit schema: Schema[A]): scala.util.Either[String, A] =
       toDV(params)
         .map(_.toTypedValue(schema))
-        .collectFirst {
-          case Right(v) =>
-            v
+        .collectFirst { case Right(v) =>
+          v
         }
         .toRight("some error")
 
@@ -56,31 +57,30 @@ private[example7] object Problem {
     def toDV(params: Map[String, List[String]]): Set[DynamicValue] = {
       import DynamicValue._
       params
-        .foldLeft[Set[ListMap[String, DynamicValue]]](Set(ListMap())) {
-          case (set, (key, values)) =>
-            set.flatMap { acc =>
-              values match {
-                case Nil => Set(acc.updated(key, Singleton(())))
-                case x :: Nil =>
-                  val strInterpretation =
-                    Set(acc.updated(key, Primitive[String](x, StandardType.StringType)))
-                  val intInterpretation = Try(x.toInt).toOption match {
-                    case Some(value) =>
-                      Set(acc.updated(key, Primitive[Int](value, StandardType.IntType)))
-                    case None => Set()
-                  }
-                  strInterpretation ++ intInterpretation
-                case xs =>
-                  Set(
-                    acc.updated(
-                      key,
-                      DynamicValue.Sequence(
-                        Chunk.fromIterable(xs).map(Primitive[String](_, StandardType.StringType))
-                      )
+        .foldLeft[Set[ListMap[String, DynamicValue]]](Set(ListMap())) { case (set, (key, values)) =>
+          set.flatMap { acc =>
+            values match {
+              case Nil      => Set(acc.updated(key, Singleton(())))
+              case x :: Nil =>
+                val strInterpretation =
+                  Set(acc.updated(key, Primitive[String](x, StandardType.StringType)))
+                val intInterpretation = Try(x.toInt).toOption match {
+                  case Some(value) =>
+                    Set(acc.updated(key, Primitive[Int](value, StandardType.IntType)))
+                  case None => Set()
+                }
+                strInterpretation ++ intInterpretation
+              case xs =>
+                Set(
+                  acc.updated(
+                    key,
+                    DynamicValue.Sequence(
+                      Chunk.fromIterable(xs).map(Primitive[String](_, StandardType.StringType))
                     )
                   )
-              }
+                )
             }
+          }
         }
         .map(v => DynamicValue.Record(TypeId.Structural, v))
     }
@@ -105,7 +105,7 @@ private[example7] object Problem {
       def compile[B](key: Option[String], schemaB: Schema[B]): QueryParams => scala.util.Either[String, B] =
         schemaB match {
           case transform: Transform[a, B, _] =>
-            import transform.{ f, schema }
+            import transform.{f, schema}
             val func: QueryParams => scala.util.Either[String, Any] = compile(key, schema)
             (params: QueryParams) => func(params).flatMap(v => f(v.asInstanceOf[a]))
           case Primitive(standardType, _) =>
@@ -162,28 +162,24 @@ private[example7] object Problem {
                 v3 <- f3(qp)
               } yield cc.construct(v1, v2, v3)
 
-            // And so on to arity 23..
+          // And so on to arity 23..
 
           case record: Record[B] =>
             Unsafe.unsafe { implicit unsafe => (qp: QueryParams) =>
-              {
-                record.fields.map {
-                  case Schema.Field(label, schema, _, _, _, _) =>
-                    compile(Some(label), schema)(qp)
-                }.foldRight[scala.util.Either[String, Chunk[Any]]](Right(Chunk.empty)) {
-                    case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
-                    case (Left(err), _)                    => Left(err)
-                    case (_, Left(err))                    => Left(err)
-                  }
-                  .flatMap(record.construct)
-              }
+              record.fields.map { case Schema.Field(label, schema, _, _, _, _) =>
+                compile(Some(label), schema)(qp)
+              }.foldRight[scala.util.Either[String, Chunk[Any]]](Right(Chunk.empty)) {
+                case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
+                case (Left(err), _)                    => Left(err)
+                case (_, Left(err))                    => Left(err)
+              }.flatMap(record.construct)
             }
 
           case Fail(message, _) => Function.const(Left(message))
-          //case enumer: Enum[_] => ???
-          //case Optional(codec) => ???
-          //case Tuple(left, right) => ???
-          //case EitherSchema(left, right) => ???
+          // case enumer: Enum[_] => ???
+          // case Optional(codec) => ???
+          // case Tuple(left, right) => ???
+          // case EitherSchema(left, right) => ???
           case lzy @ Lazy(_) =>
             // lazy val to make sure its only compiled on first usage and not instantly recursing
             lazy val compiled = compile(key, lzy.schema)

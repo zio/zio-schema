@@ -1,7 +1,7 @@
 package zio.schema
 
-import java.math.{ BigInteger, MathContext }
-import java.time.temporal.{ ChronoField, ChronoUnit }
+import java.math.{BigInteger, MathContext}
+import java.time.temporal.{ChronoField, ChronoUnit}
 import java.time.{
   DayOfWeek,
   Duration => JDuration,
@@ -20,14 +20,14 @@ import java.time.{
   ZoneOffset,
   ZonedDateTime => JZonedDateTime
 }
-import java.util.{ Currency, UUID }
+import java.util.{Currency, UUID}
 
 import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
 
 import zio.prelude.NonEmptyMap
 import zio.schema.diff.Edit
-import zio.{ Chunk, ChunkBuilder }
+import zio.{Chunk, ChunkBuilder}
 
 trait Differ[A] { self =>
 
@@ -147,11 +147,15 @@ object Differ {
           var loop = true
 
           while (loop) {
-            if (myersMatrix(originalPosition)(modifiedPosition) == myersMatrix(originalPosition - 1)(modifiedPosition)) {
+            if (
+              myersMatrix(originalPosition)(modifiedPosition) == myersMatrix(originalPosition - 1)(modifiedPosition)
+            ) {
               originalPosition -= 1
-            } else if (myersMatrix(originalPosition)(modifiedPosition) == myersMatrix(originalPosition)(
-                         modifiedPosition - 1
-                       )) {
+            } else if (
+              myersMatrix(originalPosition)(modifiedPosition) == myersMatrix(originalPosition)(
+                modifiedPosition - 1
+              )
+            ) {
               modifiedPosition -= 1
             } else {
               longestCommonSubsequence += original(originalPosition - 1)
@@ -210,7 +214,7 @@ object Differ {
     )
   }
 
-  //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
+  // scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   def fromSchema[A](schema: Schema[A]): Differ[A] = schema match {
     case Schema.Primitive(StandardType.UnitType, _)       => unit
     case Schema.Primitive(StandardType.BinaryType, _)     => binary
@@ -225,7 +229,7 @@ object Differ {
     case Schema.Primitive(StandardType.BigDecimalType, _) => bigDecimal
     case Schema.Primitive(StandardType.BigIntegerType, _) => bigInt
     case Schema.Primitive(StandardType.StringType, _)     => string
-    case Schema.Primitive(StandardType.UUIDType, _) =>
+    case Schema.Primitive(StandardType.UUIDType, _)       =>
       string.transformOrFail[UUID](
         (uuid: UUID) => Right(uuid.toString),
         (s: String) =>
@@ -256,7 +260,7 @@ object Differ {
     case Schema.Primitive(StandardType.OffsetDateTimeType, _) => offsetDateTime
     case Schema.Primitive(StandardType.ZonedDateTimeType, _)  => zonedDateTime
     case Schema.Primitive(StandardType.ZoneOffsetType, _)     => zoneOffset
-    case Schema.Primitive(StandardType.CurrencyType, _) =>
+    case Schema.Primitive(StandardType.CurrencyType, _)       =>
       string.transformOrFail[Currency](
         (currency: Currency) => Right(currency.toString),
         (s: String) =>
@@ -264,41 +268,41 @@ object Differ {
             Right(Currency.getInstance(s))
           } catch { case e: Throwable => Left(s"$s is not a valid Currency: ${e.getMessage}") }
       )
-    case Schema.Tuple2(leftSchema, rightSchema, _)                                               => fromSchema(leftSchema) <*> fromSchema(rightSchema)
-    case Schema.Optional(schema, _)                                                              => fromSchema(schema).optional
-    case Schema.Sequence(schema, g, f, _, _)                                                     => fromSchema(schema).chunk.transform(f, g)
-    case s @ Schema.NonEmptySequence(schema, _, f, _, _)                                         => fromSchema(schema).chunk.transform(f, s.fromChunk)
-    case Schema.Set(s, _)                                                                        => set(s)
-    case Schema.Map(k, v, _)                                                                     => map(k, v)
-    case s @ Schema.NonEmptyMap(k: Schema[kt], v: Schema[vt], _)                                 => map(k, v).transform[NonEmptyMap[kt, vt]](_.toMap.asInstanceOf[Map[kt, vt]], s.fromMap).asInstanceOf[Differ[A]]
-    case Schema.Either(leftSchema, rightSchema, _)                                               => either(fromSchema(leftSchema), fromSchema(rightSchema))
-    case Schema.Fallback(leftSchema, rightSchema, _, _)                                          => fallback(fromSchema(leftSchema), fromSchema(rightSchema))
-    case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)
-    case Schema.Transform(schema, g, f, _, _)                                                    => fromSchema(schema).transformOrFail(f, g)
-    case Schema.Fail(_, _)                                                                       => fail
-    case s @ Schema.GenericRecord(_, _, _)                                                       => record(s)
-    case s: Schema.CaseClass0[A]                                                                 => product0(s)
-    case s: Schema.CaseClass1[_, A]                                                              => product1(s)
-    case s: Schema.CaseClass2[_, _, A]                                                           => product2(s)
-    case s: Schema.CaseClass3[_, _, _, A]                                                        => product3(s)
-    case s: Schema.CaseClass4[_, _, _, _, A]                                                     => product4(s)
-    case s: Schema.CaseClass5[_, _, _, _, _, A]                                                  => product5(s)
-    case s: Schema.CaseClass6[_, _, _, _, _, _, A]                                               => product6(s)
-    case s: Schema.CaseClass7[_, _, _, _, _, _, _, A]                                            => product7(s)
-    case s: Schema.CaseClass8[_, _, _, _, _, _, _, _, A]                                         => product8(s)
-    case s: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, A]                                      => product9(s)
-    case s: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, A]                                  => product10(s)
-    case s: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, A]                               => product11(s)
-    case s: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, A]                            => product12(s)
-    case s: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, A]                         => product13(s)
-    case s: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                      => product14(s)
-    case s: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                   => product15(s)
-    case s: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                => product16(s)
-    case s: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]             => product17(s)
-    case s: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]          => product18(s)
-    case s: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]       => product19(s)
-    case s: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]    => product20(s)
-    case s: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] => product21(s)
+    case Schema.Tuple2(leftSchema, rightSchema, _)                                                  => fromSchema(leftSchema) <*> fromSchema(rightSchema)
+    case Schema.Optional(schema, _)                                                                 => fromSchema(schema).optional
+    case Schema.Sequence(schema, g, f, _, _)                                                        => fromSchema(schema).chunk.transform(f, g)
+    case s @ Schema.NonEmptySequence(schema, _, f, _, _)                                            => fromSchema(schema).chunk.transform(f, s.fromChunk)
+    case Schema.Set(s, _)                                                                           => set(s)
+    case Schema.Map(k, v, _)                                                                        => map(k, v)
+    case s @ Schema.NonEmptyMap(k: Schema[kt], v: Schema[vt], _)                                    => map(k, v).transform[NonEmptyMap[kt, vt]](_.toMap.asInstanceOf[Map[kt, vt]], s.fromMap).asInstanceOf[Differ[A]]
+    case Schema.Either(leftSchema, rightSchema, _)                                                  => either(fromSchema(leftSchema), fromSchema(rightSchema))
+    case Schema.Fallback(leftSchema, rightSchema, _, _)                                             => fallback(fromSchema(leftSchema), fromSchema(rightSchema))
+    case s @ Schema.Lazy(_)                                                                         => fromSchema(s.schema)
+    case Schema.Transform(schema, g, f, _, _)                                                       => fromSchema(schema).transformOrFail(f, g)
+    case Schema.Fail(_, _)                                                                          => fail
+    case s @ Schema.GenericRecord(_, _, _)                                                          => record(s)
+    case s: Schema.CaseClass0[A]                                                                    => product0(s)
+    case s: Schema.CaseClass1[_, A]                                                                 => product1(s)
+    case s: Schema.CaseClass2[_, _, A]                                                              => product2(s)
+    case s: Schema.CaseClass3[_, _, _, A]                                                           => product3(s)
+    case s: Schema.CaseClass4[_, _, _, _, A]                                                        => product4(s)
+    case s: Schema.CaseClass5[_, _, _, _, _, A]                                                     => product5(s)
+    case s: Schema.CaseClass6[_, _, _, _, _, _, A]                                                  => product6(s)
+    case s: Schema.CaseClass7[_, _, _, _, _, _, _, A]                                               => product7(s)
+    case s: Schema.CaseClass8[_, _, _, _, _, _, _, _, A]                                            => product8(s)
+    case s: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, A]                                         => product9(s)
+    case s: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, A]                                     => product10(s)
+    case s: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, A]                                  => product11(s)
+    case s: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, A]                               => product12(s)
+    case s: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, A]                            => product13(s)
+    case s: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                         => product14(s)
+    case s: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                      => product15(s)
+    case s: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                   => product16(s)
+    case s: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                => product17(s)
+    case s: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]             => product18(s)
+    case s: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]          => product19(s)
+    case s: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]       => product20(s)
+    case s: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]    => product21(s)
     case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
       product22(s)
     case Schema.Enum1(_, c, _)                                                                                                    => enumN(c)
@@ -326,13 +330,13 @@ object Differ {
     case Schema.EnumN(_, cs, _)                                                                                                   => enumN(cs.toSeq: _*)
     case Schema.Dynamic(_)                                                                                                        => Differ.dynamicValue
   }
-  //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
+  // scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
   def unit: Differ[Unit] = (_: Unit, _: Unit) => Patch.identical
 
   def binary: Differ[Chunk[Byte]] = LCSDiff.apply[Byte]
 
-  //TODO We can probably actually diff DynamicValues properly
+  // TODO We can probably actually diff DynamicValues properly
   def dynamicValue: Differ[DynamicValue] = new Differ[DynamicValue] {
     def apply(thisValue: DynamicValue, thatValue: DynamicValue): Patch[DynamicValue] = Patch.notComparable[DynamicValue]
   }
@@ -591,7 +595,7 @@ object Differ {
     (thisZ: Z, thatZ: Z) =>
       cases
         .foldRight[Option[Patch[Z]]](None) {
-          case (_, diff @ Some(_)) => diff
+          case (_, diff @ Some(_))             => diff
           case (subtype: Schema.Case[Z, a], _) =>
             subtype.deconstructOption(thisZ) -> (subtype.deconstructOption(thatZ)) match {
               case (Some(thisA), Some(thatA)) =>

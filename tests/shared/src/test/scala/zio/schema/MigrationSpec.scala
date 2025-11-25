@@ -4,7 +4,7 @@ import scala.collection.immutable.ListMap
 
 import zio._
 import zio.constraintless.TypeList._
-import zio.schema.meta.{ ExtensibleMetaSchema, MetaSchema, Migration, NodePath }
+import zio.schema.meta.{ExtensibleMetaSchema, MetaSchema, Migration, NodePath}
 import zio.schema.syntax._
 import zio.test._
 
@@ -162,12 +162,12 @@ object MigrationSpec extends ZIOSpecDefault {
               ListMap(
                 "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
                 "v2" -> DynamicValue.Primitive("", StandardType.StringType),
-                "r" -> DynamicValue.SomeValue(
+                "r"  -> DynamicValue.SomeValue(
                   DynamicValue.Record(
                     TypeId.parse("zio.schema.MigrationSpec.Recursive1"),
                     ListMap(
                       "v1" -> DynamicValue.Primitive(1, StandardType.IntType),
-                      "r" -> DynamicValue.SomeValue(
+                      "r"  -> DynamicValue.SomeValue(
                         DynamicValue.Record(
                           TypeId.parse("zio.schema.MigrationSpec.Recursive1"),
                           ListMap(

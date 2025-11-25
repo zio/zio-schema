@@ -29,8 +29,8 @@ trait Codecs[Whole, Element, Types <: TypeList] {
 
 object Codecs {
 
-  def make[Whole, Element, Types <: TypeList](
-    implicit instances: Instances[Codec[Whole, Element, *], Types]
+  def make[Whole, Element, Types <: TypeList](implicit
+    instances: Instances[Codec[Whole, Element, *], Types]
   ): Codecs[Whole, Element, Types] =
     new Codecs[Whole, Element, Types] {
 

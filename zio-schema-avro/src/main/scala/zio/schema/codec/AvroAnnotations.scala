@@ -16,24 +16,29 @@ object AvroAnnotations {
   final case class precision(precision: Int = 48) extends StaticAnnotation
 
   /**
-   * Used to annotate a BigInterger or BigDecimal type to indicate the logical type encoding (avro bytes or avro fixed)
+   * Used to annotate a BigInterger or BigDecimal type to indicate the logical
+   * type encoding (avro bytes or avro fixed)
    */
   final case class decimal(decimalType: DecimalType) extends StaticAnnotation
 
   /**
-   * Used to annotate a Bytes type to indicate the avro type encoding (avro bytes or avro fixed)
+   * Used to annotate a Bytes type to indicate the avro type encoding (avro
+   * bytes or avro fixed)
    */
   final case class bytes(bytesType: BytesType) extends StaticAnnotation
 
   /**
-   *  Used to annotate fields of type LocalDate, LocalTime, LocalDateTime or Instant in order to render them as a string
-   *  using the given formatter instead of rendering them as avro logical types.
+   * Used to annotate fields of type LocalDate, LocalTime, LocalDateTime or
+   * Instant in order to render them as a string using the given formatter
+   * instead of rendering them as avro logical types.
    */
   case object formatToString extends StaticAnnotation
 
   /**
-   * Used to indicate the precision (millisecond precision or microsecond precision) of avro logical types 'Time', 'Timestamp' and 'Local timestamp'
-   * @param timeprecisionType the precision: either millisecond precision or microsecond precision
+   * Used to indicate the precision (millisecond precision or microsecond
+   * precision) of avro logical types 'Time', 'Timestamp' and 'Local timestamp'
+   * @param timeprecisionType
+   *   the precision: either millisecond precision or microsecond precision
    */
   final case class timeprecision(timeprecisionType: TimePrecisionType) extends StaticAnnotation
 

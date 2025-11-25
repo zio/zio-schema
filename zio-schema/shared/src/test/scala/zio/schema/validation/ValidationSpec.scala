@@ -6,9 +6,9 @@ import java.util.Locale
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
-import zio.schema.{ FieldSet, Schema, TypeId }
+import zio.schema.{FieldSet, Schema, TypeId}
 import zio.test._
-import zio.{ Chunk, Scope }
+import zio.{Chunk, Scope}
 
 object ValidationSpec extends ZIOSpecDefault {
   import zio.schema.validation.ValidationSpec.AmPm._
@@ -513,29 +513,28 @@ object ValidationSpec extends ZIOSpecDefault {
     exampleTimes: Seq[ExampleTime],
     config: CreateTimesConfig
   ): Seq[String] =
-    exampleTimes.map {
-      case ExampleTime(hour, minute, second, fraction, amPm) =>
-        val hourStr = config.hasHour match {
-          case HasHour => hour
-          case NoHour  => ""
-        }
-        val minuteStr = config.hasMinute match {
-          case HasMinute => minute
-          case NoMinute  => ""
-        }
-        val secondStr = config.hasSecond match {
-          case HasSecond => second
-          case NoSecond  => ""
-        }
-        val fractionStr = config.hasFraction match {
-          case HasFraction => fraction
-          case NoFraction  => ""
-        }
-        val amPmStr = config.hasAmPm match {
-          case HasAmPm => amPm
-          case NoAmPm  => ""
-        }
-        s"$hourStr${config.minuteSeparator}$minuteStr${config.secondSeparator}$secondStr${config.fractionSeparator}$fractionStr${config.amPmSeparator}$amPmStr"
+    exampleTimes.map { case ExampleTime(hour, minute, second, fraction, amPm) =>
+      val hourStr = config.hasHour match {
+        case HasHour => hour
+        case NoHour  => ""
+      }
+      val minuteStr = config.hasMinute match {
+        case HasMinute => minute
+        case NoMinute  => ""
+      }
+      val secondStr = config.hasSecond match {
+        case HasSecond => second
+        case NoSecond  => ""
+      }
+      val fractionStr = config.hasFraction match {
+        case HasFraction => fraction
+        case NoFraction  => ""
+      }
+      val amPmStr = config.hasAmPm match {
+        case HasAmPm => amPm
+        case NoAmPm  => ""
+      }
+      s"$hourStr${config.minuteSeparator}$minuteStr${config.secondSeparator}$secondStr${config.fractionSeparator}$fractionStr${config.amPmSeparator}$amPmStr"
     }
 
 }

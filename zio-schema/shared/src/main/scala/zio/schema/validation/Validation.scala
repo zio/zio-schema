@@ -73,7 +73,7 @@ object Validation extends Regexs with Time {
   // String operations
   def minLength(n: Int): Validation[String] = Validation(Bool.Leaf(Str.MinLength(n)))
   def maxLength(n: Int): Validation[String] = Validation(Bool.Leaf(Str.MaxLength(n)))
-  //Regex
+  // Regex
   def regex(r: Regex): Validation[String] = Validation(Bool.Leaf(Str.Matches(r)))
 
   // Numerical operations

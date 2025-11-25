@@ -3,7 +3,7 @@ package zio.schema
 import scala.annotation.Annotation
 
 import zio.Chunk
-import zio.schema.annotation.{ fieldName, optionalField, simpleEnum }
+import zio.schema.annotation.{fieldName, optionalField, simpleEnum}
 import zio.test._
 
 object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaSpec {
@@ -13,7 +13,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
   final case class SimpleZero()
   final case class annotation1(value: String) extends Annotation
   final case class annotation2(value: String) extends Annotation
-  final class annotation3 extends Annotation {
+  final class annotation3                     extends Annotation {
     override def equals(obj: Any): Boolean =
       obj.isInstanceOf[annotation3]
 
@@ -118,7 +118,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     implicit lazy val schema: Schema[Arity24] = DeriveSchema.gen[Arity24]
   }
 
-  //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
+  // scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   case class TupleArities(
     arity2: (User, User),
     arity3: (User, User, User),
@@ -142,7 +142,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     arity21: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
     `arity-22`: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User)
   )
-  //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
+  // scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
   object TupleArities {
     implicit lazy val schema: Schema[TupleArities] = DeriveSchema.gen[TupleArities]
@@ -279,7 +279,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class 0") {
-        val derived: Schema[SimpleZero] = DeriveSchema.gen[SimpleZero]
+        val derived: Schema[SimpleZero]  = DeriveSchema.gen[SimpleZero]
         val expected: Schema[SimpleZero] =
           Schema.CaseClass0(
             TypeId.parse("zio.schema.DeriveSchemaSpec.SimpleZero"),
@@ -309,7 +309,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         assert(Schema[Cyclic].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derives recursively for case class") {
-        val derived: Schema[UserId] = DeriveSchema.gen[UserId]
+        val derived: Schema[UserId]  = DeriveSchema.gen[UserId]
         val expected: Schema[UserId] =
           Schema.CaseClass1(
             TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
@@ -325,7 +325,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         assert(derived)(hasSameSchema(expected))
       },
       test("correctly derives for case object") {
-        val derived: Schema[Singleton.type] = DeriveSchema.gen[Singleton.type]
+        val derived: Schema[Singleton.type]  = DeriveSchema.gen[Singleton.type]
         val expected: Schema[Singleton.type] = Schema.CaseClass0(
           TypeId.fromTypeName("zio.schema.DeriveSchemaSpec.Singleton"),
           () => Singleton,
@@ -337,7 +337,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
       test("correctly captures annotations on case class") {
         val derived = DeriveSchema.gen[User]
 
-        val expected: Schema[User] = {
+        val expected: Schema[User] =
           Schema.CaseClass2(
             TypeId.parse("zio.schema.DeriveSchemaSpec.User"),
             field01 = Schema.Field(
@@ -365,7 +365,6 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
             User.apply,
             annotations0 = Chunk(new annotation3)
           )
-        }
         assert(derived)(hasSameSchema(expected)) &&
         assert(verifyFieldName[derived.Field1]("name"))(isTrue) &&
         assert(verifyFieldName[derived.Field2]("id"))(isTrue)
@@ -374,7 +373,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         assertTrue(Schema[Arity24].annotations == Chunk(annotation1("Arity24")))
       },
       test("correctly derives Enum") {
-        val derived: Schema[Status] = Schema[Status]
+        val derived: Schema[Status]  = Schema[Status]
         val expected: Schema[Status] =
           Schema.Enum3(
             TypeId.parse("zio.schema.DeriveSchemaSpec.Status"),
@@ -452,7 +451,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         val derivedField1 = derived.asInstanceOf[Schema.CaseClass2[String, Int, RenamedField]].field1
         val derivedField2 = derived.asInstanceOf[Schema.CaseClass2[String, Int, RenamedField]].field2
 
-        val expected: Schema[RenamedField] = {
+        val expected: Schema[RenamedField] =
           Schema.CaseClass2(
             TypeId.parse("zio.schema.DeriveSchemaSpec.RenamedField"),
             field01 = Schema.Field(
@@ -471,7 +470,6 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
             ),
             RenamedField.apply
           )
-        }
         assert(derivedField1.fieldName)(equalTo("renamed")) &&
         assert(derivedField1.nameAndAliases)(equalTo(Set("renamed"))) &&
         assert(derivedField2.fieldName)(equalTo("number")) &&
@@ -480,8 +478,8 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         assert(verifyFieldName[derived.Field1]("renamed"))(isTrue)
       },
       test("correctly derives optional fields when optional annotation is present") {
-        val derived: Schema[OptionalField] = Schema[OptionalField]
-        val expected: Schema[OptionalField] = {
+        val derived: Schema[OptionalField]  = Schema[OptionalField]
+        val expected: Schema[OptionalField] =
           Schema.CaseClass2(
             TypeId.parse("zio.schema.DeriveSchemaSpec.OptionalField"),
             field01 = Schema.Field(
@@ -500,7 +498,6 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
             ),
             OptionalField.apply
           )
-        }
         assert(derived)(hasSameSchema(expected))
       },
       test("correctly derives simpleEnum with annotation") {
@@ -512,7 +509,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         assertTrue(derived.annotations == Chunk(simpleEnum(true)))
       },
       test("correctly derives schema for abstract sealed class with case class subclasses") {
-        val derived = DeriveSchema.gen[AbstractBaseClass]
+        val derived                             = DeriveSchema.gen[AbstractBaseClass]
         val expected: Schema[AbstractBaseClass] =
           Schema.Enum2(
             TypeId.parse("zio.schema.DeriveSchemaSpec.AbstractBaseClass"),
@@ -567,7 +564,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
       test(
         "correctly derives schema for abstract sealed class with intermediate subclasses, having case class leaf classes"
       ) {
-        val derived = DeriveSchema.gen[AbstractBaseClass2]
+        val derived                              = DeriveSchema.gen[AbstractBaseClass2]
         val expected: Schema[AbstractBaseClass2] =
           Schema.Enum1[MiddleClass, AbstractBaseClass2](
             TypeId.parse("zio.schema.DeriveSchemaSpec.AbstractBaseClass2"),

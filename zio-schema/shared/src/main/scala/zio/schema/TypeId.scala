@@ -11,7 +11,7 @@ sealed trait TypeId { self =>
 }
 
 object TypeId {
-  case object Structural extends TypeId
+  case object Structural                                                                             extends TypeId
   final case class Nominal(packageName: Chunk[String], objectNames: Chunk[String], typeName: String) extends TypeId {
     def fullyQualified: String = (packageName ++ objectNames ++ Chunk(typeName)).mkString(".")
   }
@@ -32,7 +32,8 @@ object TypeId {
 
   implicit lazy val schema: Schema[TypeId] =
     Schema[String].transform(
-      parse, {
+      parse,
+      {
         case Structural       => ""
         case nominal: Nominal => nominal.fullyQualified
       }

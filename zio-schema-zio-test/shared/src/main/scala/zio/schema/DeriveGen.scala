@@ -3,10 +3,10 @@ package zio.schema
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.constraintless.TypeList.{ ::, End }
+import zio.constraintless.TypeList.{::, End}
 import zio.schema.meta.ExtensibleMetaSchema.Labelled
-import zio.schema.meta.{ ExtensibleMetaSchema, MetaSchema, NodePath }
-import zio.test.{ Gen, Sized }
+import zio.schema.meta.{ExtensibleMetaSchema, MetaSchema, NodePath}
+import zio.test.{Gen, Sized}
 
 object DeriveGen {
 
@@ -461,12 +461,11 @@ object DeriveGen {
 
   private def genGenericRecord(record: Schema.GenericRecord): Gen[Sized, ListMap[String, _]] =
     record.fields
-      .foldLeft[Gen[Sized, ListMap[String, _]]](Gen.const(ListMap.empty)) {
-        case (genListMap, field) =>
-          for {
-            listMap <- genListMap
-            value   <- gen(field.schema)
-          } yield listMap.updated(field.name, value)
+      .foldLeft[Gen[Sized, ListMap[String, _]]](Gen.const(ListMap.empty)) { case (genListMap, field) =>
+        for {
+          listMap <- genListMap
+          value   <- gen(field.schema)
+        } yield listMap.updated(field.name, value)
       }
 
   private def genSequence[Z, A](seq: Schema.Sequence[Z, A, _]): Gen[Sized, Z] =
@@ -540,56 +539,56 @@ object DeriveGen {
     for {
       id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       optional <- Gen.boolean
-      fields <- Gen.chunkOf(
-                 Gen
-                   .string1(Gen.asciiChar)
-                   .flatMap(name => genAst(path / name).map(fieldSchema => Labelled(name, fieldSchema)))
-               )
+      fields   <- Gen.chunkOf(
+                  Gen
+                    .string1(Gen.asciiChar)
+                    .flatMap(name => genAst(path / name).map(fieldSchema => Labelled(name, fieldSchema)))
+                )
     } yield ExtensibleMetaSchema.Product(id, path, fields, optional)
 
   private def genSchemaAstSum(path: NodePath): Gen[Sized, ExtensibleMetaSchema.Sum[DynamicValue :: End]] =
     for {
       id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       optional <- Gen.boolean
-      fields <- Gen.chunkOf(
-                 Gen
-                   .string1(Gen.asciiChar)
-                   .flatMap(name => genAst(path / name).map(fieldSchema => Labelled(name, fieldSchema)))
-               )
+      fields   <- Gen.chunkOf(
+                  Gen
+                    .string1(Gen.asciiChar)
+                    .flatMap(name => genAst(path / name).map(fieldSchema => Labelled(name, fieldSchema)))
+                )
     } yield ExtensibleMetaSchema.Sum(id, path, fields, optional)
 
   private def genSchemaAstValue(path: NodePath): Gen[Any, ExtensibleMetaSchema.Value[DynamicValue :: End]] =
     for {
       valueType <- Gen.oneOf(
-                    Gen.const(StandardType.UnitType),
-                    Gen.const(StandardType.StringType),
-                    Gen.const(StandardType.BoolType),
-                    Gen.const(StandardType.ShortType),
-                    Gen.const(StandardType.IntType),
-                    Gen.const(StandardType.LongType),
-                    Gen.const(StandardType.FloatType),
-                    Gen.const(StandardType.BinaryType),
-                    Gen.const(StandardType.CharType),
-                    Gen.const(StandardType.UUIDType),
-                    Gen.const(StandardType.BigDecimalType),
-                    Gen.const(StandardType.BigIntegerType),
-                    Gen.const(StandardType.DayOfWeekType),
-                    Gen.const(StandardType.MonthType),
-                    Gen.const(StandardType.MonthDayType),
-                    Gen.const(StandardType.PeriodType),
-                    Gen.const(StandardType.YearType),
-                    Gen.const(StandardType.YearMonthType),
-                    Gen.const(StandardType.ZoneIdType),
-                    Gen.const(StandardType.ZoneOffsetType),
-                    Gen.const(StandardType.DurationType),
-                    Gen.const(StandardType.InstantType),
-                    Gen.const(StandardType.LocalDateType),
-                    Gen.const(StandardType.LocalTimeType),
-                    Gen.const(StandardType.LocalDateTimeType),
-                    Gen.const(StandardType.OffsetTimeType),
-                    Gen.const(StandardType.OffsetDateTimeType),
-                    Gen.const(StandardType.ZonedDateTimeType)
-                  )
+                     Gen.const(StandardType.UnitType),
+                     Gen.const(StandardType.StringType),
+                     Gen.const(StandardType.BoolType),
+                     Gen.const(StandardType.ShortType),
+                     Gen.const(StandardType.IntType),
+                     Gen.const(StandardType.LongType),
+                     Gen.const(StandardType.FloatType),
+                     Gen.const(StandardType.BinaryType),
+                     Gen.const(StandardType.CharType),
+                     Gen.const(StandardType.UUIDType),
+                     Gen.const(StandardType.BigDecimalType),
+                     Gen.const(StandardType.BigIntegerType),
+                     Gen.const(StandardType.DayOfWeekType),
+                     Gen.const(StandardType.MonthType),
+                     Gen.const(StandardType.MonthDayType),
+                     Gen.const(StandardType.PeriodType),
+                     Gen.const(StandardType.YearType),
+                     Gen.const(StandardType.YearMonthType),
+                     Gen.const(StandardType.ZoneIdType),
+                     Gen.const(StandardType.ZoneOffsetType),
+                     Gen.const(StandardType.DurationType),
+                     Gen.const(StandardType.InstantType),
+                     Gen.const(StandardType.LocalDateType),
+                     Gen.const(StandardType.LocalTimeType),
+                     Gen.const(StandardType.LocalDateTimeType),
+                     Gen.const(StandardType.OffsetTimeType),
+                     Gen.const(StandardType.OffsetDateTimeType),
+                     Gen.const(StandardType.ZonedDateTimeType)
+                   )
       optional <- Gen.boolean
     } yield ExtensibleMetaSchema.Value(valueType, path, optional)
 

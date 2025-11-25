@@ -3,8 +3,8 @@ package zio.schema.meta
 import scala.collection.immutable.ListMap
 
 import zio.schema.meta.ExtensibleMetaSchema.Labelled
-import zio.schema.{ DynamicValue, StandardType }
-import zio.{ Chunk, ChunkBuilder }
+import zio.schema.{DynamicValue, StandardType}
+import zio.{Chunk, ChunkBuilder}
 
 sealed trait Migration { self =>
 
@@ -12,8 +12,8 @@ sealed trait Migration { self =>
 
   def migrate(value: DynamicValue): Either[String, DynamicValue] =
     self match {
-      case Migration.Require(path)  => Migration.require(value, path.toList)
-      case Migration.Optional(path) => Migration.makeOptional(value, path.toList)
+      case Migration.Require(path)       => Migration.require(value, path.toList)
+      case Migration.Optional(path)      => Migration.makeOptional(value, path.toList)
       case Migration.ChangeType(path, _) =>
         Left(
           s"Cannot change type of node at path ${path.render}: No type conversion is available"
@@ -22,7 +22,7 @@ sealed trait Migration { self =>
       case Migration.AddCase(_, _)    => Right(value)
       case Migration.AddNode(path, _) =>
         Left(s"Cannot add node at path ${path.render}: No default value is available")
-      case Migration.Relabel(path, transform) => Migration.relabel(value, path.toList, transform)
+      case Migration.Relabel(path, transform)     => Migration.relabel(value, path.toList, transform)
       case Migration.IncrementDimensions(path, n) =>
         Migration.incrementDimension(value, path.toList, n)
       case Migration.DecrementDimensions(path, n) =>
@@ -73,21 +73,20 @@ object Migration {
         ffields: Chunk[MetaSchema.Labelled],
         tfields: Chunk[MetaSchema.Labelled]
       ): Either[String, Chunk[Migration]] =
-        matchedSubtrees(ffields, tfields).map {
-          case (Labelled(nextPath, fs), Labelled(_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
+        matchedSubtrees(ffields, tfields).map { case (Labelled(nextPath, fs), Labelled(_, ts)) =>
+          go(acc, path / nextPath, fs, ts, ignoreRefs)
         }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
-            case (err @ Left(_), Right(_)) => err
-            case (Right(_), err @ Left(_)) => err
-            case (Left(e1), Left(e2))      => Left(s"$e1;\n$e2")
-            case (Right(t1), Right(t2))    => Right(t1 ++ t2)
-          }
-          .map(
-            _ ++ acc ++ transformShape(path, f, t) ++ insertions(path, ffields, tfields) ++ deletions(
-              path,
-              ffields,
-              tfields
-            )
+          case (err @ Left(_), Right(_)) => err
+          case (Right(_), err @ Left(_)) => err
+          case (Left(e1), Left(e2))      => Left(s"$e1;\n$e2")
+          case (Right(t1), Right(t2))    => Right(t1 ++ t2)
+        }.map(
+          _ ++ acc ++ transformShape(path, f, t) ++ insertions(path, ffields, tfields) ++ deletions(
+            path,
+            ffields,
+            tfields
           )
+        )
 
       def goSum(
         f: MetaSchema,
@@ -95,21 +94,20 @@ object Migration {
         fcases: Chunk[MetaSchema.Labelled],
         tcases: Chunk[MetaSchema.Labelled]
       ): Either[String, Chunk[Migration]] =
-        matchedSubtrees(fcases, tcases).map {
-          case (Labelled(nextPath, fs), Labelled(_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
+        matchedSubtrees(fcases, tcases).map { case (Labelled(nextPath, fs), Labelled(_, ts)) =>
+          go(acc, path / nextPath, fs, ts, ignoreRefs)
         }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
-            case (err @ Left(_), Right(_)) => err
-            case (Right(_), err @ Left(_)) => err
-            case (Left(e1), Left(e2))      => Left(s"$e1;\n$e2")
-            case (Right(t1), Right(t2))    => Right(t1 ++ t2)
-          }
-          .map(
-            _ ++ acc ++ transformShape(path, f, t) ++ caseInsertions(path, fcases, tcases) ++ deletions(
-              path,
-              fcases,
-              tcases
-            )
+          case (err @ Left(_), Right(_)) => err
+          case (Right(_), err @ Left(_)) => err
+          case (Left(e1), Left(e2))      => Left(s"$e1;\n$e2")
+          case (Right(t1), Right(t2))    => Right(t1 ++ t2)
+        }.map(
+          _ ++ acc ++ transformShape(path, f, t) ++ caseInsertions(path, fcases, tcases) ++ deletions(
+            path,
+            fcases,
+            tcases
           )
+        )
 
       (fromSubtree, toSubtree) match {
         case (f @ ExtensibleMetaSchema.FailNode(_, _, _), t @ ExtensibleMetaSchema.FailNode(_, _, _)) =>
@@ -122,21 +120,21 @@ object Migration {
         case (f @ ExtensibleMetaSchema.Product(_, _, ffields, _), t @ ExtensibleMetaSchema.Product(_, _, tfields, _)) =>
           goProduct(f, t, ffields, tfields)
         case (
-            f @ ExtensibleMetaSchema.Tuple(_, fleft, fright, _),
-            t @ ExtensibleMetaSchema.Tuple(_, tleft, tright, _)
+              f @ ExtensibleMetaSchema.Tuple(_, fleft, fright, _),
+              t @ ExtensibleMetaSchema.Tuple(_, tleft, tright, _)
             ) =>
           val ffields = Chunk(Labelled("left", fleft), Labelled("right", fright))
           val tfields = Chunk(Labelled("left", tleft), Labelled("right", tright))
           goProduct(f, t, ffields, tfields)
         case (
-            f @ ExtensibleMetaSchema.Product(_, _, ffields, _),
-            t @ ExtensibleMetaSchema.Tuple(_, tleft, tright, _)
+              f @ ExtensibleMetaSchema.Product(_, _, ffields, _),
+              t @ ExtensibleMetaSchema.Tuple(_, tleft, tright, _)
             ) =>
           val tfields = Chunk(Labelled("left", tleft), Labelled("right", tright))
           goProduct(f, t, ffields, tfields)
         case (
-            f @ ExtensibleMetaSchema.Tuple(_, fleft, fright, _),
-            t @ ExtensibleMetaSchema.Product(_, _, tfields, _)
+              f @ ExtensibleMetaSchema.Tuple(_, fleft, fright, _),
+              t @ ExtensibleMetaSchema.Product(_, _, tfields, _)
             ) =>
           val ffields = Chunk(Labelled("left", fleft), Labelled("right", fright))
           goProduct(f, t, ffields, tfields)
@@ -149,8 +147,8 @@ object Migration {
         case (fitem, ExtensibleMetaSchema.ListNode(titem, _, _)) =>
           derive(fitem, titem).map(migrations => IncrementDimensions(titem.path, 1) +: migrations)
         case (
-            f @ ExtensibleMetaSchema.Dictionary(fkeys, fvalues, _, _),
-            t @ ExtensibleMetaSchema.Dictionary(tkeys, tvalues, _, _)
+              f @ ExtensibleMetaSchema.Dictionary(fkeys, fvalues, _, _),
+              t @ ExtensibleMetaSchema.Dictionary(tkeys, tvalues, _, _)
             ) =>
           val ffields = Chunk(Labelled("keys", fkeys), Labelled("values", fvalues))
           val tfields = Chunk(Labelled("keys", tkeys), Labelled("values", tvalues))
@@ -158,8 +156,8 @@ object Migration {
         case (f @ ExtensibleMetaSchema.Sum(_, _, fcases, _), t @ ExtensibleMetaSchema.Sum(_, _, tcases, _)) =>
           goSum(f, t, fcases, tcases)
         case (
-            f @ ExtensibleMetaSchema.Either(_, fleft, fright, _),
-            t @ ExtensibleMetaSchema.Either(_, tleft, tright, _)
+              f @ ExtensibleMetaSchema.Either(_, fleft, fright, _),
+              t @ ExtensibleMetaSchema.Either(_, tleft, tright, _)
             ) =>
           val fcases = Chunk(Labelled("left", fleft), Labelled("right", fright))
           val tcases = Chunk(Labelled("left", tleft), Labelled("right", tright))
@@ -223,9 +221,9 @@ object Migration {
   /**
    * Represents a valid label transformation.
    *
-   * Not currently implemented but we can use this type to encode
-   * unambiguous string transformations applied to field and case labels.
-   * For example, converting from snake to camel case (or vica versa)
+   * Not currently implemented but we can use this type to encode unambiguous
+   * string transformations applied to field and case labels. For example,
+   * converting from snake to camel case (or vica versa)
    */
   sealed trait LabelTransformation {
     def apply(label: String): Either[String, String]
@@ -237,10 +235,10 @@ object Migration {
     from: Chunk[MetaSchema.Labelled],
     to: Chunk[MetaSchema.Labelled]
   ): Chunk[(MetaSchema.Labelled, MetaSchema.Labelled)] =
-    from.map {
-      case fromNode @ Labelled(label, _) => to.find(_.label == label).map(toNode => fromNode -> toNode)
-    }.collect {
-      case Some(pair) => pair
+    from.map { case fromNode @ Labelled(label, _) =>
+      to.find(_.label == label).map(toNode => fromNode -> toNode)
+    }.collect { case Some(pair) =>
+      pair
     }
 
   private def insertions(
@@ -293,13 +291,13 @@ object Migration {
     (value, path) match {
       case (DynamicValue.SomeValue(value), _) =>
         updateLeaf(value, path, trace)(op).map(DynamicValue.SomeValue(_))
-      case (DynamicValue.NoneValue, _) => Right(DynamicValue.NoneValue)
+      case (DynamicValue.NoneValue, _)                          => Right(DynamicValue.NoneValue)
       case (DynamicValue.Sequence(values), "item" :: remainder) =>
         values.zipWithIndex.map { case (v, idx) => updateLeaf(v, remainder, trace :+ s"item[$idx]")(op) }
           .foldRight[Either[String, DynamicValue.Sequence]](Right(DynamicValue.Sequence(Chunk.empty))) {
-            case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
-            case (Left(e), Right(_))  => Left(e)
-            case (Right(_), Left(e))  => Left(e)
+            case (Left(e1), Left(e2))                                                   => Left(s"$e1;\n$e2")
+            case (Left(e), Right(_))                                                    => Left(e)
+            case (Right(_), Left(e))                                                    => Left(e)
             case (Right(DynamicValue.Sequence(v1s)), Right(DynamicValue.Sequence(v2s))) =>
               Right(DynamicValue.Sequence(v1s ++ v2s))
             case (Right(v1), Right(DynamicValue.Sequence(v2s))) => Right(DynamicValue.Sequence(v1 +: v2s))
@@ -333,7 +331,7 @@ object Migration {
       case (DynamicValue.Enumeration(id, (caseLabel, caseValue)), nextLabel :: Nil) if caseLabel == nextLabel =>
         op(caseLabel, caseValue).flatMap {
           case Some(newCase) => Right(DynamicValue.Enumeration(id, newCase))
-          case None =>
+          case None          =>
             Left(
               s"Failed to update leaf node at path ${renderPath(trace :+ nextLabel)}: Cannot remove instantiated case"
             )
@@ -346,17 +344,16 @@ object Migration {
         entries
           .map(_._1)
           .zipWithIndex
-          .map {
-            case (k, idx) =>
-              op(s"key[$idx]", k).flatMap {
-                case Some((_, migrated)) => Right(migrated)
-                case None                => Left(s"invalid update at $path, cannot remove map key")
-              }
+          .map { case (k, idx) =>
+            op(s"key[$idx]", k).flatMap {
+              case Some((_, migrated)) => Right(migrated)
+              case None                => Left(s"invalid update at $path, cannot remove map key")
+            }
           }
           .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
-            case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
-            case (Left(e), Right(_))  => Left(e)
-            case (Right(_), Left(e))  => Left(e)
+            case (Left(e1), Left(e2))         => Left(s"$e1;\n$e2")
+            case (Left(e), Right(_))          => Left(e)
+            case (Right(_), Left(e))          => Left(e)
             case (Right(value), Right(chunk)) =>
               Right(value +: chunk)
           }
@@ -367,14 +364,13 @@ object Migration {
         entries
           .map(_._1)
           .zipWithIndex
-          .map {
-            case (k, idx) =>
-              updateLeaf(k, remainder, trace :+ s"key[$idx]")(op)
+          .map { case (k, idx) =>
+            updateLeaf(k, remainder, trace :+ s"key[$idx]")(op)
           }
           .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
-            case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
-            case (Left(e), Right(_))  => Left(e)
-            case (Right(_), Left(e))  => Left(e)
+            case (Left(e1), Left(e2))         => Left(s"$e1;\n$e2")
+            case (Left(e), Right(_))          => Left(e)
+            case (Right(_), Left(e))          => Left(e)
             case (Right(value), Right(chunk)) =>
               Right(value +: chunk)
           }
@@ -385,17 +381,16 @@ object Migration {
         entries
           .map(_._2)
           .zipWithIndex
-          .map {
-            case (k, idx) =>
-              op(s"key[$idx]", k).flatMap {
-                case Some((_, migrated)) => Right(migrated)
-                case None                => Left(s"invalid update at $path, cannot remove map value")
-              }
+          .map { case (k, idx) =>
+            op(s"key[$idx]", k).flatMap {
+              case Some((_, migrated)) => Right(migrated)
+              case None                => Left(s"invalid update at $path, cannot remove map value")
+            }
           }
           .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
-            case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
-            case (Left(e), Right(_))  => Left(e)
-            case (Right(_), Left(e))  => Left(e)
+            case (Left(e1), Left(e2))         => Left(s"$e1;\n$e2")
+            case (Left(e), Right(_))          => Left(e)
+            case (Right(_), Left(e))          => Left(e)
             case (Right(value), Right(chunk)) =>
               Right(value +: chunk)
           }
@@ -406,14 +401,13 @@ object Migration {
         entries
           .map(_._2)
           .zipWithIndex
-          .map {
-            case (k, idx) =>
-              updateLeaf(k, remainder, trace :+ s"value[$idx]")(op)
+          .map { case (k, idx) =>
+            updateLeaf(k, remainder, trace :+ s"value[$idx]")(op)
           }
           .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
-            case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
-            case (Left(e), Right(_))  => Left(e)
-            case (Right(_), Left(e))  => Left(e)
+            case (Left(e1), Left(e2))         => Left(s"$e1;\n$e2")
+            case (Left(e), Right(_))          => Left(e)
+            case (Right(_), Left(e))          => Left(e)
             case (Right(value), Right(chunk)) =>
               Right(value +: chunk)
           }
@@ -484,7 +478,7 @@ object Migration {
     (path, value) match {
       case (Nil, DynamicValue.Error(_)) => Right(DynamicValue.Error(newMessage))
       case (Nil, _)                     => Left(s"Failed to update fail message at root. Unexpected type")
-      case _ =>
+      case _                            =>
         updateLeaf(value, path) { (label, value) =>
           value match {
             case DynamicValue.Error(_) => Right(Some(label -> DynamicValue.Error(newMessage)))
@@ -501,18 +495,16 @@ object Migration {
     path match {
       case Nil =>
         Right(
-          (0 until n).foldRight(value) {
-            case (_, acc) =>
-              DynamicValue.Sequence(Chunk(acc))
+          (0 until n).foldRight(value) { case (_, acc) =>
+            DynamicValue.Sequence(Chunk(acc))
           }
         )
       case _ =>
         updateLeaf(value, path) { (label, v) =>
           Right(
             Some(
-              (0 until n).foldRight(label -> v) {
-                case (_, (_, acc)) =>
-                  label -> DynamicValue.Sequence(Chunk(acc))
+              (0 until n).foldRight(label -> v) { case (_, (_, acc)) =>
+                label -> DynamicValue.Sequence(Chunk(acc))
               }
             )
           )
@@ -530,7 +522,7 @@ object Migration {
         (0 until n).foldRight[Either[String, DynamicValue]](Right(value)) {
           case (_, error @ Left(_))                                          => error
           case (_, Right(DynamicValue.Sequence(values))) if values.size == 1 => Right(values(0))
-          case _ =>
+          case _                                                             =>
             Left(
               s"Failed to decrement dimensions for node at path ${renderPath(path)}: Can only decrement dimensions on a sequence with one element"
             )
@@ -541,7 +533,7 @@ object Migration {
             .foldRight[Either[String, DynamicValue]](Right(value)) {
               case (_, error @ Left(_))                                          => error
               case (_, Right(DynamicValue.Sequence(values))) if values.size == 1 => Right(values(0))
-              case _ =>
+              case _                                                             =>
                 Left(
                   s"Failed to decrement dimensions for node at path ${renderPath(path)}: Can only decrement dimensions on a sequence with one element"
                 )
@@ -556,7 +548,7 @@ object Migration {
   ): Either[String, DynamicValue] =
     (value, path) match {
       case (DynamicValue.SomeValue(v), Nil) => Right(v)
-      case (DynamicValue.NoneValue, Nil) =>
+      case (DynamicValue.NoneValue, Nil)    =>
         Left(
           s"Failed to require node: Optional value was None"
         )
@@ -578,7 +570,7 @@ object Migration {
   ): Either[String, DynamicValue] =
     path match {
       case Nil => Left(s"Cannot relabel node: Path was empty")
-      case _ =>
+      case _   =>
         updateLeaf(value, path) { (label, value) =>
           transformation(label).fold(
             error =>
@@ -594,10 +586,9 @@ object Migration {
   ): Either[String, DynamicValue] =
     (value, path) match {
       case (value, Nil) => Right(DynamicValue.SomeValue(value))
-      case _ =>
-        updateLeaf(value, path) {
-          case (label, value) =>
-            Right(Some(label -> DynamicValue.SomeValue(value)))
+      case _            =>
+        updateLeaf(value, path) { case (label, value) =>
+          Right(Some(label -> DynamicValue.SomeValue(value)))
         }
     }
 
@@ -607,7 +598,7 @@ object Migration {
   ): Either[String, DynamicValue] =
     path match {
       case Nil => Left(s"Cannot delete node: Path was empty")
-      case _ =>
+      case _   =>
         updateLeaf(value, path)((_, _) => Right(None))
     }
 

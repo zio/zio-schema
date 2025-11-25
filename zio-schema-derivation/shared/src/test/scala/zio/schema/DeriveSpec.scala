@@ -6,9 +6,9 @@ import scala.reflect.ClassTag
 
 import zio.schema.Deriver.WrappedF
 import zio.schema.Schema.Field
-import zio.schema.annotation.{ fieldDefaultValue, genericTypeInfo }
-import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
-import zio.{ Chunk, Scope }
+import zio.schema.annotation.{fieldDefaultValue, genericTypeInfo}
+import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
+import zio.{Chunk, Scope}
 
 @nowarn object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -125,9 +125,9 @@ import zio.{ Chunk, Scope }
       },
       suite("default implementation") {
         test("default tupleN implementation creates proper record schema") {
-          val capturedSchema = Derive.derive[CapturedSchema, RecordWithBigTuple](schemaCapturer)
-          val tupleSchema    = capturedSchema.inner.map(_.schema)
-          val isARecord      = tupleSchema.get.isInstanceOf[Schema.Record[_]]
+          val capturedSchema                                                          = Derive.derive[CapturedSchema, RecordWithBigTuple](schemaCapturer)
+          val tupleSchema                                                             = capturedSchema.inner.map(_.schema)
+          val isARecord                                                               = tupleSchema.get.isInstanceOf[Schema.Record[_]]
           def record: Schema.Record[(String, Int, Double, Record1, Record2, Record3)] =
             tupleSchema.get.asInstanceOf[Schema.Record[(String, Int, Double, Record1, Record2, Record3)]]
 
@@ -166,7 +166,7 @@ import zio.{ Chunk, Scope }
       suite("default field values")(
         test("use case class default values") {
           val capturedSchema = Derive.derive[CapturedSchema, RecordWithDefaultValue](schemaCapturer)
-          val annotations = capturedSchema.schema
+          val annotations    = capturedSchema.schema
             .asInstanceOf[Schema.Record[RecordWithDefaultValue]]
             .fields(0)
             .annotations
@@ -180,7 +180,7 @@ import zio.{ Chunk, Scope }
         },
         test("use case class default values of generic class") {
           val capturedSchema = Derive.derive[CapturedSchema, GenericRecordWithDefaultValue[Int]](schemaCapturer)
-          val annotations = capturedSchema.schema
+          val annotations    = capturedSchema.schema
             .asInstanceOf[Schema.Record[GenericRecordWithDefaultValue[Int]]]
             .fields(0)
             .annotations
@@ -201,7 +201,7 @@ import zio.{ Chunk, Scope }
         },
         test("prefer field annotations over case class default values") {
           val capturedSchema = Derive.derive[CapturedSchema, RecordWithDefaultValue](schemaCapturer)
-          val annotations = capturedSchema.schema
+          val annotations    = capturedSchema.schema
             .asInstanceOf[Schema.Record[RecordWithDefaultValue]]
             .fields(1)
             .annotations
@@ -257,7 +257,7 @@ import zio.{ Chunk, Scope }
 
   object Record2 {
     implicit val schema: Schema[Record2] = DeriveSchema.gen[Record2]
-    implicit val tc: TC[Record2] = new TC[Record2] {
+    implicit val tc: TC[Record2]         = new TC[Record2] {
       override def isDerived: Boolean   = false
       override def inner: Option[TC[_]] = None
     }
@@ -346,7 +346,7 @@ import zio.{ Chunk, Scope }
   case class GenericRecordWithDefaultValue[T](int: Option[T] = None, @fieldDefaultValue(52) int2: Int = 42)
 
   object GenericRecordWithDefaultValue {
-    //explicitly Int, because generic implicit definition leads to "Schema derivation exceeded" error
+    // explicitly Int, because generic implicit definition leads to "Schema derivation exceeded" error
     implicit def schema: Schema[GenericRecordWithDefaultValue[Int]] =
       DeriveSchema.gen[GenericRecordWithDefaultValue[Int]]
   }
@@ -718,7 +718,7 @@ import zio.{ Chunk, Scope }
       summoned: => Option[CapturedSchema[A]]
     ): CapturedSchema[A] =
       new CapturedSchema[A] {
-        override def schema: Schema[A] = record
+        override def schema: Schema[A]                = record
         override def inner: Option[CapturedSchema[_]] =
           fields.headOption.map(_.unwrap)
       }
@@ -729,7 +729,7 @@ import zio.{ Chunk, Scope }
       summoned: => Option[CapturedSchema[A]]
     ): CapturedSchema[A] =
       new CapturedSchema[A] {
-        override def schema: Schema[A] = `enum`
+        override def schema: Schema[A]                = `enum`
         override def inner: Option[CapturedSchema[_]] =
           cases.headOption.map(_.unwrap)
       }
@@ -778,7 +778,7 @@ import zio.{ Chunk, Scope }
       summoned: => Option[CapturedSchema[B]]
     ): CapturedSchema[B] =
       new CapturedSchema[B] {
-        override def schema: Schema[B] = transform
+        override def schema: Schema[B]                = transform
         override def inner: Option[CapturedSchema[_]] =
           fields.headOption.map(_.unwrap)
       }
