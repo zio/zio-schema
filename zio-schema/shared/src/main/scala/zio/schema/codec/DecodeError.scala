@@ -63,4 +63,10 @@ object DecodeError {
     def message: String = s"Schema $schema is not supported by $decoderName"
   }
 
+  def fromEither[A](value: Either[String, A]): Either[DecodeError, A] =
+    value match {
+      case Right(value) => Right(value)
+      case Left(value)  => Left(ReadError(Cause.Empty, value))
+    }
+
 }
