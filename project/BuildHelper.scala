@@ -200,12 +200,7 @@ object BuildHelper {
         baseDirectory.value
       )
     },
-    nativeConfig ~= { cfg =>
-      val os = System.getProperty("os.name").toLowerCase
-      // For some unknown reason, we can't run the test suites in debug mode on MacOS
-      if (os.contains("mac")) cfg.withMode(Mode.releaseFast)
-      else cfg
-    },
+    nativeConfig ~= { _.withMode(Mode.releaseFast) },
     scalacOptions += {
       if (crossProjectPlatform.value == NativePlatform)
         "-P:scalanative:genStaticForwardersForNonTopLevelObjects"
