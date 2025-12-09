@@ -25,7 +25,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Scala and Java
-        uses: coursier/setup-action@v1
+        uses: coursier/setup-action@v2
         with:
           apps: sbt
       - name: Cache scala dependencies
@@ -46,7 +46,7 @@ jobs:
     - uses: actions/checkout@v6.0.1
       with:
         fetch-depth: 0
-    - uses: coursier/setup-action@v1
+    - uses: coursier/setup-action@v2
       with:
         jvm: ${{ matrix.java }}
         apps: sbt
@@ -68,7 +68,7 @@ jobs:
           fetch-depth: 300
       - name: Fetch tags
         run: git fetch --depth=300 origin +refs/tags/*:refs/tags/*
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           jvm: temurin:21
           apps: sbt
@@ -89,7 +89,7 @@ jobs:
       - uses: actions/checkout@v6.0.1
         with:
           fetch-depth: 0
-      - uses: coursier/setup-action@v1
+      - uses: coursier/setup-action@v2
         with:
           apps: sbt
       - run: sbt ci-release
