@@ -215,6 +215,12 @@ object BuildHelper {
       ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
       scalacOptions ++= compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value),
+      // Skip doc generation for Scala 3 to avoid Windows path issues with special characters
+      // in type names like :+: (see https://github.com/zio/zio-schema/issues/674)
+      Compile / doc / sources := {
+        if (scalaVersion.value.startsWith("3.")) Seq.empty
+        else (Compile / doc / sources).value
+      },
       versionScheme := Some("early-semver"),
       ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
       ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
