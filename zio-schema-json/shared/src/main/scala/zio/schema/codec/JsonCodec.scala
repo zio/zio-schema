@@ -636,11 +636,27 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
           }
       }
 
+    private def constructEnumCase[Z, A](case_ : Schema.Case[Z, A]): Z =
+      case_.schema match {
+        case cc: Schema.CaseClass0[A] =>
+          case_.construct(cc.defaultConstruct())
+        case e: Schema.Enum[A] =>
+          e.defaultValue match {
+            case Right(v) => case_.construct(v)
+            case Left(err) =>
+              throw new RuntimeException(s"Cannot construct enum case ${case_.id}: $err")
+          }
+        case other =>
+          throw new RuntimeException(
+            s"Unsupported case schema type for ${case_.id}: ${other.getClass.getSimpleName}"
+          )
+      }
+
     private def caseMap[Z](schema: Schema.Enum[Z], cfg: Configuration): Map[Z, String] =
       schema.nonTransientCases
         .map(
           case_ =>
-            case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct() ->
+            constructEnumCase(case_) ->
               format(case_.caseName, cfg)
         )
         .toMap
@@ -936,7 +952,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
               new JsonFieldDecoder[Z] {
                 private[this] val stringMatrix = new StringMatrix(caseNameAliases.keys.toArray)
                 private[this] val cases = caseNameAliases.values.map { case_ =>
-                  case_.schema.asInstanceOf[Schema.CaseClass0[Any]].defaultConstruct()
+                  constructEnumCase(case_)
                 }.toArray.asInstanceOf[Array[Z]]
 
                 override def unsafeDecodeField(trace: List[JsonError], in: String): Z = {
@@ -951,7 +967,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
                 caseNameAliases.foreach {
                   case (name, case_) =>
-                    cases.put(name, case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct())
+                    cases.put(name, constructEnumCase(case_))
                 }
 
                 override def unsafeDecodeField(trace: List[JsonError], in: String): Z = {
