@@ -33,15 +33,15 @@ object JsonCodecSpec668 extends ZIOSpecDefault {
     implicit val schema: Schema[Vehicle] = DeriveSchema.gen[Vehicle]
   }
 
-  def spec = suite("JsonCodec Issue #668 - Hierarchical Enums")(
+  override def spec: Spec[Any, Nothing] = suite("JsonCodec Issue #668 - Hierarchical Enums")(
     test("should encode case object from intermediate sealed trait") {
       val codec = JsonCodec.jsonCodec(Animal.schema)
       val value: Animal = Animal.Bison
 
-      for {
-        encoded <- codec.encoder.encode(value)
-        decoded <- codec.decoder.decode(encoded)
-      } yield assertTrue(decoded == value)
+      val encoded = codec.encoder.encodeJson(value, None)
+      val decoded = codec.decoder.decodeJson(encoded)
+
+      assertTrue(decoded == Right(value))
     },
 
     test("should encode deeply nested enum hierarchy") {
@@ -49,14 +49,14 @@ object JsonCodecSpec668 extends ZIOSpecDefault {
       val sedan: Vehicle = Vehicle.Sedan
       val truck: Vehicle = Vehicle.Truck
 
-      for {
-        encodedSedan <- codec.encoder.encode(sedan)
-        decodedSedan <- codec.decoder.decode(encodedSedan)
-        encodedTruck <- codec.encoder.encode(truck)
-        decodedTruck <- codec.decoder.decode(encodedTruck)
-      } yield assertTrue(
-        decodedSedan == sedan,
-        decodedTruck == truck
+      val encodedSedan = codec.encoder.encodeJson(sedan, None)
+      val decodedSedan = codec.decoder.decodeJson(encodedSedan)
+      val encodedTruck = codec.encoder.encodeJson(truck, None)
+      val decodedTruck = codec.decoder.decodeJson(encodedTruck)
+
+      assertTrue(
+        decodedSedan == Right(sedan),
+        decodedTruck == Right(truck)
       )
     },
 
@@ -64,13 +64,13 @@ object JsonCodecSpec668 extends ZIOSpecDefault {
       val codec = JsonCodec.jsonCodec(Animal.schema)
       val value: Animal = Animal.Bison
 
-      for {
-        json <- codec.encoder.encode(value)
-        result <- codec.decoder.decode(json)
-        reencoded <- codec.encoder.encode(result)
-      } yield assertTrue(
-        result == value,
-        reencoded == json
+      val json = codec.encoder.encodeJson(value, None)
+      val result = codec.decoder.decodeJson(json)
+      val reencoded = result.map(r => codec.encoder.encodeJson(r, None))
+
+      assertTrue(
+        result == Right(value),
+        reencoded == Right(json)
       )
     }
   )

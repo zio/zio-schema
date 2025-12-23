@@ -422,6 +422,22 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       }
   }
 
+  private def constructEnumCase[Z, A](case_ : Schema.Case[Z, A]): Z =
+    case_.schema match {
+      case cc: Schema.CaseClass0[A] =>
+        case_.construct(cc.defaultConstruct())
+      case e: Schema.Enum[A] =>
+        e.defaultValue match {
+          case Right(v) => case_.construct(v)
+          case Left(err) =>
+            throw new RuntimeException(s"Cannot construct enum case ${case_.id}: $err")
+        }
+      case other =>
+        throw new RuntimeException(
+          s"Unsupported case schema type for ${case_.id}: ${other.getClass.getSimpleName}"
+        )
+    }
+
   object JsonEncoder {
 
     import Codecs._
@@ -634,22 +650,6 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
             case Right(a) => innerEncoder.isNothing(a)
             case _        => false
           }
-      }
-
-    private def constructEnumCase[Z, A](case_ : Schema.Case[Z, A]): Z =
-      case_.schema match {
-        case cc: Schema.CaseClass0[A] =>
-          case_.construct(cc.defaultConstruct())
-        case e: Schema.Enum[A] =>
-          e.defaultValue match {
-            case Right(v) => case_.construct(v)
-            case Left(err) =>
-              throw new RuntimeException(s"Cannot construct enum case ${case_.id}: $err")
-          }
-        case other =>
-          throw new RuntimeException(
-            s"Unsupported case schema type for ${case_.id}: ${other.getClass.getSimpleName}"
-          )
       }
 
     private def caseMap[Z](schema: Schema.Enum[Z], cfg: Configuration): Map[Z, String] =
@@ -951,9 +951,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
             if (caseNameAliases.size <= 64) {
               new JsonFieldDecoder[Z] {
                 private[this] val stringMatrix = new StringMatrix(caseNameAliases.keys.toArray)
-                private[this] val cases = caseNameAliases.values.map { case_ =>
-                  constructEnumCase(case_)
-                }.toArray.asInstanceOf[Array[Z]]
+                private[this] val cases: Vector[Z] =
+                  caseNameAliases.values.map(constructEnumCase[Z, Any]).toVector
 
                 override def unsafeDecodeField(trace: List[JsonError], in: String): Z = {
                   val idx = Lexer.enumeration(trace, new FastStringReader("\"" + in + "\""), stringMatrix)
