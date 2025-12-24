@@ -18,7 +18,12 @@ sealed trait ExtensibleMetaSchema[BuiltIn <: TypeList] { self =>
 
   def toSchema: Schema[_] = {
     val refMap = mutable.HashMap.empty[NodePath, Schema[_]]
-    ExtensibleMetaSchema.materialize(self, refMap)(builtInInstances)
+    ExtensibleMetaSchema.materialize(self, refMap, Map.empty)(builtInInstances)
+  }
+
+  def toSchema(registry: Map[TypeId, Schema[_]]): Schema[_] = {
+    val refMap = mutable.HashMap.empty[NodePath, Schema[_]]
+    ExtensibleMetaSchema.materialize(self, refMap, registry)(builtInInstances)
   }
 
   override def toString: String = AstRenderer.render(self)
@@ -691,85 +696,96 @@ object ExtensibleMetaSchema {
 
   private[schema] def materialize[BuiltIn <: TypeList](
     ast: ExtensibleMetaSchema[BuiltIn],
-    refs: mutable.Map[NodePath, Schema[_]]
+    refs: mutable.Map[NodePath, Schema[_]],
+    registry: Map[TypeId, Schema[_]]
   )(implicit builtInInstances: SchemaInstances[BuiltIn]): Schema[_] = {
     val baseSchema = ast match {
       case ExtensibleMetaSchema.Value(typ, _, _) =>
         Schema.Primitive(typ, Chunk.empty)
-      case ExtensibleMetaSchema.FailNode(msg, _, _) => Schema.Fail(msg)
+      case ExtensibleMetaSchema.FailNode(msg, _, _) =>
+        Schema.Fail(msg)
       case ExtensibleMetaSchema.Ref(refPath, _, _) =>
         def resolve[A](): Schema[A] =
           refs.getOrElse(refPath, Schema.Fail(s"invalid ref path $refPath")).asInstanceOf[Schema[A]]
         Schema.defer(resolve())
       case ExtensibleMetaSchema.Product(id, _, elems, _) =>
-        Schema.record(
-          id,
-          elems.map {
-            case Labelled(label, ast) =>
-              Schema.Field(
-                label,
-                materialize(ast, refs).asInstanceOf[Schema[Any]],
-                get0 = (p: ListMap[String, _]) => p(label),
-                set0 = (p: ListMap[String, _], v: Any) => p.updated(label, v)
-              )
-          }: _*
-        )
+        registry.get(id).collect { case r: Schema.Record[_] => r }.getOrElse {
+          Schema.record(
+            id,
+            elems.map {
+              case Labelled(label, ast) =>
+                Schema.Field(
+                  label,
+                  materialize(ast, refs, registry).asInstanceOf[Schema[Any]],
+                  get0 = (p: ListMap[String, _]) => p(label),
+                  set0 = (p: ListMap[String, _], v: Any) => p.updated(label, v)
+                )
+            }: _*
+          )
+        }
       case ExtensibleMetaSchema.Tuple(_, left, right, _) =>
         Schema.tuple2(
-          materialize(left, refs),
-          materialize(right, refs)
+          materialize(left, refs, registry),
+          materialize(right, refs, registry)
         )
-      case ExtensibleMetaSchema.Sum(id, _, elems, _) => {
-        val (cases, isSimple) = elems.foldRight[(CaseSet.Aux[Any], Boolean)]((CaseSet.Empty[Any](), true)) {
-          case (Labelled(label, ast), (acc, wasSimple)) => {
-            val _case: Schema.Case[Any, Any] = Schema
-              .Case[Any, Any](
+      case ExtensibleMetaSchema.Sum(id, _, elems, _) =>
+        registry.get(id).collect { case e: Schema.Enum[_] => e }.getOrElse {
+          val (cases, isSimple) = elems.foldRight[(CaseSet.Aux[Any], Boolean)]((CaseSet.Empty[Any](), true)) {
+            case (Labelled(label, ast), (acc, wasSimple)) =>
+              val _case: Schema.Case[Any, Any] = Schema.Case[Any, Any](
                 label,
-                materialize(ast, refs).asInstanceOf[Schema[Any]],
+                materialize(ast, refs, registry).asInstanceOf[Schema[Any]],
                 identity[Any],
                 identity[Any],
                 _.isInstanceOf[Any],
                 Chunk.empty
               )
-            val isSimple: Boolean = _case.schema match {
-              case _: Schema.CaseClass0[_] => true
-              case _                       => false
-            }
-            (CaseSet.Cons(_case, acc), wasSimple && isSimple)
+              val isSimple: Boolean = _case.schema match {
+                case _: Schema.CaseClass0[_] => true
+                case _                       => false
+              }
+              (CaseSet.Cons(_case, acc), wasSimple && isSimple)
           }
+          Schema.enumeration[Any, CaseSet.Aux[Any]](
+            id,
+            cases,
+            if (isSimple) Chunk(new simpleEnum(true)) else Chunk.empty
+          )
         }
-        Schema.enumeration[Any, CaseSet.Aux[Any]](
-          id,
-          cases,
-          if (isSimple) Chunk(new simpleEnum(true)) else Chunk.empty
-        )
-      }
       case ExtensibleMetaSchema.Either(_, left, right, _) =>
         Schema.either(
-          materialize(left, refs),
-          materialize(right, refs)
+          materialize(left, refs, registry),
+          materialize(right, refs, registry)
         )
       case ExtensibleMetaSchema.Fallback(_, left, right, _) =>
         Schema.Fallback(
-          materialize(left, refs),
-          materialize(right, refs)
+          materialize(left, refs, registry),
+          materialize(right, refs, registry)
         )
       case ExtensibleMetaSchema.ListNode(itemAst, _, _) =>
-        Schema.chunk(materialize(itemAst, refs))
+        Schema.chunk(materialize(itemAst, refs, registry))
       case ExtensibleMetaSchema.Dictionary(keyAst, valueAst, _, _) =>
-        Schema.Map(materialize(keyAst, refs), materialize(valueAst, refs), Chunk.empty)
+        Schema.Map(materialize(keyAst, refs, registry), materialize(valueAst, refs, registry), Chunk.empty)
       case ExtensibleMetaSchema.Known(typeId, _, _) =>
-        builtInInstances.all.collectFirst {
-          case record: Schema.Record[_] if record.id == typeId => record
-          case e: Schema.Enum[_] if e.id == typeId             => e
-          case dyn: Schema.Dynamic if dyn.id == typeId         => dyn
-        }.getOrElse(Schema.Fail(s"invalid known type id $typeId"))
+        registry.get(typeId).getOrElse {
+          builtInInstances.all.collectFirst {
+            case record: Schema.Record[_] if record.id == typeId => record
+            case e: Schema.Enum[_] if e.id == typeId             => e
+            case dyn: Schema.Dynamic if dyn.id == typeId         => dyn
+          }.getOrElse(Schema.Fail(s"invalid known type id $typeId"))
+        }
     }
 
     refs += ast.path -> baseSchema
 
     if (ast.optional) baseSchema.optional else baseSchema
   }
+
+  private[schema] def materialize[BuiltIn <: TypeList](
+    ast: ExtensibleMetaSchema[BuiltIn],
+    refs: mutable.Map[NodePath, Schema[_]]
+  )(implicit builtInInstances: SchemaInstances[BuiltIn]): Schema[_] =
+    materialize(ast, refs, Map.empty)
 
   implicit def schema[BuiltIn <: TypeList](
     implicit builtInInstances: SchemaInstances[BuiltIn]
