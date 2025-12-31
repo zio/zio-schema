@@ -1,5 +1,6 @@
 package zio.schema.codec
 
+import java.nio.CharBuffer
 import java.time.{ ZoneId, ZoneOffset }
 
 import scala.collection.immutable.ListMap
@@ -33,6 +34,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
   def spec: Spec[TestEnvironment, Any] =
     suite("JsonCodec Spec")(
       encoderSuite,
+      stringCharBufferSuite,
       decoderSuite,
       encoderDecoderSuite
     ) @@ timeout(180.seconds)
@@ -835,6 +837,44 @@ object JsonCodecSpec extends ZIOSpecDefault {
         }
       )
     )
+  )
+
+  private val stringCharBufferSuite = suite("String and CharBuffer methods")(
+    test("decodeString with valid JSON") {
+      assert(JsonCodec.decodeString(personSchema, """{"name":"Alice","age":30}"""))(
+        isRight(equalTo(Person("Alice", 30)))
+      )
+    },
+    test("decodeString rejects trailing characters") {
+      assert(JsonCodec.decodeString(personSchema, """{"name":"Alice","age":30}}"""))(
+        isLeft(hasField("message", _.message, containsString("Trailing data found after JSON document")))
+      )
+    },
+    test("decodeString rejects trailing quote") {
+      assert(JsonCodec.decodeString(Schema[String], """"hello"""""))(
+        isLeft(hasField("message", _.message, containsString("Trailing data found after JSON document")))
+      )
+    },
+    test("decodeToCharBuffer with valid JSON") {
+      assert(JsonCodec.decodeToCharBuffer(personSchema, CharBuffer.wrap("""{"name":"Alice","age":30}""")))(
+        isRight(equalTo(Person("Alice", 30)))
+      )
+    },
+    test("decodeToCharBuffer rejects trailing characters") {
+      assert(JsonCodec.decodeToCharBuffer(personSchema, CharBuffer.wrap("""{"name":"Alice","age":30}}""")))(
+        isLeft(hasField("message", _.message, containsString("Trailing data found after JSON document")))
+      )
+    },
+    test("encodeString works") {
+      assert(JsonCodec.encodeString(personSchema, Person("Alice", 30)))(
+        equalTo("""{"name":"Alice","age":30}""")
+      )
+    },
+    test("encodeToCharBuffer works") {
+      assert(JsonCodec.encodeToCharBuffer(personSchema, Person("Alice", 30)).toString)(
+        equalTo("""{"name":"Alice","age":30}""")
+      )
+    }
   )
 
   private val decoderSuite = suite("decoding")(
