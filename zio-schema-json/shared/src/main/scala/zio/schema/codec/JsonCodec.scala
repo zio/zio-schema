@@ -422,6 +422,53 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       }
   }
 
+  /**
+   * Decodes a JSON string with strict EOF checking - rejects trailing characters after valid JSON.
+   */
+  def decodeString[A](
+    schema: Schema[A],
+    json: String,
+    cfg: Configuration = Configuration.default
+  ): Either[DecodeError, A] = {
+    val decoder = jsonDecoder(cfg)(schema)
+    val reader  = new FastStringReader(json)
+    try {
+      val result = decoder.unsafeDecode(Nil, reader)
+      // Check for EOF - reject trailing non-whitespace characters
+      try {
+        val c = reader.nextNonWhitespace()
+        if (c != -1) Left(DecodeError.ReadError(Cause.empty, "Trailing data found after JSON document"))
+        else Right(result)
+      } catch {
+        case _: Throwable => Right(result) // EOF reached
+      }
+    } catch {
+      case u @ UnsafeJson(_) => Left(DecodeError.ReadError(Cause.fail(u), u.getMessage))
+    }
+  }
+
+  /**
+   * Decodes a JSON CharBuffer with strict EOF checking - rejects trailing characters after valid JSON.
+   */
+  def decodeToCharBuffer[A](
+    schema: Schema[A],
+    json: CharBuffer,
+    cfg: Configuration = Configuration.default
+  ): Either[DecodeError, A] =
+    decodeString(schema, json.toString, cfg)
+
+  /**
+   * Encodes a value to JSON string.
+   */
+  def encodeString[A](schema: Schema[A], value: A, cfg: Configuration = Configuration.default): String =
+    jsonEncoder(cfg)(schema).encodeJson(value, None).toString
+
+  /**
+   * Encodes a value to JSON CharBuffer.
+   */
+  def encodeToCharBuffer[A](schema: Schema[A], value: A, cfg: Configuration = Configuration.default): CharBuffer =
+    CharBuffer.wrap(encodeString(schema, value, cfg))
+
   object JsonEncoder {
 
     import Codecs._
@@ -804,11 +851,13 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
-    final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
-      schemaDecoder(schema, config).decodeJson(json) match {
-        case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
+    final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] = {
+      val decoder = schemaDecoder(schema, config).asInstanceOf[ZJsonDecoder[A]]
+      decoder.decodeJson(json) match {
+        case Left(error)  => Left(DecodeError.ReadError(Cause.empty, error))
         case Right(value) => Right(value)
       }
+    }
 
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
       new ZJsonDecoder[Option[A]] {
