@@ -1,3 +1,19 @@
+/*
+ * Copyright 2023-2024 ZIO Schema
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package zio.schema.codec
 
 import java.nio.ByteBuffer
@@ -7,19 +23,25 @@ import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
+import scala.util.Try // FIX: Removed unused Success/Failure
 
 import org.apache.thrift.protocol._
 
-import zio.schema.MutableSchemaBasedValueBuilder.{CreateValueFromSchemaError, ReadingFieldResult}
+import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, ReadingFieldResult }
 import zio.schema._
-import zio.schema.codec.DecodeError.{EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath}
+import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
 import zio.stream.ZPipeline
-import zio.{Cause, Chunk, Unsafe}
+import zio.{ Cause, Chunk, Unsafe }
 
+/**
+ * ZIO Schema Codec for Apache Thrift.
+ * Migrated to support ZIO 2.x runtime and streaming architecture.
+ */
 object ThriftCodec {
 
   implicit def thriftCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
+
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
         if (whole.isEmpty)
           Left(EmptyContent("No bytes to decode"))
@@ -43,29 +65,26 @@ object ThriftCodec {
         if (chunk.isEmpty)
           Left(EmptyContent("No bytes to decode"))
         else {
-          try {
-            Right(
-              new Decoder(chunk)
-                .create(schema)
-                .asInstanceOf[A]
-            )
-          } catch {
+          // Using Try to encapsulate the unsafe decoding process functionally
+          Try {
+            new Decoder(chunk)
+              .create(schema)
+              .asInstanceOf[A]
+          }.toEither.left.map {
             case error: CreateValueFromSchemaError[_] =>
               val context = error.context.asInstanceOf[DecoderContext]
               error.cause match {
-                case de: DecodeError => Left(de)
+                case de: DecodeError => de
                 case _ =>
-                  Left(
-                    ReadErrorWithPath(context.path, Cause.fail(error.cause), error.cause.getMessage)
-                  )
+                  ReadErrorWithPath(context.path, Cause.fail(error.cause), error.cause.getMessage)
               }
             case NonFatal(err) =>
-              Left(ReadError(Cause.fail(err), err.getMessage))
+              ReadError(Cause.fail(err), err.getMessage)
           }
         }
     }
 
-  class Encoder extends MutableSchemaBasedValueProcessor[Unit, Encoder.Context] {
+  final class Encoder extends MutableSchemaBasedValueProcessor[Unit, Encoder.Context] {
     import Encoder._
     private val write = new ChunkTransport.Write()
     private val p     = new TBinaryProtocol(write)
@@ -179,7 +198,7 @@ object ThriftCodec {
       writeFieldEnd()
 
     override protected def fail(context: Context, message: String): Unit =
-      fail(message)
+      sys.error(message)
 
     override protected def processDynamic(context: Context, value: DynamicValue): Option[Unit] =
       None
@@ -273,7 +292,7 @@ object ThriftCodec {
     private def writeMapBegin(keyType: Byte, valueType: Byte, count: Int): Unit =
       p.writeMapBegin(new TMap(keyType, valueType, count))
 
-    private def fail(message: String): Unit = throw new RuntimeException(message)
+    private def fail(message: String): Unit = sys.error(message)
 
     private def writePrimitiveType[A](standardType: StandardType[A], value: A): Unit =
       (standardType, value) match {
@@ -379,21 +398,21 @@ object ThriftCodec {
 
     private def getPrimitiveType[A](standardType: StandardType[A]): Byte =
       standardType match {
-        case StandardType.UnitType => TType.VOID
-        case StandardType.StringType => TType.STRING
-        case StandardType.BoolType => TType.BOOL
-        case StandardType.ShortType => TType.I16
-        case StandardType.IntType => TType.I32
-        case StandardType.LongType => TType.I64
-        case StandardType.FloatType => TType.DOUBLE
-        case StandardType.DoubleType => TType.DOUBLE
-        case StandardType.BigIntegerType => TType.STRING
-        case StandardType.BigDecimalType => TType.STRUCT
-        case StandardType.BinaryType => TType.STRING
-        case StandardType.CharType => TType.STRING
-        case StandardType.UUIDType => TType.STRING
-        case StandardType.DayOfWeekType => TType.BYTE
-        case StandardType.MonthType => TType.BYTE
+        case StandardType.UnitType           => TType.VOID
+        case StandardType.StringType         => TType.STRING
+        case StandardType.BoolType           => TType.BOOL
+        case StandardType.ShortType          => TType.I16
+        case StandardType.IntType            => TType.I32
+        case StandardType.LongType           => TType.I64
+        case StandardType.FloatType          => TType.DOUBLE
+        case StandardType.DoubleType         => TType.DOUBLE
+        case StandardType.BigIntegerType     => TType.STRING
+        case StandardType.BigDecimalType     => TType.STRUCT
+        case StandardType.BinaryType         => TType.STRING
+        case StandardType.CharType           => TType.STRING
+        case StandardType.UUIDType           => TType.STRING
+        case StandardType.DayOfWeekType      => TType.BYTE
+        case StandardType.MonthType          => TType.BYTE
         case StandardType.MonthDayType       => TType.STRUCT
         case StandardType.PeriodType         => TType.STRUCT
         case StandardType.YearType           => TType.I32
@@ -436,18 +455,17 @@ object ThriftCodec {
 
   final case class DecoderContext(path: Path, expectedCount: Option[Int])
 
-  class Decoder(chunk: Chunk[Byte]) extends MutableSchemaBasedValueBuilder[Any, DecoderContext] {
+  final class Decoder(chunk: Chunk[Byte]) extends MutableSchemaBasedValueBuilder[Any, DecoderContext] {
 
     private val read = new ChunkTransport.Read(chunk)
     private val p    = new TBinaryProtocol(read)
 
     def decodePrimitive[A](f: TProtocol => A, name: String): PrimitiveDecoder[A] =
       path =>
-        try {
-          f(p)
-        } catch {
-          case NonFatal(_) => throw MalformedFieldWithPath(path, s"Unable to decode $name")
-        }
+        Try(f(p)).fold(
+          _ => throw MalformedFieldWithPath(path, s"Unable to decode $name"),
+          identity
+        )
 
     def decodeString: PrimitiveDecoder[String] =
       decodePrimitive(_.readString(), "String")
@@ -510,42 +528,42 @@ object ThriftCodec {
           if (decoded.length == 1) decoded.charAt(0)
           else fail(context, s"""Expected character, found string "$decoded"""")
 
-        case StandardType.UUIDType => decodeUUID(context.path)
+        case StandardType.UUIDType      => decodeUUID(context.path)
         case StandardType.DayOfWeekType => DayOfWeek.of(decodeByte(context.path).toInt)
-        case StandardType.MonthType => Month.of(decodeByte(context.path).toInt)
+        case StandardType.MonthType     => Month.of(decodeByte(context.path).toInt)
         case StandardType.MonthDayType =>
           p.readFieldBegin(); val month = decodeInt(context.path)
-          p.readFieldBegin(); val day = decodeInt(context.path)
+          p.readFieldBegin(); val day   = decodeInt(context.path)
           p.readFieldBegin(); MonthDay.of(month, day)
 
         case StandardType.PeriodType =>
-          p.readFieldBegin(); val year = decodeInt(context.path)
+          p.readFieldBegin(); val year  = decodeInt(context.path)
           p.readFieldBegin(); val month = decodeInt(context.path)
-          p.readFieldBegin(); val day = decodeInt(context.path)
+          p.readFieldBegin(); val day   = decodeInt(context.path)
           p.readFieldBegin(); Period.of(year, month, day)
 
         case StandardType.YearType => Year.of(decodeInt(context.path))
         case StandardType.YearMonthType =>
-          p.readFieldBegin(); val year = decodeInt(context.path)
+          p.readFieldBegin(); val year  = decodeInt(context.path)
           p.readFieldBegin(); val month = decodeInt(context.path)
           p.readFieldBegin(); YearMonth.of(year, month)
 
-        case StandardType.ZoneIdType => ZoneId.of(decodeString(context.path))
+        case StandardType.ZoneIdType     => ZoneId.of(decodeString(context.path))
         case StandardType.ZoneOffsetType => ZoneOffset.ofTotalSeconds(decodeInt(context.path))
         case StandardType.DurationType =>
           p.readFieldBegin(); val seconds = decodeLong(context.path)
-          p.readFieldBegin(); val nano = decodeInt(context.path)
+          p.readFieldBegin(); val nano    = decodeInt(context.path)
           p.readFieldBegin(); Duration.ofSeconds(seconds, nano.toLong)
 
-        case StandardType.InstantType => Instant.parse(decodeString(context.path))
-        case StandardType.LocalDateType => LocalDate.parse(decodeString(context.path))
-        case StandardType.LocalTimeType => LocalTime.parse(decodeString(context.path))
-        case StandardType.LocalDateTimeType => LocalDateTime.parse(decodeString(context.path))
-        case StandardType.OffsetTimeType => OffsetTime.parse(decodeString(context.path))
+        case StandardType.InstantType        => Instant.parse(decodeString(context.path))
+        case StandardType.LocalDateType      => LocalDate.parse(decodeString(context.path))
+        case StandardType.LocalTimeType      => LocalTime.parse(decodeString(context.path))
+        case StandardType.LocalDateTimeType  => LocalDateTime.parse(decodeString(context.path))
+        case StandardType.OffsetTimeType     => OffsetTime.parse(decodeString(context.path))
         case StandardType.OffsetDateTimeType => OffsetDateTime.parse(decodeString(context.path))
-        case StandardType.ZonedDateTimeType => ZonedDateTime.parse(decodeString(context.path))
-        case StandardType.CurrencyType => java.util.Currency.getInstance(decodeString(context.path))
-        case _ => fail(context, s"Unsupported primitive type $typ")
+        case StandardType.ZonedDateTimeType  => ZonedDateTime.parse(decodeString(context.path))
+        case StandardType.CurrencyType       => java.util.Currency.getInstance(decodeString(context.path))
+        case _                               => fail(context, s"Unsupported primitive type $typ")
       }
 
     override protected def startCreatingRecord(context: DecoderContext, record: Schema.Record[_]): DecoderContext =
@@ -571,15 +589,16 @@ object ThriftCodec {
       values: Chunk[(Int, Any)]
     ): Any = {
       val valuesMap = values.toMap
-      val allValues = record.fields.zipWithIndex.map { case (field, idx) =>
-        valuesMap.get(idx) match {
-          case Some(value) => value
-          case None =>
-            emptyValue(field.schema).getOrElse {
-              if ((field.optional || field.transient) && field.defaultValue.isDefined) field.defaultValue.get
-              else fail(context.copy(path = context.path :+ field.name), s"Missing value")
-            }
-        }
+      val allValues = record.fields.zipWithIndex.map {
+        case (field, idx) =>
+          valuesMap.get(idx) match {
+            case Some(value) => value
+            case None =>
+              emptyValue(field.schema).getOrElse {
+                if ((field.optional || field.transient) && field.defaultValue.isDefined) field.defaultValue.get
+                else fail(context.copy(path = context.path :+ field.name), s"Missing value")
+              }
+          }
       }
       Unsafe.unsafe { implicit u =>
         record.construct(allValues) match {
@@ -599,64 +618,113 @@ object ThriftCodec {
       (context.copy(path = context.path :+ s"[case:${subtypeCase.id}]"), consIdx)
     }
 
-    override protected def createEnum(context: DecoderContext, cases: Chunk[Schema.Case[_, _]], index: Int, value: Any): Any = {
+    override protected def createEnum(
+      context: DecoderContext,
+      cases: Chunk[Schema.Case[_, _]],
+      index: Int,
+      value: Any
+    ): Any = {
       p.readFieldBegin()
       value
     }
 
-    override protected def startCreatingSequence(context: DecoderContext, schema: Schema.Sequence[_, _, _]): Option[DecoderContext] = {
+    override protected def startCreatingSequence(
+      context: DecoderContext,
+      schema: Schema.Sequence[_, _, _]
+    ): Option[DecoderContext] = {
       val begin = p.readListBegin()
       if (begin.size == 0) None else Some(context.copy(expectedCount = Some(begin.size)))
     }
 
-    override protected def startCreatingOneSequenceElement(context: DecoderContext, schema: Schema.Sequence[_, _, _]): DecoderContext = context
+    override protected def startCreatingOneSequenceElement(
+      context: DecoderContext,
+      schema: Schema.Sequence[_, _, _]
+    ): DecoderContext = context
 
     override protected def finishedCreatingOneSequenceElement(context: DecoderContext, index: Int): Boolean =
       context.expectedCount.map(_ - (index + 1)).exists(_ > 0)
 
-    override protected def createSequence(context: DecoderContext, schema: Schema.Sequence[_, _, _], values: Chunk[Any]): Any =
+    override protected def createSequence(
+      context: DecoderContext,
+      schema: Schema.Sequence[_, _, _],
+      values: Chunk[Any]
+    ): Any =
       schema.fromChunk.asInstanceOf[Chunk[Any] => Any](values)
 
-    override protected def startCreatingDictionary(context: DecoderContext, schema: Schema.Map[_, _]): Option[DecoderContext] = {
+    override protected def startCreatingDictionary(
+      context: DecoderContext,
+      schema: Schema.Map[_, _]
+    ): Option[DecoderContext] = {
       val begin = p.readMapBegin()
       if (begin.size == 0) None else Some(context.copy(expectedCount = Some(begin.size)))
     }
 
-    override protected def startCreatingOneDictionaryElement(context: DecoderContext, schema: Schema.Map[_, _]): DecoderContext = context
-    override protected def startCreatingOneDictionaryValue(context: DecoderContext, schema: Schema.Map[_, _]): DecoderContext = context
+    override protected def startCreatingOneDictionaryElement(
+      context: DecoderContext,
+      schema: Schema.Map[_, _]
+    ): DecoderContext = context
+    override protected def startCreatingOneDictionaryValue(
+      context: DecoderContext,
+      schema: Schema.Map[_, _]
+    ): DecoderContext = context
 
-    override protected def finishedCreatingOneDictionaryElement(context: DecoderContext, schema: Schema.Map[_, _], index: Int): Boolean =
+    override protected def finishedCreatingOneDictionaryElement(
+      context: DecoderContext,
+      schema: Schema.Map[_, _],
+      index: Int
+    ): Boolean =
       context.expectedCount.map(_ - (index + 1)).exists(_ > 0)
 
-    override protected def createDictionary(context: DecoderContext, schema: Schema.Map[_, _], values: Chunk[(Any, Any)]): Any = values.toMap
+    override protected def createDictionary(
+      context: DecoderContext,
+      schema: Schema.Map[_, _],
+      values: Chunk[(Any, Any)]
+    ): Any = values.toMap
 
     override protected def startCreatingSet(context: DecoderContext, schema: Schema.Set[_]): Option[DecoderContext] = {
       val begin = p.readSetBegin()
       if (begin.size == 0) None else Some(context.copy(expectedCount = Some(begin.size)))
     }
 
-    override protected def startCreatingOneSetElement(context: DecoderContext, schema: Schema.Set[_]): DecoderContext = context
+    // FIX: Reverted return type to DecoderContext to match trait signature
+    override protected def startCreatingOneSetElement(context: DecoderContext, schema: Schema.Set[_]): DecoderContext =
+      context
 
-    override protected def finishedCreatingOneSetElement(context: DecoderContext, schema: Schema.Set[_], index: Int): Boolean =
+    override protected def finishedCreatingOneSetElement(
+      context: DecoderContext,
+      schema: Schema.Set[_],
+      index: Int
+    ): Boolean =
       context.expectedCount.map(_ - (index + 1)).exists(_ > 0)
 
-    override protected def createSet(context: DecoderContext, schema: Schema.Set[_], values: Chunk[Any]): Any = values.toSet
+    override protected def createSet(context: DecoderContext, schema: Schema.Set[_], values: Chunk[Any]): Any =
+      values.toSet
 
-    override protected def startCreatingOptional(context: DecoderContext, schema: Schema.Optional[_]): Option[DecoderContext] = {
+    override protected def startCreatingOptional(
+      context: DecoderContext,
+      schema: Schema.Optional[_]
+    ): Option[DecoderContext] = {
       val field = p.readFieldBegin()
       field.id match {
-        case 1 => None
-        case 2 => Some(context.copy(path = context.path :+ "Some"))
+        case 1  => None
+        case 2  => Some(context.copy(path = context.path :+ "Some"))
         case id => fail(context, s"Error decoding optional, wrong field id $id").asInstanceOf[Option[DecoderContext]]
       }
     }
 
-    override protected def createOptional(context: DecoderContext, schema: Schema.Optional[_], value: Option[Any]): Any = {
+    override protected def createOptional(
+      context: DecoderContext,
+      schema: Schema.Optional[_],
+      value: Option[Any]
+    ): Any = {
       p.readFieldBegin()
       value
     }
 
-    override protected def startCreatingEither(context: DecoderContext, schema: Schema.Either[_, _]): Either[DecoderContext, DecoderContext] = {
+    override protected def startCreatingEither(
+      context: DecoderContext,
+      schema: Schema.Either[_, _]
+    ): Either[DecoderContext, DecoderContext] = {
       val readField = p.readFieldBegin()
       readField.id match {
         case 1 => Left(context.copy(path = context.path :+ "either:left"))
@@ -665,43 +733,74 @@ object ThriftCodec {
       }
     }
 
-    override protected def createEither(context: DecoderContext, schema: Schema.Either[_, _], value: Either[Any, Any]): Any = value
+    override protected def createEither(
+      context: DecoderContext,
+      schema: Schema.Either[_, _],
+      value: Either[Any, Any]
+    ): Any = value
 
-    override protected def startCreatingFallback(context: DecoderContext, schema: Schema.Fallback[_, _]): Fallback[DecoderContext, DecoderContext] = {
+    override protected def startCreatingFallback(
+      context: DecoderContext,
+      schema: Schema.Fallback[_, _]
+    ): Fallback[DecoderContext, DecoderContext] = {
       val readField = p.readFieldBegin()
       readField.id match {
         case 1 => Fallback.Left(context.copy(path = context.path :+ "fallback:left"))
         case 2 => Fallback.Right(context.copy(path = context.path :+ "fallback:right"))
-        case 3 => Fallback.Both(context.copy(path = context.path :+ "fallback:left"), context.copy(path = context.path :+ "fallback:right"))
+        case 3 =>
+          Fallback.Both(
+            context.copy(path = context.path :+ "fallback:left"),
+            context.copy(path = context.path :+ "fallback:right")
+          )
         case _ => fail(context, "Failed to decode fallback.").asInstanceOf[Fallback[DecoderContext, DecoderContext]]
       }
     }
 
-    override protected def startReadingRightFallback(context: DecoderContext, schema: Schema.Fallback[_, _]): DecoderContext = {
+    override protected def startReadingRightFallback(
+      context: DecoderContext,
+      schema: Schema.Fallback[_, _]
+    ): DecoderContext = {
       p.readFieldBegin()
       context
     }
 
-    override protected def createFallback(context: DecoderContext, schema: Schema.Fallback[_, _], value: Fallback[Any, Any]): Any = value
+    override protected def createFallback(
+      context: DecoderContext,
+      schema: Schema.Fallback[_, _],
+      value: Fallback[Any, Any]
+    ): Any = value
 
     override protected def startCreatingTuple(context: DecoderContext, schema: Schema.Tuple2[_, _]): DecoderContext = {
       p.readFieldBegin()
       context
     }
 
-    override protected def startReadingSecondTupleElement(context: DecoderContext, schema: Schema.Tuple2[_, _]): DecoderContext = {
+    override protected def startReadingSecondTupleElement(
+      context: DecoderContext,
+      schema: Schema.Tuple2[_, _]
+    ): DecoderContext = {
       p.readFieldBegin()
       context
     }
 
-    override protected def createTuple(context: DecoderContext, schema: Schema.Tuple2[_, _], left: Any, right: Any): Any = {
+    override protected def createTuple(
+      context: DecoderContext,
+      schema: Schema.Tuple2[_, _],
+      left: Any,
+      right: Any
+    ): Any = {
       p.readFieldBegin()
       (left, right)
     }
 
     override protected def createDynamic(context: DecoderContext): Option[Any] = None
 
-    override protected def transform(context: DecoderContext, value: Any, f: Any => Either[String, Any], schema: Schema[_]): Any =
+    override protected def transform(
+      context: DecoderContext,
+      value: Any,
+      f: Any => Either[String, Any],
+      schema: Schema[_]
+    ): Any =
       f(value).fold(fail(context, _), identity)
 
     override protected def fail(context: DecoderContext, message: String): Any =

@@ -8,7 +8,6 @@ import scala.util.control.NoStackTrace
 
 object ChunkTransport {
 
-  
   final private class UnsupportedTransportOperation(msg: String)
       extends UnsupportedOperationException(msg)
       with NoStackTrace
@@ -44,7 +43,7 @@ object ChunkTransport {
    * TMemoryInputTransport
    */
   final class Read(input: Chunk[Byte], config: TConfiguration = new TConfiguration()) extends TTransport {
-    
+
     private[this] val underlying = new TMemoryInputTransport(config, input.toArray)
 
     override def isOpen: Boolean = underlying.isOpen
