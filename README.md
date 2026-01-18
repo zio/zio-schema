@@ -55,7 +55,7 @@ libraryDependencies += "org.scala-lang" % "scala-reflect"  % scalaVersion.value 
 
 ## Example
 
-In this simple example first, we create a schema for `Person` and then run the _diff_ operation on two instances of the `Person` data type, and finally, we encode a Person instance using _Protobuf_ protocol:
+In this simple example first, we create a schema for `Person` and then run the *diff* operation on two instances of the `Person` data type, and finally, we encode a Person instance using *Protobuf* protocol:
 
 ```scala
 import zio._
@@ -91,6 +91,19 @@ Here is the output of running the above program:
 
 ```scala
 Encoded data with protobuf codec: 0A044A6F686E102B
+
+```
+
+### Thrift Example
+
+You can also use Thrift codecs similarly:
+
+```scala
+import zio.schema.codec.ThriftCodec
+
+// Create the Thrift codec for the Person type
+val thriftCodec = ThriftCodec.schemaBasedBinaryCodec[Person]
+
 ```
 
 ## Resources
