@@ -14,14 +14,14 @@ ZIO Schema helps us to solve some of the most common problems in distributed com
 
 It turns a compiled-time construct (the type of a data structure) into a runtime construct (a value that can be read, manipulated, and composed at runtime). A schema is a structure of a data type. ZIO Schema reifies the concept of structure for data types. It makes a high-level description of any data type and makes them first-class values.
 
-Creating a schema for a data type helps us to write codecs for that data type. So this library can be a host of functionalities useful for writing codecs and protocols like JSON, Protobuf, CSV, and so forth.
+Creating a schema for a data type helps us to write codecs for that data type. So this library can be a host of functionalities useful for writing codecs and protocols like JSON, Protobuf, Thrift, CSV, and so forth.
 
 ## What Problems Does ZIO Schema Solve?
 
 With schema descriptions that can be automatically derived for case classes and sealed traits, _ZIO Schema_ will be going to provide powerful features for free:
 
 1. Metaprogramming without macros, reflection, or complicated implicit derivations.
-    1. Creating serialization and deserialization codecs for any supported protocol (JSON, Protobuf, etc.)
+    1. Creating serialization and deserialization codecs for any supported protocol (JSON, Protobuf, Thrift, etc.)
     2. Deriving standard type classes (`Eq`, `Show`, `Ordering`, etc.) from the structure of the data
     3. Default values for data types
 2. Automate ETL (Extract, Transform, Load) pipelines
@@ -55,12 +55,14 @@ libraryDependencies += "org.scala-lang" % "scala-reflect"  % scalaVersion.value 
 
 ## Example
 
-In this simple example first, we create a schema for `Person` and then run the _diff_ operation on two instances of the `Person` data type, and finally, we encode a Person instance using _Protobuf_ protocol:
+In this simple example, we create a schema for `Person`. Then, we demonstrate how easily we can switch between different protocols (like **Protobuf** and **Thrift**) using the same schema definition.
+
+First, let's define our data model and schema:
 
 ```scala mdoc:compile-only
 import zio._
 import zio.stream._
-import zio.schema.codec.{BinaryCodec, ProtobufCodec}
+import zio.schema.codec.{BinaryCodec, ProtobufCodec, ThriftCodec}
 import zio.schema.{DeriveSchema, Schema}
 
 import java.io.IOException
@@ -68,18 +70,27 @@ import java.io.IOException
 final case class Person(name: String, age: Int)
 
 object Person {
-  implicit val schema: Schema[Person]    = DeriveSchema.gen
-  val protobufCodec: BinaryCodec[Person] = ProtobufCodec.protobufCodec
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+  
+  // Create codecs for different protocols from the same schema
+  val protobufCodec: BinaryCodec[Person] = ProtobufCodec.protobufCodec(schema)
+  val thriftCodec:   BinaryCodec[Person] = ThriftCodec.thriftCodec(schema)
 }
 
 object Main extends ZIOAppDefault {
   def run: ZIO[Any, IOException, Unit] =
+    for {
+      _ <- runCodec("Protobuf", Person.protobufCodec)
+      _ <- runCodec("Thrift",   Person.thriftCodec)
+    } yield ()
+
+  def runCodec(name: String, codec: BinaryCodec[Person]): ZIO[Any, IOException, Unit] =
     ZStream
       .succeed(Person("John", 43))
-      .via(Person.protobufCodec.streamEncoder)
+      .via(codec.streamEncoder)
       .runCollect
       .flatMap(x =>
-        Console.printLine(s"Encoded data with protobuf codec: ${toHex(x)}")
+        Console.printLine(s"Encoded data with $name codec: ${toHex(x)}")
       )
 
   def toHex(chunk: Chunk[Byte]): String =
@@ -90,12 +101,14 @@ object Main extends ZIOAppDefault {
 Here is the output of running the above program:
 
 ```scala
-Encoded data with protobuf codec: 0A044A6F686E102B
+Encoded data with Protobuf codec: 0A044A6F686E102B
+Encoded data with Thrift codec: 0B0001000000044A6F686E0800020000002B00
+
 ```
 
 ## Resources
 
-- [Zymposium - ZIO Schema](https://www.youtube.com/watch?v=GfNiDaL5aIM) by John A. De Goes, Adam Fraser, and Kit Langton (May 2021)
-- [ZIO SCHEMA: A Toolkit For Functional Distributed Computing](https://www.youtube.com/watch?v=lJziseYKvHo&t=481s) by Dan Harris (Functional Scala 2021)
-- [Creating Declarative Query Plans With ZIO Schema](https://www.youtube.com/watch?v=ClePN4P9_pg) by Dan Harris (ZIO World 2022)
-- [Describing Data...with free applicative functors (and more)](https://www.youtube.com/watch?v=oRLkb6mqvVM) by Kris Nuttycombe (Scala World) on the idea behind the [xenomorph](https://github.com/nuttycom/xenomorph) library
+* [Zymposium - ZIO Schema](https://www.youtube.com/watch?v=GfNiDaL5aIM) by John A. De Goes, Adam Fraser, and Kit Langton (May 2021)
+* [ZIO SCHEMA: A Toolkit For Functional Distributed Computing](https://www.youtube.com/watch?v=lJziseYKvHo&t=481s) by Dan Harris (Functional Scala 2021)
+* [Creating Declarative Query Plans With ZIO Schema](https://www.youtube.com/watch?v=ClePN4P9_pg) by Dan Harris (ZIO World 2022)
+* [Describing Data...with free applicative functors (and more)](https://www.youtube.com/watch?v=oRLkb6mqvVM) by Kris Nuttycombe (Scala World) on the idea behind the [xenomorph](https://github.com/nuttycom/xenomorph) library
