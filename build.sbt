@@ -490,3 +490,20 @@ lazy val testDeps = Seq(
     "dev.zio" %%% "zio-test-sbt" % zioVersion % Test
   )
 )
+// --- Fix for Unused Key Warnings ---
+// sbt linting tells us when keys are defined but not used.
+// Since we use shared settings via BuildHelper, some keys might not be used in every project.
+// We explicitly exclude them from linting to keep the build log clean.
+Global / excludeLintKeys ++= Set(
+  name,
+  buildInfoKeys,
+  buildInfoPackage,
+  organization,
+  homepage,
+  licenses,
+  scmInfo,
+  developers,
+  pgpPassphrase,
+  pgpPublicRing,
+  pgpSecretRing
+)
