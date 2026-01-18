@@ -55,7 +55,7 @@ addCommandAlias(
   "testJVM",
   "testsJVM/test; zioSchemaMacrosJVM/test; zioSchemaJVM/test; zioSchemaDerivationJVM/test;" +
     "zioSchemaOpticsJVM/test; zioSchemaJsonJVM/test; zioSchemaProtobufJVM/test; zioSchemaZioTestJVM/test;" +
-    "zioSchemaAvro/test; zioSchemaThrift/test; zioSchemaBson/test; zioSchemaMsgPack/test"
+    "zioSchemaAvro/test; zioSchemaThrift/test; schemaThrift/test; zioSchemaBson/test; zioSchemaMsgPack/test"
 )
 
 addCommandAlias(
@@ -107,6 +107,7 @@ lazy val root = project
     zioSchemaZioTestJS,
     zioSchemaZioTest.native,
     zioSchemaThrift,
+    schemaThrift, // <--- new
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
@@ -310,6 +311,21 @@ lazy val zioSchemaThrift = project
   )
   .settings(testDeps)
 
+// --- new project: schema thrift (Porting V2) ---
+lazy val schemaThrift = project
+  .in(file("schema-thrift"))
+  .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
+  .settings(stdSettings("zio-schema-thrift-v2"))
+  .settings(dottySettings)
+  .settings(buildInfoSettings("zio.schema.thrift.v2"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.apache.thrift"  % "libthrift"              % thriftVersion,
+      "jakarta.annotation" % "jakarta.annotation-api" % javaxAnnotationApiVersion
+    )
+  )
+  .settings(testDeps)
+
 lazy val zioSchemaMsgPack = project
   .in(file("zio-schema-msg-pack"))
   .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
@@ -480,7 +496,8 @@ lazy val docs = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
-    zioSchemaThrift
+    zioSchemaThrift,
+    schemaThrift // <--- new professional
   )
   .enablePlugins(WebsitePlugin)
 
