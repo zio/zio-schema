@@ -1,57 +1,63 @@
 package zio.schema.codec
 
 import org.apache.thrift.TConfiguration
-import org.apache.thrift.transport.{ TMemoryTransport, TTransport }
-
+import org.apache.thrift.transport.{ TMemoryBuffer, TMemoryInputTransport, TTransport }
 import zio.Chunk
+
+import scala.util.control.NoStackTrace
 
 object ChunkTransport {
 
-  class Write extends TTransport {
-    val underlying = new TMemoryTransport(Array.emptyByteArray)
+  
+  final private class UnsupportedTransportOperation(msg: String)
+      extends UnsupportedOperationException(msg)
+      with NoStackTrace
 
-    override def isOpen: Boolean = underlying.isOpen
+  /**
+   * Optimized for Writing
+   * TMemoryBuffer
+   */
+  final class Write(config: TConfiguration = new TConfiguration()) extends TTransport {
+    private[this] val buffer = new TMemoryBuffer(1024)
 
-    override def open(): Unit = underlying.open()
-
-    override def close(): Unit = underlying.close()
+    override def isOpen: Boolean = true
+    override def open(): Unit    = ()
+    override def close(): Unit   = ()
 
     override def read(buf: Array[Byte], off: Int, len: Int): Int =
-      throw new UnsupportedOperationException
+      throw new UnsupportedTransportOperation("ChunkTransport.Write does not support reading")
 
     override def write(buf: Array[Byte], off: Int, len: Int): Unit =
-      underlying.write(buf, off, len)
+      buffer.write(buf, off, len)
 
-    override def getConfiguration: TConfiguration =
-      underlying.getConfiguration
+    override def getConfiguration: TConfiguration = config
 
-    override def updateKnownMessageSize(size: Long): Unit =
-      underlying.updateKnownMessageSize(size)
+    override def updateKnownMessageSize(size: Long): Unit = ()
 
-    override def checkReadBytesAvailable(numBytes: Long): Unit =
-      underlying.checkReadBytesAvailable(numBytes)
+    override def checkReadBytesAvailable(numBytes: Long): Unit = ()
 
-    def chunk: Chunk[Byte] =
-      Chunk.fromArray(underlying.getOutput.toByteArray)
+    def chunk: Chunk[Byte] = Chunk.fromArray(buffer.getArray).take(buffer.length())
   }
 
-  class Read(input: Chunk[Byte]) extends TTransport {
-    val underlying = new TMemoryTransport(input.toArray)
+  /**
+   * Optimized for Reading
+   * TMemoryInputTransport
+   */
+  final class Read(input: Chunk[Byte], config: TConfiguration = new TConfiguration()) extends TTransport {
+    
+    private[this] val underlying = new TMemoryInputTransport(config, input.toArray)
 
     override def isOpen: Boolean = underlying.isOpen
-
-    override def open(): Unit = underlying.open()
-
-    override def close(): Unit = underlying.close()
+    override def open(): Unit    = underlying.open()
+    override def close(): Unit   = underlying.close()
 
     override def read(buf: Array[Byte], off: Int, len: Int): Int =
       underlying.read(buf, off, len)
 
     override def write(buf: Array[Byte], off: Int, len: Int): Unit =
-      throw new UnsupportedOperationException
+      throw new UnsupportedTransportOperation("ChunkTransport.Read does not support writing")
 
-    override def getConfiguration: TConfiguration =
-      underlying.getConfiguration
+    override def getConfiguration: TConfiguration = config
 
     override def updateKnownMessageSize(size: Long): Unit =
       underlying.updateKnownMessageSize(size)
@@ -59,5 +65,4 @@ object ChunkTransport {
     override def checkReadBytesAvailable(numBytes: Long): Unit =
       underlying.checkReadBytesAvailable(numBytes)
   }
-
 }
