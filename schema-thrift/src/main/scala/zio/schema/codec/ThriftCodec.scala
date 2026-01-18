@@ -22,8 +22,7 @@ import java.util.UUID
 
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
-import scala.util.control.NonFatal
-import scala.util.Try // FIX: Removed unused Success/Failure
+import scala.util.Try
 
 import org.apache.thrift.protocol._
 
@@ -65,7 +64,7 @@ object ThriftCodec {
         if (chunk.isEmpty)
           Left(EmptyContent("No bytes to decode"))
         else {
-          // Using Try to encapsulate the unsafe decoding process functionally
+          // FIX: Using exhaustive pattern matching to satisfy Scala 2.13 strict compiler
           Try {
             new Decoder(chunk)
               .create(schema)
@@ -78,7 +77,8 @@ object ThriftCodec {
                 case _ =>
                   ReadErrorWithPath(context.path, Cause.fail(error.cause), error.cause.getMessage)
               }
-            case NonFatal(err) =>
+            // FIX: Changed from 'case NonFatal(err)' to 'case err' to be exhaustive for Throwable
+            case err =>
               ReadError(Cause.fail(err), err.getMessage)
           }
         }
@@ -86,6 +86,7 @@ object ThriftCodec {
 
   final class Encoder extends MutableSchemaBasedValueProcessor[Unit, Encoder.Context] {
     import Encoder._
+
     private val write = new ChunkTransport.Write()
     private val p     = new TBinaryProtocol(write)
 
@@ -686,7 +687,6 @@ object ThriftCodec {
       if (begin.size == 0) None else Some(context.copy(expectedCount = Some(begin.size)))
     }
 
-    // FIX: Reverted return type to DecoderContext to match trait signature
     override protected def startCreatingOneSetElement(context: DecoderContext, schema: Schema.Set[_]): DecoderContext =
       context
 

@@ -1,9 +1,11 @@
 package zio.schema.codec
 
+import java.nio.file.{ Files, Path, Paths }
+
+import scala.io.Source
+
 import zio._
 import zio.test._
-import java.nio.file.{ Files, Path, Paths }
-import scala.io.Source
 
 /**
  * GOOGLE-STANDARD STATIC ANALYSIS SUITE
@@ -34,7 +36,7 @@ object DeepCodeAnalysisSpec extends ZIOSpecDefault {
     def isClean: Boolean = violations.isEmpty
   }
 
-  val qualityRules = List(
+  val qualityRules: List[AnalysisRule] = List(
     AnalysisRule(
       "No Thread.sleep",
       "Thread.sleep",

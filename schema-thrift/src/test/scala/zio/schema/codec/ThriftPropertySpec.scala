@@ -1,9 +1,9 @@
 package zio.schema.codec
 
 import zio._
-import zio.test._
 import zio.schema._
 import zio.stream._
+import zio.test._
 
 /**
  * GOOGLE-STANDARD PROPERTY-BASED TESTING SUITE

@@ -1,10 +1,11 @@
 package zio.schema.codec
 
+import scala.util.control.NoStackTrace
+
 import org.apache.thrift.TConfiguration
 import org.apache.thrift.transport.{ TMemoryBuffer, TMemoryInputTransport, TTransport }
-import zio.Chunk
 
-import scala.util.control.NoStackTrace
+import zio.Chunk
 
 object ChunkTransport {
 

@@ -1,9 +1,10 @@
 package zio.schema.codec
 
-import zio._
-import zio.test._
-import zio.schema._
 import java.util.concurrent.TimeUnit
+
+import zio._
+import zio.schema._
+import zio.test._
 
 /**
  * GOOGLE-STANDARD PERFORMANCE BENCHMARK SUITE
@@ -17,9 +18,9 @@ object ThriftBenchmarkSpec extends ZIOSpecDefault {
   case class BenchmarkData(id: Int, name: String, tags: List[String], active: Boolean)
 
   implicit val schema: Schema[BenchmarkData] = DeriveSchema.gen[BenchmarkData]
-  val codec                                  = ThriftCodec.thriftCodec(schema)
+  val codec: BinaryCodec[BenchmarkData]      = ThriftCodec.thriftCodec(schema)
 
-  val sampleData = BenchmarkData(
+  val sampleData: BenchmarkData = BenchmarkData(
     id = 12345,
     name = "Performance_Test_Object_ZIO_2",
     tags = List.fill(50)("tag"),

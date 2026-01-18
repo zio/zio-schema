@@ -1,9 +1,11 @@
 package zio.schema.codec
 
+import java.nio.file.{ Files, Path, Paths }
+
+import scala.io.Source
+
 import zio._
 import zio.test._
-import java.nio.file.{ Files, Path, Paths }
-import scala.io.Source
 
 object ThriftVerificationSpec extends ZIOSpecDefault {
 
@@ -22,18 +24,18 @@ object ThriftVerificationSpec extends ZIOSpecDefault {
     def isValid: Boolean = errors.isEmpty
   }
 
-  val globalRules = List(
+  val globalRules: List[Rule] = List(
     Rule("No ZTransducer", "ZTransducer", Forbidden, "Found legacy 'ZTransducer' (ZIO 1). Use 'ZPipeline' instead."),
     Rule("No unsafeRun", "unsafeRun(", Forbidden, "Found legacy 'unsafeRun' (ZIO 1). Use 'Unsafe.unsafe' block."),
     Rule("Using ZIO Chunk", "Chunk", Required, "Must use 'Chunk' (ZIO native data type).")
   )
 
-  val codecSpecificRules = List(
+  val codecSpecificRules: List[Rule] = List(
     Rule("Using ZPipeline", "ZPipeline", Required, "Codec must use 'ZPipeline' for streaming (ZIO 2)."),
     Rule("Using Unsafe Block", "Unsafe.unsafe", Required, "Codec must use 'Unsafe.unsafe' for low-level operations.")
   )
 
-  val transportSpecificRules = List(
+  val transportSpecificRules: List[Rule] = List(
     Rule("Extends TTransport", "extends TTransport", Required, "Must implement Apache Thrift TTransport interface.")
   )
 
