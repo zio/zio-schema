@@ -319,6 +319,7 @@ lazy val schemaThrift = project
   .settings(dottySettings)
   .settings(buildInfoSettings("zio.schema.thrift.v2"))
   .settings(
+    mimaPreviousArtifacts := Set.empty,
     libraryDependencies ++= Seq(
       "org.apache.thrift"  % "libthrift"              % thriftVersion,
       "jakarta.annotation" % "jakarta.annotation-api" % javaxAnnotationApiVersion
