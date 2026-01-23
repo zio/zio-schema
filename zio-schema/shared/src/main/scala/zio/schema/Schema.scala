@@ -189,6 +189,76 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case _              => schema
     }
 
+  def getTypeId[A](schema: Schema[A]): TypeId =
+    schema match {
+      case record: Record[_] => record.id
+      case enum0: Enum[_]    => enum0.id
+      case Primitive(standardType, _) =>
+        val typeName = standardType.tag match {
+          case "unit"           => "scala.Unit"
+          case "string"         => "java.lang.String"
+          case "boolean"        => "scala.Boolean"
+          case "byte"           => "scala.Byte"
+          case "short"          => "scala.Short"
+          case "int"            => "scala.Int"
+          case "long"           => "scala.Long"
+          case "float"          => "scala.Float"
+          case "double"         => "scala.Double"
+          case "binary"         => "zio.Chunk"
+          case "char"           => "scala.Char"
+          case "bigDecimal"     => "java.math.BigDecimal"
+          case "bigInteger"     => "java.math.BigInteger"
+          case "dayOfWeek"      => "java.time.DayOfWeek"
+          case "month"          => "java.time.Month"
+          case "monthDay"       => "java.time.MonthDay"
+          case "period"         => "java.time.Period"
+          case "year"           => "java.time.Year"
+          case "yearMonth"      => "java.time.YearMonth"
+          case "zoneId"         => "java.time.ZoneId"
+          case "zoneOffset"     => "java.time.ZoneOffset"
+          case "duration"       => "java.time.Duration"
+          case "instant"        => "java.time.Instant"
+          case "localDate"      => "java.time.LocalDate"
+          case "localTime"      => "java.time.LocalTime"
+          case "localDateTime"  => "java.time.LocalDateTime"
+          case "offsetTime"     => "java.time.OffsetTime"
+          case "offsetDateTime" => "java.time.OffsetDateTime"
+          case "zonedDateTime"  => "java.time.ZonedDateTime"
+          case "uuid"           => "java.util.UUID"
+          case "currency"       => "java.util.Currency"
+          case other            => other
+        }
+        TypeId.parse(typeName)
+      case Transform(schema, _, _, _, _) => getTypeId(schema)
+      case Lazy(schema0)                 => getTypeId(schema0())
+      case Optional(schema, _)           => TypeId.parse("scala.Option")
+      case Sequence(_, _, _, _, identity) =>
+        identity match {
+          case s: String if s == "Chunk"         => TypeId.parse("zio.Chunk")
+          case s: String if s == "List"          => TypeId.parse("scala.collection.immutable.List")
+          case s: String if s == "Vector"        => TypeId.parse("scala.collection.immutable.Vector")
+          case s: String if s == "Set"           => TypeId.parse("scala.collection.immutable.Set")
+          case s: String if s == "NonEmptyChunk" => TypeId.parse("zio.NonEmptyChunk")
+          case s: String                         => TypeId.parse(s)
+          case _                                 => TypeId.parse("zio.Chunk")
+        }
+      case NonEmptySequence(_, _, _, _, identity) =>
+        identity match {
+          case s: String if s == "NonEmptyChunk" => TypeId.parse("zio.NonEmptyChunk")
+          case s: String if s == "NonEmptySet"   => TypeId.parse("zio.prelude.NonEmptySet")
+          case s: String                         => TypeId.parse(s)
+          case _                                 => TypeId.parse("zio.NonEmptyChunk")
+        }
+      case _: Set[_]            => TypeId.parse("scala.collection.immutable.Set")
+      case _: Map[_, _]         => TypeId.parse("scala.collection.immutable.Map")
+      case _: NonEmptyMap[_, _] => TypeId.parse("zio.prelude.NonEmptyMap")
+      case _: Tuple2[_, _]      => TypeId.parse("scala.Tuple2")
+      case _: Either[_, _]      => TypeId.parse("scala.Either")
+      case _: Fallback[_, _]    => TypeId.parse("zio.schema.Fallback")
+      case _: Dynamic           => TypeId.parse("zio.schema.DynamicValue")
+      case Fail(_, _)           => TypeId.Structural
+    }
+
   def record(id: TypeId, fields: Field[ListMap[String, _], _]*): Schema[ListMap[String, _]] =
     GenericRecord(id, FieldSet(fields: _*))
 
