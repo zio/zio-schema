@@ -110,6 +110,9 @@ lazy val root = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
+    zioSchemaXmlJS,
+    zioSchemaXmlJVM,
+    zioSchemaXml.native,
     docs
   )
 
@@ -296,6 +299,57 @@ lazy val zioSchemaProtobufJS = zioSchemaProtobuf.js
 
 lazy val zioSchemaProtobufJVM = zioSchemaProtobuf.jvm
 
+lazy val zioSchemaXml = crossProject(JSPlatform, JVMPlatform, NativePlatform)
+  .in(file("zio-schema-xml"))
+  .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
+  .settings(stdSettings("zio-schema-xml"))
+  .settings(dottySettings)
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.xml"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scala-lang.modules" %%% "scala-xml" % scalaXmlVersion
+    )
+  )
+  .jvmSettings(
+    libraryDependencies ++= {
+      if (scalaVersion.value.startsWith("3.")) {
+        Seq(
+          "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"         % Test,
+          "javax.xml.bind"         % "jaxb-api"                  % "2.3.1"         % Test,
+          "org.scala-lang.modules" %% "scala-xml"                % scalaXmlVersion % Test
+        )
+      } else {
+        Seq(
+          "org.scalaxb"            %% "scalaxb"                  % "1.11.1"        % Test,
+          "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0"         % Test,
+          "javax.xml.bind"         % "jaxb-api"                  % "2.3.1"         % Test,
+          "org.scala-lang.modules" %% "scala-xml"                % scalaXmlVersion % Test
+        )
+      }
+    }
+  )
+  .nativeSettings(
+    Test / fork := false,
+    libraryDependencies ++= Seq(
+      "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
+    )
+  )
+  .jsSettings(
+    libraryDependencies ++= Seq(
+      "io.github.cquiroz" %%% "scala-java-time"      % scalaJavaTimeVersion,
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
+    )
+  )
+  .settings(testDeps)
+  .settings(
+    mimaPreviousArtifacts := Set()
+  )
+
+lazy val zioSchemaXmlJS     = zioSchemaXml.js
+lazy val zioSchemaXmlJVM    = zioSchemaXml.jvm
+lazy val zioSchemaXmlNative = zioSchemaXml.native
+
 lazy val zioSchemaThrift = project
   .in(file("zio-schema-thrift"))
   .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
@@ -480,7 +534,8 @@ lazy val docs = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
-    zioSchemaThrift
+    zioSchemaThrift,
+    zioSchemaXmlJVM
   )
   .enablePlugins(WebsitePlugin)
 
