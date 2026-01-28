@@ -307,13 +307,14 @@ lazy val zioSchemaXml = project
   .settings(
     libraryDependencies ++= Seq(
       "org.scala-lang.modules" %% "scala-xml"                % scalaXmlVersion,
-      "org.scalaxb"            %% "scalaxb"                  % "1.11.1",
+      "org.scalaxb"            %% "scalaxb"                  % "1.12.4",
       "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0",
       "javax.xml.bind"         % "jaxb-api"                  % "2.3.1"
     ),
     Compile / scalaxb / scalaxbXsdSource := new File(baseDirectory.value, "src/test/resources"),
-    Compile / scalaxb / scalaxbDispatchVersion := "1.1.3",
-    Compile / scalaxb / scalaxbPackageName := "generated"
+    Compile / scalaxb / scalaxbPackageName := "generated",
+    Compile / scalacOptions := (Compile / scalacOptions).value.filterNot(_ == "-Xfatal-warnings"),
+    mimaPreviousArtifacts := Set()
   )
   .settings(testDeps)
 

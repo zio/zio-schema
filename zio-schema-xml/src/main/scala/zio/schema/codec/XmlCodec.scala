@@ -110,24 +110,42 @@ object XmlCodec {
 
       case Schema.Optional(innerSchema, _) =>
         value.asInstanceOf[Option[Any]] match {
-          case Some(v) => encodeNode(v, innerSchema, name, config)
+          case Some(v) => encodeNode(v, innerSchema.asInstanceOf[Schema[Any]], name, config)
           case None    => if (config.omitEmptyElements) Seq.empty else Seq(Elem(null, name, Null, TopScope, true))
         }
 
       case Schema.Sequence(elementSchema, _, g, _, _) =>
-        encodeSequence(g(value), elementSchema, name, config)
+        encodeSequence(g(value), elementSchema.asInstanceOf[Schema[Any]], name, config)
 
       case Schema.Map(keySchema, valueSchema, _) =>
-        encodeMap(value.asInstanceOf[Map[Any, Any]], keySchema, valueSchema, name, config)
+        encodeMap(
+          value.asInstanceOf[Map[Any, Any]],
+          keySchema.asInstanceOf[Schema[Any]],
+          valueSchema.asInstanceOf[Schema[Any]],
+          name,
+          config
+        )
 
       case Schema.Set(elementSchema, _) =>
-        encodeSet(value.asInstanceOf[Set[Any]], elementSchema, name, config)
+        encodeSet(value.asInstanceOf[Set[Any]], elementSchema.asInstanceOf[Schema[Any]], name, config)
 
       case Schema.Either(leftSchema, rightSchema, _) =>
-        encodeEither(value.asInstanceOf[Either[Any, Any]], leftSchema, rightSchema, name, config)
+        encodeEither(
+          value.asInstanceOf[Either[Any, Any]],
+          leftSchema.asInstanceOf[Schema[Any]],
+          rightSchema.asInstanceOf[Schema[Any]],
+          name,
+          config
+        )
 
       case Schema.Tuple2(leftSchema, rightSchema, _) =>
-        encodeTuple(value.asInstanceOf[(Any, Any)], leftSchema, rightSchema, name, config)
+        encodeTuple(
+          value.asInstanceOf[(Any, Any)],
+          leftSchema.asInstanceOf[Schema[Any]],
+          rightSchema.asInstanceOf[Schema[Any]],
+          name,
+          config
+        )
 
       case Schema.Transform(codec, _, g, _, _) =>
         g(value) match {
@@ -432,13 +450,19 @@ object XmlCodec {
           }
 
         case Schema.Sequence(elementSchema, fromChunk, _, _, _) =>
-          decodeSequence(nodes, elementSchema, fromChunk, config, path)
+          decodeSequence(
+            nodes,
+            elementSchema.asInstanceOf[Schema[Any]],
+            fromChunk.asInstanceOf[Chunk[Any] => A],
+            config,
+            path
+          )
 
         case Schema.Map(keySchema, valueSchema, _) =>
           decodeMap(nodes, keySchema, valueSchema, config, path)
 
         case Schema.Set(elementSchema, _) =>
-          decodeSet(nodes, elementSchema, config, path)
+          decodeSet(nodes, elementSchema.asInstanceOf[Schema[Any]], config, path).asInstanceOf[Either[DecodeError, A]]
 
         case Schema.Either(leftSchema, rightSchema, _) =>
           decodeEither(nodes, leftSchema, rightSchema, config, path)

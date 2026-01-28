@@ -7,7 +7,6 @@ import scala.xml._
 import zio.schema.StandardType._
 import zio.schema._
 import zio.schema.annotation.validate
-import zio.schema.codec.XmlAnnotations
 import zio.schema.validation.Validation
 import zio.{ Cause, Chunk }
 
@@ -111,7 +110,7 @@ object XmlSchemaCodec extends XmlSchemaCodec {
       case Schema.Sequence(elemSchema, _, _, _, _) =>
         collectDefinitions(elemSchema, visited)
       case Schema.Map(k, v, _) =>
-        collectMapDefinitions(k, v, visited)
+        collectMapDefinitions(k.asInstanceOf[Schema[Any]], v.asInstanceOf[Schema[Any]], visited)
       case Schema.Optional(inner, _)       => collectDefinitions(inner, visited)
       case Schema.Lazy(inner)              => collectDefinitions(inner(), visited)
       case Schema.Transform(s, _, _, _, _) => collectDefinitions(s, visited)
@@ -148,13 +147,12 @@ object XmlSchemaCodec extends XmlSchemaCodec {
     }
   }
 
-  private def collectEnumDefinitions(enum: Schema.Enum[_], visited: Set[String]): (List[Node], String) = {
-    val name = s"${getRootName(enum)}Type"
+  private def collectEnumDefinitions(`enum`: Schema.Enum[_], visited: Set[String]): (List[Node], String) = {
+    val name = s"${getRootName(`enum`)}Type"
     if (visited(name)) {
       (Nil, name)
     } else {
-      // Check if this is a simple string enumeration
-      val isSimpleEnum = enum.cases.forall { c =>
+      val isSimpleEnum = `enum`.cases.forall { c =>
         c.schema match {
           case Schema.Primitive(_, _)                  => true
           case r: Schema.Record[_] if r.fields.isEmpty => true
@@ -162,8 +160,8 @@ object XmlSchemaCodec extends XmlSchemaCodec {
         }
       }
 
-      if (isSimpleEnum && enum.cases.nonEmpty) {
-        val enumerationNodes = enum.cases.map { c =>
+      if (isSimpleEnum && `enum`.cases.nonEmpty) {
+        val enumerationNodes = `enum`.cases.map { c =>
           elem("xs:enumeration", "value" -> c.id)
         }
         val restriction = elem(
@@ -174,7 +172,7 @@ object XmlSchemaCodec extends XmlSchemaCodec {
         val simpleType = elem("xs:simpleType", List("name" -> name), restriction)
         (List(simpleType), name)
       } else {
-        val (allCaseDefs, caseElems) = enum.cases.foldLeft((List.empty[Node], List.empty[Node])) { (acc, c) =>
+        val (allCaseDefs, caseElems) = `enum`.cases.foldLeft((List.empty[Node], List.empty[Node])) { (acc, c) =>
           val (defs, _) = collectDefinitions(c.schema, visited + name)
           val caseType  = schemaTypeName(c.schema, c.id)
           val caseElem  = elem("xs:element", "name" -> c.id, "type" -> caseType)
@@ -704,10 +702,11 @@ object XmlSchemaCodec extends XmlSchemaCodec {
     if (validation == Validation.succeed) schema else schema.asInstanceOf[Schema[Any]].annotate(validate(validation))
 
   private def decodeEnumeration(typeName: String, enumerations: NodeSeq): Either[DecodeError, Schema[_]] = {
-    val cases = enumerations.map { n =>
+    val casesList = enumerations.map { n =>
       val v = n \@ "value"
       Schema.Case[String, String](v, Schema[String], _.asInstanceOf[String], identity, (s: String) => s == v)
-    }.to(Chunk)
+    }
+    val cases = Chunk.fromIterable(casesList)
 
     val caseSet = cases.foldRight[CaseSet.Aux[String]](CaseSet.Empty[String]()) { (c, cs) =>
       CaseSet.Cons(c, cs)
