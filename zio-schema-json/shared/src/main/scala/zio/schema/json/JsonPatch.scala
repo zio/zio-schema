@@ -3,6 +3,7 @@ package zio.schema.json
 import zio.schema.DynamicValue
 
 sealed trait JsonPatch {
+
   def apply(target: DynamicValue): Either[String, DynamicValue] = this match {
     case JsonPatch.Add(path, value) =>
       val key = path.stripPrefix("/")
@@ -12,7 +13,7 @@ sealed trait JsonPatch {
         target match {
           case DynamicValue.Record(id, fields) =>
             Right(DynamicValue.Record(id, fields.updated(key, value)))
-          case _ => 
+          case _ =>
             Left("expected record")
         }
       }
@@ -29,7 +30,7 @@ sealed trait JsonPatch {
             } else {
               Left(s"path $key not found")
             }
-          case _ => 
+          case _ =>
             Left("expected record")
         }
       }
