@@ -1,8 +1,9 @@
 package zio.schema.json
 
+import scala.collection.immutable.ListMap
+
 import zio.schema.{ DynamicValue, TypeId }
 import zio.test._
-import scala.collection.immutable.ListMap
 
 object JsonPatchSpec extends ZIOSpecDefault {
   override def spec: Spec[Any, Any] = suite("JsonPatch Spec")(
