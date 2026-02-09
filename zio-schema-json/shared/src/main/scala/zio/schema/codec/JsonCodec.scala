@@ -422,7 +422,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       }
   }
 
-  private[codec] def constructEnumCase[Z, A](case_ : Schema.Case[Z, A]): Z =
+  private def constructEnumCase[Z, A](case_ : Schema.Case[Z, A]): Z =
     case_.schema match {
       case cc: Schema.CaseClass0[A] =>
         case_.construct(cc.defaultConstruct())
@@ -952,7 +952,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
               new JsonFieldDecoder[Z] {
                 private[this] val stringMatrix = new StringMatrix(caseNameAliases.keys.toArray)
                 private[this] val cases =
-                  caseNameAliases.values.map(constructEnumCase[Z, Any]).toArray[Any].asInstanceOf[Array[Z]]
+                  caseNameAliases.values.map(constructEnumCase[Z, Any]).toVector
 
                 override def unsafeDecodeField(trace: List[JsonError], in: String): Z = {
                   val idx = Lexer.enumeration(trace, new FastStringReader("\"" + in + "\""), stringMatrix)
