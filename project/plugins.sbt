@@ -10,7 +10,7 @@ addSbtPlugin("org.portable-scala" % "sbt-scala-native-crossproject" % "1.3.2")
 addSbtPlugin("org.scala-native"   % "sbt-scala-native"              % "0.5.10")
 addSbtPlugin("pl.project13.scala" % "sbt-jmh"                       % "0.4.8")
 addSbtPlugin("dev.zio"            % "zio-sbt-website"               % "0.4.10")
-addSbtPlugin("com.typesafe"       % "sbt-mima-plugin"               % "1.1.4")
+addSbtPlugin("com.typesafe"       % "sbt-mima-plugin"               % "1.1.5")
 addSbtPlugin("org.scoverage"      % "sbt-scoverage"                 % "2.4.4")
 
 libraryDependencies += "org.snakeyaml" % "snakeyaml-engine" % "3.0.1"
