@@ -110,6 +110,7 @@ lazy val root = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
+    zioSchemaXml,
     docs
   )
 
@@ -296,6 +297,27 @@ lazy val zioSchemaProtobufJS = zioSchemaProtobuf.js
 
 lazy val zioSchemaProtobufJVM = zioSchemaProtobuf.jvm
 
+lazy val zioSchemaXml = project
+  .in(file("zio-schema-xml"))
+  .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
+  .settings(stdSettings("zio-schema-xml"))
+  .settings(dottySettings)
+  .settings(buildInfoSettings("zio.schema.xml"))
+  .enablePlugins(ScalaxbPlugin)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scala-lang.modules" %% "scala-xml"                % scalaXmlVersion,
+      "org.scalaxb"            %% "scalaxb"                  % "1.12.4",
+      "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0",
+      "javax.xml.bind"         % "jaxb-api"                  % "2.3.1"
+    ),
+    Compile / scalaxb / scalaxbXsdSource := new File(baseDirectory.value, "src/test/resources"),
+    Compile / scalaxb / scalaxbPackageName := "generated",
+    Compile / scalacOptions := (Compile / scalacOptions).value.filterNot(_ == "-Xfatal-warnings"),
+    mimaPreviousArtifacts := Set()
+  )
+  .settings(testDeps)
+
 lazy val zioSchemaThrift = project
   .in(file("zio-schema-thrift"))
   .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
@@ -480,7 +502,8 @@ lazy val docs = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
-    zioSchemaThrift
+    zioSchemaThrift,
+    zioSchemaXml
   )
   .enablePlugins(WebsitePlugin)
 
