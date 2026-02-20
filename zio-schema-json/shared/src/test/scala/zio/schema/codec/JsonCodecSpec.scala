@@ -34,6 +34,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     suite("JsonCodec Spec")(
       encoderSuite,
       decoderSuite,
+      trailingCharactersSuite,
       encoderDecoderSuite
     ) @@ timeout(180.seconds)
 
@@ -1598,6 +1599,60 @@ object JsonCodecSpec extends ZIOSpecDefault {
         )
       }
     )
+  )
+  private val trailingCharactersSuite = suite("trailing characters")(
+    test("object") {
+      implicit val jc: zio.json.JsonCodec[Person] = JsonCodec.jsonCodec(personSchema)
+      val bc                                      = JsonCodec.zioJsonBinaryCodec[Person]
+      assertTrue(
+        bc.decode(Chunk.fromArray("""{"name":"Alice","age":30}}""".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+          .isLeft,
+        bc.decode(Chunk.fromArray("""{"name":"Alice","age":30}""".getBytes(java.nio.charset.StandardCharsets.UTF_8))) == Right(
+          Person("Alice", 30)
+        )
+      )
+    },
+    test("string") {
+      implicit val jc: zio.json.JsonCodec[String] = JsonCodec.jsonCodec(Schema[String])
+      val bc                                      = JsonCodec.zioJsonBinaryCodec[String]
+      assertTrue(
+        bc.decode(Chunk.fromArray("\"foo\"\"".getBytes(java.nio.charset.StandardCharsets.UTF_8))).isLeft,
+        bc.decode(Chunk.fromArray("\"foo\"".getBytes(java.nio.charset.StandardCharsets.UTF_8))) == Right("foo")
+      )
+    },
+    test("array") {
+      implicit val jc: zio.json.JsonCodec[List[Int]] = JsonCodec.jsonCodec(Schema[List[Int]])
+      val bc                                         = JsonCodec.zioJsonBinaryCodec[List[Int]]
+      assertTrue(
+        bc.decode(Chunk.fromArray("[1,2]]".getBytes(java.nio.charset.StandardCharsets.UTF_8))).isLeft,
+        bc.decode(Chunk.fromArray("[1,2]".getBytes(java.nio.charset.StandardCharsets.UTF_8))) == Right(List(1, 2))
+      )
+    },
+    test("whitespace then garbage") {
+      implicit val jc: zio.json.JsonCodec[Int] = JsonCodec.jsonCodec(Schema[Int])
+      val bc                                   = JsonCodec.zioJsonBinaryCodec[Int]
+      assertTrue(
+        bc.decode(Chunk.fromArray("42 x".getBytes(java.nio.charset.StandardCharsets.UTF_8))).isLeft,
+        bc.decode(Chunk.fromArray("42   ".getBytes(java.nio.charset.StandardCharsets.UTF_8))) == Right(42)
+      )
+    },
+    test("multiple trailing") {
+      implicit val jc: zio.json.JsonCodec[Boolean] = JsonCodec.jsonCodec(Schema[Boolean])
+      val bc                                       = JsonCodec.zioJsonBinaryCodec[Boolean]
+      assertTrue(
+        bc.decode(Chunk.fromArray("true}}".getBytes(java.nio.charset.StandardCharsets.UTF_8))).isLeft
+      )
+    },
+    test("empty with trailing") {
+      implicit val jc: zio.json.JsonCodec[Map[String, String]] = JsonCodec.jsonCodec(Schema[Map[String, String]])
+      val bc                                                   = JsonCodec.zioJsonBinaryCodec[Map[String, String]]
+      assertTrue(
+        bc.decode(Chunk.fromArray("{}}}".getBytes(java.nio.charset.StandardCharsets.UTF_8))).isLeft,
+        bc.decode(Chunk.fromArray("{}".getBytes(java.nio.charset.StandardCharsets.UTF_8))) == Right(
+          Map.empty[String, String]
+        )
+      )
+    }
   )
 
   private val encoderDecoderSuite = suite("encoding then decoding")(
