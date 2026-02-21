@@ -1,5 +1,82 @@
 package zio.schema.codec
 
+// ---------------------------------------------------------------------------
+// GeoJSON-inspired ADT used by the hierarchical-enum tests below.
+// Leaf classes exist at BOTH level-1 (Feature, FeatureCollection) and
+// level-2 (Point, MultiPoint, …, GeometryCollection under Geometry).
+// Coordinates use proper data types — not bare case-objects — so the ADT
+// exercises non-trivial multi-level sealed-trait JSON round-trips.
+// ---------------------------------------------------------------------------
+private object GeoJsonTestData {
+
+  sealed trait GeoJSON
+  object GeoJSON {
+
+    /** Intermediate sealed trait — leaves of this are at hierarchy level 2. */
+    sealed trait Geometry extends GeoJSON
+    object Geometry {
+      final case class Point(coordinates: (Double, Double))                           extends Geometry
+      final case class MultiPoint(coordinates: List[(Double, Double)])                extends Geometry
+      final case class LineString(coordinates: List[(Double, Double)])                extends Geometry
+      final case class MultiLineString(coordinates: List[List[(Double, Double)]])     extends Geometry
+      final case class Polygon(coordinates: List[List[(Double, Double)]])             extends Geometry
+      final case class MultiPolygon(coordinates: List[List[List[(Double, Double)]]])  extends Geometry
+      final case class GeometryCollection(geometries: List[Geometry])                extends Geometry
+
+      implicit lazy val schema: Schema[Geometry] = DeriveSchema.gen[Geometry]
+    }
+
+    /** Direct leaves of GeoJSON — hierarchy level 1. */
+    final case class Feature(
+      geometry: Option[Geometry],
+      properties: Option[Map[String, String]],
+      bbox: Option[(Double, Double, Double, Double)]
+    ) extends GeoJSON
+
+    final case class FeatureCollection(
+      features: List[Feature],
+      bbox: Option[(Double, Double, Double, Double)]
+    ) extends GeoJSON
+
+    implicit lazy val schema: Schema[GeoJSON] = DeriveSchema.gen[GeoJSON]
+  }
+
+  import GeoJSON._
+  import GeoJSON.Geometry._
+
+  val allCases: List[GeoJSON] = List(
+    // level-2 leaves (geometry subtypes — exercises hierarchical enum decoding)
+    Point((102.0, 0.5)),
+    MultiPoint(List((0.0, 0.0), (1.0, 1.0))),
+    LineString(List((102.0, 0.0), (103.0, 1.0), (104.0, 0.0))),
+    MultiLineString(List(List((0.0, 0.0), (1.0, 1.0)), List((2.0, 2.0), (3.0, 3.0)))),
+    Polygon(List(List((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0)))),
+    MultiPolygon(
+      List(List(List((102.0, 2.0), (103.0, 2.0), (103.0, 3.0), (102.0, 3.0), (102.0, 2.0))))
+    ),
+    GeometryCollection(List(Point((100.0, 0.0)), LineString(List((101.0, 0.0), (102.0, 1.0))))),
+    // level-1 leaves that wrap level-2 geometry
+    Feature(Some(Point((102.0, 0.5))), Some(Map("prop0" -> "value0")), None),
+    Feature(
+      Some(LineString(List((102.0, 0.0), (103.0, 1.0)))),
+      Some(Map("prop0" -> "value0", "prop1" -> "0.0")),
+      Some((100.0, 0.0, 105.0, 1.0))
+    ),
+    Feature(None, None, None),
+    FeatureCollection(
+      List(
+        Feature(
+          Some(MultiPolygon(List(List(List((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)))))),
+          None,
+          None
+        )
+      ),
+      None
+    ),
+    FeatureCollection(List.empty, Some((-180.0, -90.0, 180.0, 90.0)))
+  )
+}
+
 import java.time.{ ZoneId, ZoneOffset }
 
 import scala.collection.immutable.ListMap
