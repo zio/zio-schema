@@ -180,7 +180,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         ) >>> splitOnJsonBoundary >>>
           ZPipeline.mapEitherChunked { (s: String) =>
             jsonCodec.decodeJson(s).left.map(failure => DecodeError.ReadError(Cause.empty, failure))
-          }
+      private def constructEnumCase[Z, A](case_ : Schema.Case[Z, A]): Z =
 
       override def encode(value: A): Chunk[Byte] =
         JsonEncoder.charSequenceToByteChunk(jsonCodec.encodeJson(value, None))
@@ -949,8 +949,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
             val caseNameAliases =
               JsonDecoder.caseNameAliases(enum0, cfg)
             if (caseNameAliases.size <= 64) {
-              new JsonFieldDecoder[Z] {
-                private[this] val stringMatrix = new StringMatrix(caseNameAliases.keys.toArray)
+                  caseNameAliases.values.map(constructEnumCase[Z, Any]).toVector
                 private[this] val cases =
                   caseNameAliases.values.map(constructEnumCase[Z, Any]).toVector
 
