@@ -35,6 +35,35 @@ object JsonCodecSpec668 extends ZIOSpecDefault {
     implicit val schema: Schema[Vehicle] = DeriveSchema.gen[Vehicle]
   }
 
+  // GeoJSON-inspired ADT with leaf classes at different hierarchy levels.
+  // Level 1 leaves: Feature, FeatureCollection (directly extend GeoJSON)
+  // Level 2 leaves: Point, LineString, Polygon (extend Geometry which extends GeoJSON)
+  // This exercises the fix for hierarchical enums with non-trivial data fields.
+  sealed trait GeoJSON
+
+  object GeoJSON {
+    sealed trait Geometry extends GeoJSON
+
+    object Geometry {
+      final case class Point(coordinates: (Double, Double))               extends Geometry
+      final case class LineString(coordinates: List[(Double, Double)])    extends Geometry
+      final case class Polygon(coordinates: List[List[(Double, Double)]]) extends Geometry
+
+      implicit lazy val schema: Schema[Geometry] = DeriveSchema.gen[Geometry]
+    }
+
+    final case class Feature(
+      geometry: Option[Geometry],
+      properties: Map[String, String]
+    ) extends GeoJSON
+
+    final case class FeatureCollection(
+      features: List[Feature]
+    ) extends GeoJSON
+
+    implicit lazy val schema: Schema[GeoJSON] = DeriveSchema.gen[GeoJSON]
+  }
+
   override def spec: Spec[Any, Nothing] = suite("JsonCodec Issue #668 - Hierarchical Enums")(
     test("should encode case object from intermediate sealed trait") {
       val codec         = JsonCodec.jsonCodec(Animal.schema)
@@ -72,6 +101,93 @@ object JsonCodecSpec668 extends ZIOSpecDefault {
         result == Right(value),
         reencoded == Right(json)
       )
-    }
+    },
+    suite("GeoJSON multi-level hierarchy")(
+      test("should round-trip level-2 leaf: Point") {
+        val codec          = JsonCodec.jsonCodec(GeoJSON.schema)
+        val value: GeoJSON = GeoJSON.Geometry.Point((102.0, 0.5))
+
+        val encoded = codec.encoder.encodeJson(value, None)
+        val decoded = codec.decoder.decodeJson(encoded)
+
+        assertTrue(decoded == Right(value))
+      },
+      test("should round-trip level-2 leaf: LineString") {
+        val codec          = JsonCodec.jsonCodec(GeoJSON.schema)
+        val value: GeoJSON = GeoJSON.Geometry.LineString(List((102.0, 0.0), (103.0, 1.0), (104.0, 0.0)))
+
+        val encoded = codec.encoder.encodeJson(value, None)
+        val decoded = codec.decoder.decodeJson(encoded)
+
+        assertTrue(decoded == Right(value))
+      },
+      test("should round-trip level-2 leaf: Polygon") {
+        val codec = JsonCodec.jsonCodec(GeoJSON.schema)
+        val value: GeoJSON = GeoJSON.Geometry.Polygon(
+          List(List((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0)))
+        )
+
+        val encoded = codec.encoder.encodeJson(value, None)
+        val decoded = codec.decoder.decodeJson(encoded)
+
+        assertTrue(decoded == Right(value))
+      },
+      test("should round-trip level-1 leaf: Feature with geometry") {
+        val codec = JsonCodec.jsonCodec(GeoJSON.schema)
+        val value: GeoJSON = GeoJSON.Feature(
+          Some(GeoJSON.Geometry.Point((102.0, 0.5))),
+          Map("name" -> "test")
+        )
+
+        val encoded = codec.encoder.encodeJson(value, None)
+        val decoded = codec.decoder.decodeJson(encoded)
+
+        assertTrue(decoded == Right(value))
+      },
+      test("should round-trip level-1 leaf: Feature without geometry") {
+        val codec          = JsonCodec.jsonCodec(GeoJSON.schema)
+        val value: GeoJSON = GeoJSON.Feature(None, Map.empty)
+
+        val encoded = codec.encoder.encodeJson(value, None)
+        val decoded = codec.decoder.decodeJson(encoded)
+
+        assertTrue(decoded == Right(value))
+      },
+      test("should round-trip level-1 leaf: FeatureCollection") {
+        val codec = JsonCodec.jsonCodec(GeoJSON.schema)
+        val value: GeoJSON = GeoJSON.FeatureCollection(
+          List(
+            GeoJSON.Feature(Some(GeoJSON.Geometry.Point((1.0, 2.0))), Map("a" -> "b")),
+            GeoJSON.Feature(Some(GeoJSON.Geometry.LineString(List((0.0, 0.0), (1.0, 1.0)))), Map.empty)
+          )
+        )
+
+        val encoded = codec.encoder.encodeJson(value, None)
+        val decoded = codec.decoder.decodeJson(encoded)
+
+        assertTrue(decoded == Right(value))
+      },
+      test("should round-trip all GeoJSON variants and re-encode stably") {
+        val codec = JsonCodec.jsonCodec(GeoJSON.schema)
+
+        val cases: List[GeoJSON] = List(
+          GeoJSON.Geometry.Point((1.0, 2.0)),
+          GeoJSON.Geometry.LineString(List((0.0, 0.0), (1.0, 1.0))),
+          GeoJSON.Geometry.Polygon(List(List((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)))),
+          GeoJSON.Feature(Some(GeoJSON.Geometry.Point((3.0, 4.0))), Map("key" -> "val")),
+          GeoJSON.Feature(None, Map.empty),
+          GeoJSON.FeatureCollection(List(GeoJSON.Feature(None, Map.empty)))
+        )
+
+        val results = cases.map { value =>
+          val json      = codec.encoder.encodeJson(value, None)
+          val decoded   = codec.decoder.decodeJson(json)
+          val reencoded = decoded.map(r => codec.encoder.encodeJson(r, None))
+          (decoded == Right(value), reencoded == Right(json))
+        }
+
+        assertTrue(results.forall { case (d, r) => d && r })
+      }
+    )
   )
 }
