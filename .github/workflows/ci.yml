@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: ['temurin:17', 'temurin:21']
+        java: ['temurin:17', 'temurin:21', 'temurin:25']
         scala: ['2.12.21', '2.13.18', '3.3.7']
         platform: ['JVM', 'Native', 'JS']
     steps:
