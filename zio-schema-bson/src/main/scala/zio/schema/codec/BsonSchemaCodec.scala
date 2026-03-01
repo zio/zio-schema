@@ -574,7 +574,17 @@ object BsonSchemaCodec {
         case Schema.Primitive(StandardType.StringType, _) => Option(BsonFieldEncoder.string)
         case Schema.Primitive(StandardType.LongType, _)   => Option(BsonFieldEncoder.long)
         case Schema.Primitive(StandardType.IntType, _)    => Option(BsonFieldEncoder.int)
-        case _                                            => None
+        case Schema.Transform(inner, _, g, _, _) =>
+          bsonFieldEncoder(inner).map { enc =>
+            val f: A => Any = { a =>
+              g(a) match {
+                case Right(b)    => b
+                case Left(error) => throw new IllegalArgumentException(s"Failed to encode map key: $error")
+              }
+            }
+            enc.asInstanceOf[BsonFieldEncoder[Any]].contramap(f)
+          }
+        case _ => None
       }
 
     private[codec] def mapEncoder[K, V](config: Config)(ks: Schema[K], vs: Schema[V]): BsonEncoder[Map[K, V]] = {
@@ -912,7 +922,9 @@ object BsonSchemaCodec {
         case Schema.Primitive(StandardType.StringType, _) => Some(BsonFieldDecoder.string)
         case Schema.Primitive(StandardType.LongType, _)   => Some(BsonFieldDecoder.long)
         case Schema.Primitive(StandardType.IntType, _)    => Some(BsonFieldDecoder.int)
-        case _                                            => None
+        case Schema.Transform(inner, f, _, _, _) =>
+          bsonFieldDecoder(inner).map(dec => dec.mapOrFail(f))
+        case _ => None
       }
 
     private def dynamicDecoder(config: Config)(schema: Schema.Dynamic): BsonDecoder[DynamicValue] = {

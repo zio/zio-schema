@@ -86,6 +86,27 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
       } yield Customer(id, name, age, friends)
   }
 
+  case class WrappedString(value: String) extends AnyVal
+  case class MapWithWrappedKey(data: Map[WrappedString, Int])
+
+  object MapWithWrappedKey {
+    implicit lazy val wrappedStringSchema: Schema[WrappedString] =
+      Schema.primitive[String].transform(WrappedString(_), _.value)
+
+    implicit lazy val schema: Schema[MapWithWrappedKey]   = DeriveSchema.gen
+    implicit lazy val codec: BsonCodec[MapWithWrappedKey] = BsonSchemaCodec.bsonCodec(schema)
+
+    val example: MapWithWrappedKey = MapWithWrappedKey(
+      data = Map(
+        WrappedString("key1") -> 1,
+        WrappedString("key2") -> 2
+      )
+    )
+
+    lazy val gen: Gen[Sized, MapWithWrappedKey] =
+      Gen.mapOf(Gen.string.map(WrappedString(_)), Gen.int).map(MapWithWrappedKey(_))
+  }
+
   // Custom generator for BigDecimal values with rounding to ensure exact representation as Decimal128
   def genRoundedBigDecimal(scale: Int): Gen[Any, BigDecimal] =
     Gen.double.map(d => BigDecimal(d).setScale(scale, BigDecimal.RoundingMode.HALF_UP))
@@ -124,6 +145,16 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
         genRoundedBigDecimal(14).map(BigDecimalClass(_)),
         BigDecimalClass(BigDecimal("279.00000000000000")),
         doc("value" -> new BsonDecimal128(Decimal128.parse("279.00000000000000")))
+      ),
+      roundTripTest("MapWithWrappedKey")(
+        MapWithWrappedKey.gen,
+        MapWithWrappedKey.example,
+        doc(
+          "data" -> doc(
+            "key1" -> int(1),
+            "key2" -> int(2)
+          )
+        )
       )
     ),
     suite("configuration")(
