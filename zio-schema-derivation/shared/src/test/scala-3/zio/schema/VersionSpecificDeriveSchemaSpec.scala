@@ -65,6 +65,10 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
     case A extends NonSimpleEnum5(0, "")
     case B(n: Int) extends NonSimpleEnum5(n, "")
 
+  trait ExtraTrait
+  enum EnumWithTraitMixin(val name: String):
+    case MixedCase extends EnumWithTraitMixin("Name") with ExtraTrait
+
   def versionSpecificSuite = Spec.labeled(
     "Scala 3 specific tests",
     suite("Derivation")(
@@ -137,6 +141,10 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
           objectWithDoc.annotations.find(_.isInstanceOf[description]) == Some(description("/** ObjectWithDoc doc */")),
           )
       },
+      test("correctly derives enum case extending additional trait") {
+        val schema = DeriveSchema.gen[EnumWithTraitMixin]
+        assertTrue(schema.isInstanceOf[Schema.Enum[_]])
+      }
     )
   )
 }
