@@ -1597,6 +1597,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""null""")
         )
       }
+    ),
+    suite("NonEmptySequence")(
+      test("NonEmptyChunk decoder returns Left on empty JSON array") {
+        val schema  = Schema[NonEmptyChunk[String]]
+        val decoder = JsonCodec.schemaBasedBinaryCodec(schema).streamDecoder
+        val result  = ZStream.fromChunk(charSequenceToByteChunk("[]")).via(decoder).runCollect.either
+        assertZIO(result)(isLeft)
+      }
     )
   )
 

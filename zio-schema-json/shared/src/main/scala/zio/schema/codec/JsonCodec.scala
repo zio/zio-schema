@@ -872,7 +872,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       case Schema.Tuple2(left, right, _)                  => ZJsonDecoder.tuple2(schemaDecoder(left, config), schemaDecoder(right, config))
       case Schema.Transform(c, f, _, a, _)                => schemaDecoder(a.foldLeft(c)((s, a) => s.annotate(a)), config, discriminator).mapOrFail(f)
       case Schema.Sequence(codec, f, _, _, _)             => ZJsonDecoder.chunk(schemaDecoder(codec, config)).map(f)
-      case s @ Schema.NonEmptySequence(codec, _, _, _, _) => ZJsonDecoder.chunk(schemaDecoder(codec, config)).map(s.fromChunk)
+      case s @ Schema.NonEmptySequence(codec, _, _, _, _) => ZJsonDecoder.chunk(schemaDecoder(codec, config)).mapOrFail(chunk => s.fromChunkOption(chunk).toRight(s"${s.identity} expected"))
       case Schema.Map(ks, vs, _)                          => mapDecoder(config)(ks, vs)
       case Schema.NonEmptyMap(ks, vs, _)                  => mapDecoder(config)(ks, vs).mapOrFail(m => NonEmptyMap.fromMapOption(m).toRight("NonEmptyMap expected"))
       case Schema.Set(s, _)                               => ZJsonDecoder.set(schemaDecoder(s, config))

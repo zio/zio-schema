@@ -879,7 +879,7 @@ object BsonSchemaCodec {
       case Schema.Tuple2(left, right, _)                  => tuple2Decoder(schemaDecoder(config)(left), schemaDecoder(config)(right))
       case Schema.Transform(codec, f, _, _, _)            => schemaDecoder(config)(codec).mapOrFail(f)
       case Schema.Sequence(codec, f, _, _, _)             => chunkDecoder(schemaDecoder(config)(codec)).map(f)
-      case s @ Schema.NonEmptySequence(codec, _, _, _, _) => chunkDecoder(schemaDecoder(config)(codec)).map(s.fromChunk)
+      case s @ Schema.NonEmptySequence(codec, _, _, _, _) => chunkDecoder(schemaDecoder(config)(codec)).mapOrFail(chunk => s.fromChunkOption(chunk).toRight(s"${s.identity} expected"))
       case Schema.Map(ks, vs, _)                          => mapDecoder(config)(ks, vs)
       case s @ Schema.NonEmptyMap(ks, vs, _)              => mapDecoder(config)(ks, vs).map(s.fromMap)
       case Schema.Set(s, _)                               => chunkDecoder(schemaDecoder(config)(s)).map(entries => entries.toSet)
