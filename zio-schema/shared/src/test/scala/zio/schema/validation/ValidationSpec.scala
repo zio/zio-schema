@@ -129,8 +129,6 @@ object ValidationSpec extends ZIOSpecDefault {
             "b@.com",
             "",
             "1@.com",
-            "1@a.com",
-            "1@a.b.com",
             "a@@a.com",
             "a@b@c@example.com",
             "a@a..b.com",
@@ -141,7 +139,8 @@ object ValidationSpec extends ZIOSpecDefault {
             "the-local-part-too-long-over-64-so.invalid.123456789.123456789.a1@even.broad.definition.of.RFC5322.accepts.it",
             "postmaster@[123.123.123]",
             "postmaster@[IPv6:1200::AB00:1234::2552:7777:1313]",
-            "postmaster@[2001:cdba:0:0:0:0:3257:9652]"
+            "postmaster@[2001:cdba:0:0:0:0:3257:9652]",
+            ".user@example.com"
           )
         }
         val validationResult = (value: String) => Validation.email.validate(value)
@@ -164,7 +163,12 @@ object ValidationSpec extends ZIOSpecDefault {
             "a.b@a.com",
             "a..b@a.com",
             "postmaster@[123.123.123.123]",
-            "postmaster@[IPv6:2001:cdba:0:0:0:0:3257:9652]"
+            "postmaster@[IPv6:2001:cdba:0:0:0:0:3257:9652]",
+            "1@a.com",
+            "1@a.b.com",
+            "1user@example.com",
+            "user@example.museum",
+            "user@example.technology"
           )
         }
         val validationResult = (value: String) => Validation.email.validate(value)
