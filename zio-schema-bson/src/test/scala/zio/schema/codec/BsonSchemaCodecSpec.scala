@@ -11,7 +11,7 @@ import org.bson.{ BsonDecimal128, _ }
 
 import zio.bson.BsonBuilder._
 import zio.bson._
-import zio.schema.{ DeriveGen, DeriveSchema, Schema }
+import zio.schema.{ DeriveGen, DeriveSchema, Fallback, Schema }
 import zio.test._
 import zio.test.diff.Diff
 import zio.{ Chunk, Scope, Task, UIO, ZIO }
@@ -111,6 +111,9 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
   def genRoundedBigDecimal(scale: Int): Gen[Any, BigDecimal] =
     Gen.double.map(d => BigDecimal(d).setScale(scale, BigDecimal.RoundingMode.HALF_UP))
 
+  implicit lazy val fallbackCodec: BsonCodec[Fallback[String, Int]] =
+    BsonSchemaCodec.bsonCodec(Schema.fallback[String, Int])
+
   def spec: Spec[TestEnvironment with Scope, Any] = suite("BsonSchemaCodecSpec")(
     suite("round trip")(
       roundTripTest("SimpleClass")(
@@ -155,6 +158,21 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
             "key2" -> int(2)
           )
         )
+      ),
+      roundTripTest[Fallback[String, Int]]("Fallback.Left")(
+        Gen.string.map(s => Fallback.Left[String, Int](s)),
+        Fallback.Left[String, Int]("hello"),
+        str("hello")
+      ),
+      roundTripTest[Fallback[String, Int]]("Fallback.Right")(
+        Gen.int.map(i => Fallback.Right[String, Int](i)),
+        Fallback.Right[String, Int](42),
+        int(42)
+      ),
+      roundTripTest[Fallback[String, Int]]("Fallback.Both")(
+        Gen.string.zipWith(Gen.int)((s, i) => Fallback.Both[String, Int](s, i)),
+        Fallback.Both[String, Int]("hello", 42),
+        array(str("hello"), int(42))
       )
     ),
     suite("configuration")(
