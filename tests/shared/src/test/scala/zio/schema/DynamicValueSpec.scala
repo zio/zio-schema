@@ -100,6 +100,31 @@ object DynamicValueSpec extends ZIOSpecDefault {
             assertTrue(json2 == Right(json))
           }
         } @@ TestAspect.size(250) @@ TestAspect.ignore
+      ),
+      suite("deterministic hashCode")(
+        test("primitive hashCode uses type tag + value") {
+          def mix(acc: Int, value: Int): Int =
+            31 * acc + value
+
+          val dynamicValue = DynamicValue.Primitive(42, StandardType.IntType)
+          val expectedHash =
+            mix(
+              mix("zio.schema.DynamicValue.Primitive".##, StandardType.IntType.tag.##),
+              42.##
+            )
+
+          assertTrue(dynamicValue.hashCode() == expectedHash)
+        },
+        test("equivalent dynamic values have equal hashCode") {
+          check(SchemaGen.anyTreeAndValue) {
+            case (schema, value) =>
+              val dynamicValue1 = schema.toDynamic(value)
+              val dynamicValue2 = schema.toDynamic(value)
+
+              assert(dynamicValue1)(equalTo(dynamicValue2)) &&
+              assert(dynamicValue1.hashCode())(equalTo(dynamicValue2.hashCode()))
+          }
+        }
       )
     )
 
