@@ -61,7 +61,7 @@ addCommandAlias(
 addCommandAlias(
   "testNative",
   "zioSchemaMacrosNative/test; zioSchemaDerivationNative/test; zioSchemaJsonNative/test; zioSchemaOpticsNative/test;" +
-    "testsNative/test; zioSchemaNative/test; zioSchemaZioTestNative/test; zioSchemaProtobufNative/test; zioSchemaXml.native/test;"
+    "testsNative/test; zioSchemaNative/test; zioSchemaZioTestNative/test; zioSchemaProtobufNative/test; zioSchemaXmlNative/test;"
 )
 
 addCommandAlias(
