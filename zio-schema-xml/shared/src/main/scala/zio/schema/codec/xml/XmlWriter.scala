@@ -29,7 +29,7 @@ object XmlWriter {
         sb.append(name.qualifiedName)
         writeAttributes(sb, attributes)
         if (children.isEmpty) {
-          sb.append("/>")
+          val _ = sb.append("/>")
         } else {
           sb.append('>')
           val hasElementChildren = children.exists(_.isInstanceOf[Xml.Element])
@@ -42,16 +42,16 @@ object XmlWriter {
           }
           sb.append("</")
           sb.append(name.qualifiedName)
-          sb.append('>')
+          val _ = sb.append('>')
         }
 
       case Xml.Text(value) =>
-        sb.append(escapeText(value))
+        val _ = sb.append(escapeText(value))
 
       case Xml.CData(value) =>
         sb.append("<![CDATA[")
         sb.append(value)
-        sb.append("]]>")
+        val _ = sb.append("]]>")
 
       case Xml.Comment(value) =>
         if (needsNewline && config.indentStep > 0) {
@@ -60,7 +60,7 @@ object XmlWriter {
         }
         sb.append("<!--")
         sb.append(value)
-        sb.append("-->")
+        val _ = sb.append("-->")
 
       case Xml.ProcessingInstruction(target, data) =>
         if (needsNewline && config.indentStep > 0) {
@@ -73,7 +73,7 @@ object XmlWriter {
           sb.append(' ')
           sb.append(data)
         }
-        sb.append("?>")
+        val _ = sb.append("?>")
     }
 
   private def writeAttributes(sb: StringBuilder, attributes: Chunk[(XmlName, String)]): Unit =
