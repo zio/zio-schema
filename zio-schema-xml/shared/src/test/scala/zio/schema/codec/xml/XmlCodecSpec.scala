@@ -100,6 +100,26 @@ object XmlCodecSpec extends ZIOSpecDefault {
     implicit val schema: Schema[WithNs] = DeriveSchema.gen
   }
 
+  @xmlNamespace("http://example.com/ns")
+  case class WithDefaultNs(value: String)
+
+  object WithDefaultNs {
+    implicit val schema: Schema[WithDefaultNs] = DeriveSchema.gen
+  }
+
+  case class WithAttrAndNs(@xmlAttribute @xmlNamespace("http://example.com/ns", Some("ex")) id: Int, name: String)
+
+  object WithAttrAndNs {
+    implicit val schema: Schema[WithAttrAndNs] = DeriveSchema.gen
+  }
+
+  @xmlNamespace("http://example.com/ns", Some("ex"))
+  case class WithMultiFieldNs(name: String, age: Int, active: Boolean)
+
+  object WithMultiFieldNs {
+    implicit val schema: Schema[WithMultiFieldNs] = DeriveSchema.gen
+  }
+
   case class WithList(items: List[Int])
 
   object WithList {
@@ -182,7 +202,10 @@ object XmlCodecSpec extends ZIOSpecDefault {
       transformAndLazySuite,
       xmlAnnotationsSuite,
       streamingSuite,
-      configurationSuite
+      configurationSuite,
+      xmlReaderSuite,
+      xmlWriterSuite,
+      realWorldXmlSuite
     )
 
   // ---------------------------------------------------------------------------
@@ -284,7 +307,54 @@ object XmlCodecSpec extends ZIOSpecDefault {
     },
     test("Currency") {
       roundTripAssert(java.util.Currency.getInstance("USD"))
-    } @@ TestAspect.jvmOnly
+    } @@ TestAspect.jvmOnly,
+    test("Float NaN round-trip") {
+      val codec   = XmlCodec.schemaBasedBinaryCodec[Float]
+      val encoded = codec.encode(Float.NaN)
+      val result  = codec.decode(encoded)
+      assertTrue(result.exists(_.isNaN))
+    },
+    test("Double NaN round-trip") {
+      val codec   = XmlCodec.schemaBasedBinaryCodec[Double]
+      val encoded = codec.encode(Double.NaN)
+      val result  = codec.decode(encoded)
+      assertTrue(result.exists(_.isNaN))
+    },
+    test("Float boundary values") {
+      roundTripAssert(Float.MinValue) && roundTripAssert(Float.MaxValue)
+    },
+    test("Double boundary values") {
+      roundTripAssert(Double.MinValue) && roundTripAssert(Double.MaxValue)
+    },
+    test("Int boundary values") {
+      roundTripAssert(Int.MinValue) && roundTripAssert(Int.MaxValue)
+    },
+    test("Long boundary values") {
+      roundTripAssert(Long.MinValue) && roundTripAssert(Long.MaxValue)
+    },
+    test("Byte boundary values") {
+      roundTripAssert(Byte.MinValue) && roundTripAssert(Byte.MaxValue)
+    },
+    test("Short boundary values") {
+      roundTripAssert(Short.MinValue) && roundTripAssert(Short.MaxValue)
+    },
+    test("Char special characters") {
+      roundTripAssert('\u20AC')
+    },
+    test("empty String encoding produces empty output") {
+      val codec   = XmlCodec.schemaBasedBinaryCodec[String]
+      val encoded = codec.encode("")
+      assertTrue(encoded.isEmpty || codec.decode(encoded).isLeft)
+    },
+    test("String with XML special chars") {
+      roundTripAssert("Hello <>&\" World")
+    },
+    test("String with unicode") {
+      roundTripAssert("Hello \u4E16\u754C \uD83C\uDF0D")
+    },
+    test("BigDecimal scientific notation") {
+      roundTripAssert(new java.math.BigDecimal("1.23E+10"))
+    }
   )
 
   // ---------------------------------------------------------------------------
@@ -411,6 +481,21 @@ object XmlCodecSpec extends ZIOSpecDefault {
     },
     test("@xmlNamespace round-trip") {
       roundTripAssert(WithNs("namespaced"))
+    },
+    test("@xmlNamespace without prefix (default ns)") {
+      val codec   = XmlCodec.schemaBasedBinaryCodec[WithDefaultNs]
+      val encoded = new String(codec.encode(WithDefaultNs("test")).toArray, "UTF-8")
+      assertTrue(encoded.contains("WithDefaultNs")) &&
+      roundTripAssert(WithDefaultNs("test"))
+    },
+    test("@xmlAttribute with @xmlNamespace combined") {
+      val codec   = XmlCodec.schemaBasedBinaryCodec[WithAttrAndNs]
+      val encoded = new String(codec.encode(WithAttrAndNs(1, "Alice")).toArray, "UTF-8")
+      assertTrue(encoded.contains("id=")) &&
+      roundTripAssert(WithAttrAndNs(1, "Alice"))
+    },
+    test("@xmlNamespace round-trip with multiple fields") {
+      roundTripAssert(WithMultiFieldNs("Alice", 30, true))
     }
   )
 
@@ -450,6 +535,318 @@ object XmlCodecSpec extends ZIOSpecDefault {
       val person = SimplePerson("Declared", 2)
       val xml    = new String(codec.encode(person).toArray, "UTF-8")
       assertTrue(xml.startsWith("<?xml")) && assertTrue(codec.decode(codec.encode(person)) == Right(person))
+    }
+  )
+
+  // ---------------------------------------------------------------------------
+  // 10. XmlReader parser tests
+  // ---------------------------------------------------------------------------
+
+  private val xmlReaderSuite = suite("XmlReader")(
+    test("parse simple self-closing element") {
+      val result = XmlReader.read("<root/>", ReaderConfig.default)
+      assertTrue(result == Right(Xml.Element(XmlName("root"), Chunk.empty, Chunk.empty)))
+    },
+    test("parse element with text") {
+      val result = XmlReader.read("<root>hello</root>", ReaderConfig.default)
+      assertTrue(result == Right(Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Text("hello")))))
+    },
+    test("parse element with attributes") {
+      val result = XmlReader.read("""<root attr="value"/>""", ReaderConfig.default)
+      assertTrue(
+        result == Right(Xml.Element(XmlName("root"), Chunk((XmlName("attr"), "value")), Chunk.empty))
+      )
+    },
+    test("parse nested elements") {
+      val result = XmlReader.read("<root><child>text</child></root>", ReaderConfig.default)
+      val expected = Xml.Element(
+        XmlName("root"),
+        Chunk.empty,
+        Chunk(Xml.Element(XmlName("child"), Chunk.empty, Chunk(Xml.Text("text"))))
+      )
+      assertTrue(result == Right(expected))
+    },
+    test("decode &amp; entity") {
+      val result = XmlReader.read("<root>&amp;</root>", ReaderConfig.default)
+      assertTrue(result == Right(Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Text("&")))))
+    },
+    test("decode &lt; entity") {
+      val result = XmlReader.read("<root>&lt;</root>", ReaderConfig.default)
+      assertTrue(result == Right(Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Text("<")))))
+    },
+    test("decode &gt; entity") {
+      val result = XmlReader.read("<root>&gt;</root>", ReaderConfig.default)
+      assertTrue(result == Right(Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Text(">")))))
+    },
+    test("decode &quot; entity in attribute") {
+      val result = XmlReader.read("""<root attr="&quot;"/>""", ReaderConfig.default)
+      result match {
+        case Right(Xml.Element(_, attrs, _)) =>
+          assertTrue(attrs.head._2 == "\"")
+        case other =>
+          assertTrue(other.toString == "unexpected")
+      }
+    },
+    test("decode &apos; entity in attribute") {
+      val result = XmlReader.read("""<root attr="&apos;"/>""", ReaderConfig.default)
+      result match {
+        case Right(Xml.Element(_, attrs, _)) =>
+          assertTrue(attrs.head._2 == "'")
+        case other =>
+          assertTrue(other.toString == "unexpected")
+      }
+    },
+    test("decode multiple entities") {
+      val result = XmlReader.read("<root>&lt;&amp;&gt;</root>", ReaderConfig.default)
+      assertTrue(result == Right(Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Text("<&>")))))
+    },
+    test("parse CDATA section") {
+      val result = XmlReader.read("<root><![CDATA[<>&\"]]></root>", ReaderConfig.default)
+      assertTrue(
+        result == Right(Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.CData("<>&\""))))
+      )
+    },
+    test("parse comment") {
+      val result = XmlReader.read("<root><!-- comment --></root>", ReaderConfig.default)
+      assertTrue(
+        result == Right(Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Comment(" comment "))))
+      )
+    },
+    test("parse processing instruction") {
+      val result = XmlReader.read("<root><?target data?></root>", ReaderConfig.default)
+      assertTrue(
+        result == Right(
+          Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.ProcessingInstruction("target", "data")))
+        )
+      )
+    },
+    test("preserve text whitespace in content") {
+      val result = XmlReader.read("<root>  text  </root>", ReaderConfig.default)
+      assertTrue(result == Right(Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Text("  text  ")))))
+    },
+    test("preserve whitespace when configured") {
+      val config = ReaderConfig(preserveWhitespace = true)
+      val result = XmlReader.read("<root>  <child/>  </root>", config)
+      result match {
+        case Right(Xml.Element(_, _, children)) =>
+          assertTrue(children.size == 3)
+        case other =>
+          assertTrue(other.toString == "unexpected")
+      }
+    },
+    test("ignore whitespace-only text nodes") {
+      val result = XmlReader.read("<root>  <child/>  </root>", ReaderConfig.default)
+      result match {
+        case Right(Xml.Element(_, _, children)) =>
+          assertTrue(children.size == 1) &&
+            assertTrue(children.head.isInstanceOf[Xml.Element])
+        case other =>
+          assertTrue(other.toString == "unexpected")
+      }
+    },
+    test("reject unclosed element") {
+      val result = XmlReader.read("<root>", ReaderConfig.default)
+      assertTrue(result.isLeft)
+    },
+    test("reject mismatched tags") {
+      val result = XmlReader.read("<root></other>", ReaderConfig.default)
+      assertTrue(result.isLeft)
+    },
+    test("reject invalid element name") {
+      val result = XmlReader.read("<123/>", ReaderConfig.default)
+      assertTrue(result.isLeft)
+    },
+    test("reject element exceeding max depth at root") {
+      val config = ReaderConfig(maxDepth = -1)
+      val result = XmlReader.read("<root/>", config)
+      assertTrue(result.isLeft)
+    },
+    test("reject exceeding max attributes") {
+      val config = ReaderConfig(maxAttributes = 1)
+      val result = XmlReader.read("""<root a="1" b="2"/>""", config)
+      assertTrue(result.isLeft)
+    },
+    test("reject text exceeding max length") {
+      val config = ReaderConfig(maxTextLength = 3)
+      val result = XmlReader.read("<root>12345</root>", config)
+      assertTrue(result.isLeft)
+    },
+    test("error includes line and column info") {
+      val result = XmlReader.read("<root></other>", ReaderConfig.default)
+      result match {
+        case Left(err) =>
+          val msg = err.toString
+          assertTrue(msg.contains("line") && msg.contains("column"))
+        case Right(_) =>
+          assertTrue(false)
+      }
+    },
+    test("parse mixed content") {
+      val result = XmlReader.read("<root>text1<child/>text2</root>", ReaderConfig.default)
+      result match {
+        case Right(Xml.Element(_, _, children)) =>
+          assertTrue(children.size == 3) &&
+            assertTrue(children(0).isInstanceOf[Xml.Text]) &&
+            assertTrue(children(1).isInstanceOf[Xml.Element]) &&
+            assertTrue(children(2).isInstanceOf[Xml.Text])
+        case other =>
+          assertTrue(other.toString == "unexpected")
+      }
+    },
+    test("parse element with namespace prefix") {
+      val result = XmlReader.read("""<ns:root xmlns:ns="http://example.com"/>""", ReaderConfig.default)
+      result match {
+        case Right(Xml.Element(name, _, _)) =>
+          assertTrue(name.prefix == Some("ns")) &&
+            assertTrue(name.localName == "root")
+        case other =>
+          assertTrue(other.toString == "unexpected")
+      }
+    }
+  )
+
+  // ---------------------------------------------------------------------------
+  // 11. XmlWriter serializer tests
+  // ---------------------------------------------------------------------------
+
+  private val xmlWriterSuite = suite("XmlWriter")(
+    test("write self-closing element") {
+      val xml    = Xml.Element(XmlName("root"), Chunk.empty, Chunk.empty)
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result == "<root/>")
+    },
+    test("write element with text") {
+      val xml    = Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Text("content")))
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result == "<root>content</root>")
+    },
+    test("write element with attributes") {
+      val xml = Xml.Element(
+        XmlName("root"),
+        Chunk((XmlName("id"), "123"), (XmlName("name"), "test")),
+        Chunk.empty
+      )
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result == """<root id="123" name="test"/>""")
+    },
+    test("escape & in text") {
+      val xml    = Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Text("A & B")))
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result.contains("A &amp; B"))
+    },
+    test("escape < in text") {
+      val xml    = Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Text("A < B")))
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result.contains("A &lt; B"))
+    },
+    test("escape > in text") {
+      val xml    = Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Text("A > B")))
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result.contains("A &gt; B"))
+    },
+    test("escape & in attribute") {
+      val xml    = Xml.Element(XmlName("root"), Chunk((XmlName("a"), "A & B")), Chunk.empty)
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result.contains("&amp;"))
+    },
+    test("escape < in attribute") {
+      val xml    = Xml.Element(XmlName("root"), Chunk((XmlName("a"), "A < B")), Chunk.empty)
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result.contains("&lt;"))
+    },
+    test("escape quote in attribute") {
+      val xml    = Xml.Element(XmlName("root"), Chunk((XmlName("a"), "A\"B")), Chunk.empty)
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result.contains("&quot;"))
+    },
+    test("write CDATA") {
+      val xml    = Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.CData("data")))
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result.contains("<![CDATA[data]]>"))
+    },
+    test("write comment") {
+      val xml    = Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.Comment("comment")))
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result.contains("<!--comment-->"))
+    },
+    test("write processing instruction") {
+      val xml    = Xml.Element(XmlName("root"), Chunk.empty, Chunk(Xml.ProcessingInstruction("target", "data")))
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(result.contains("<?target data?>"))
+    },
+    test("write with indentation") {
+      val xml = Xml.Element(
+        XmlName("root"),
+        Chunk.empty,
+        Chunk(Xml.Element(XmlName("child"), Chunk.empty, Chunk(Xml.Text("text"))))
+      )
+      val result = XmlWriter.write(xml, WriterConfig(indentStep = 2))
+      assertTrue(result.contains("\n"))
+    },
+    test("write without indentation by default") {
+      val xml = Xml.Element(
+        XmlName("root"),
+        Chunk.empty,
+        Chunk(Xml.Element(XmlName("child"), Chunk.empty, Chunk(Xml.Text("text"))))
+      )
+      val result = XmlWriter.write(xml, WriterConfig.default)
+      assertTrue(!result.contains("\n"))
+    },
+    test("write with XML declaration") {
+      val xml    = Xml.Element(XmlName("root"), Chunk.empty, Chunk.empty)
+      val result = XmlWriter.write(xml, WriterConfig(includeDeclaration = true))
+      assertTrue(result.startsWith("<?xml"))
+    },
+    test("write with encoding in declaration") {
+      val xml    = Xml.Element(XmlName("root"), Chunk.empty, Chunk.empty)
+      val result = XmlWriter.write(xml, WriterConfig(includeDeclaration = true, encoding = "UTF-16"))
+      assertTrue(result.contains("UTF-16"))
+    }
+  )
+
+  // ---------------------------------------------------------------------------
+  // 12. Real-world XML round-trips
+  // ---------------------------------------------------------------------------
+
+  private val realWorldXmlSuite = suite("real-world XML round-trips")(
+    test("RSS feed round-trip") {
+      val rss =
+        """<?xml version="1.0" encoding="UTF-8"?><rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0"><channel><title><![CDATA[BBC News]]></title><description><![CDATA[BBC News - World]]></description><link>https://www.bbc.co.uk/news/world</link><image><url>https://news.bbcimg.co.uk/nol/shared/img/bbc_news_120x60.gif</url><title>BBC News</title><link>https://www.bbc.co.uk/news/world</link></image><lastBuildDate>Sun, 08 Feb 2026 15:51:39 GMT</lastBuildDate><atom:link href="https://feeds.bbci.co.uk/news/world/rss.xml" rel="self" type="application/rss+xml"/><item><title><![CDATA[Japan's governing party projected to win snap election]]></title><description><![CDATA[A coalition led by current PM is expected to clinch a decisive win.]]></description><link>https://www.bbc.com/news/articles/cx2y7d2z29xo</link><guid isPermaLink="false">https://www.bbc.com/news/articles/cx2y7d2z29xo#0</guid><pubDate>Sun, 08 Feb 2026 14:23:19 GMT</pubDate></item><item><title><![CDATA[Polls close in Thai election]]></title><description><![CDATA[Thai voters choose between sweeping change or more of the same.]]></description><link>https://www.bbc.com/news/articles/cx2jn4z4eq0o</link><guid isPermaLink="false">https://www.bbc.com/news/articles/cx2jn4z4eq0o#0</guid><pubDate>Sun, 08 Feb 2026 14:47:10 GMT</pubDate></item></channel></rss>"""
+      val parsed1 = XmlReader.read(rss, ReaderConfig.default)
+      parsed1 match {
+        case Right(xml1) =>
+          val written = XmlWriter.write(xml1, WriterConfig.default)
+          val parsed2 = XmlReader.read(written, ReaderConfig.default)
+          assertTrue(parsed2 == Right(xml1))
+        case Left(err) =>
+          assertTrue(err.toString == "unexpected")
+      }
+    },
+    test("Atom feed round-trip") {
+      val atom =
+        """<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en-US"><id>tag:github.com,2008:https://github.com/zio/zio/releases</id><link type="text/html" rel="alternate" href="https://github.com/zio/zio/releases"/><link type="application/atom+xml" rel="self" href="https://github.com/zio/zio/releases.atom"/><title>Release notes from zio</title><updated>2025-12-28T03:25:46Z</updated><entry><id>tag:github.com,2008:Repository/134079884/v2.1.24</id><updated>2025-12-29T19:57:55Z</updated><link rel="alternate" type="text/html" href="https://github.com/zio/zio/releases/tag/v2.1.24"/><title>2.1.24</title><content type="html">This release focuses on performance improvements.</content></entry><entry><id>tag:github.com,2008:Repository/134079884/v2.1.23</id><updated>2025-11-15T10:30:00Z</updated><link rel="alternate" type="text/html" href="https://github.com/zio/zio/releases/tag/v2.1.23"/><title>2.1.23</title><content type="html">Bug fixes and stability improvements.</content></entry></feed>"""
+      val parsed1 = XmlReader.read(atom, ReaderConfig.default)
+      parsed1 match {
+        case Right(xml1) =>
+          val written = XmlWriter.write(xml1, WriterConfig.default)
+          val parsed2 = XmlReader.read(written, ReaderConfig.default)
+          assertTrue(parsed2 == Right(xml1))
+        case Left(err) =>
+          assertTrue(err.toString == "unexpected")
+      }
+    },
+    test("Sitemap round-trip") {
+      val sitemap =
+        """<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://www.example.org/</loc><lastmod>2024-01-15</lastmod></url><url><loc>https://www.example.org/about</loc><lastmod>2024-01-10</lastmod></url><url><loc>https://www.example.org/products</loc><lastmod>2024-01-20</lastmod></url><url><loc>https://www.example.org/contact</loc><lastmod>2024-01-05</lastmod></url></urlset>"""
+      val parsed1 = XmlReader.read(sitemap, ReaderConfig.default)
+      parsed1 match {
+        case Right(xml1) =>
+          val written = XmlWriter.write(xml1, WriterConfig.default)
+          val parsed2 = XmlReader.read(written, ReaderConfig.default)
+          assertTrue(parsed2 == Right(xml1))
+        case Left(err) =>
+          assertTrue(err.toString == "unexpected")
+      }
     }
   )
 }
