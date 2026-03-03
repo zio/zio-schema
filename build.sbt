@@ -110,6 +110,9 @@ lazy val root = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
+    zioSchemaXmlJVM,
+    zioSchemaXmlJS,
+    zioSchemaXml.native,
     docs
   )
 
@@ -296,6 +299,19 @@ lazy val zioSchemaProtobufJS = zioSchemaProtobuf.js
 
 lazy val zioSchemaProtobufJVM = zioSchemaProtobuf.jvm
 
+lazy val zioSchemaXml = crossProject(JSPlatform, JVMPlatform, NativePlatform)
+  .in(file("zio-schema-xml"))
+  .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
+  .settings(stdSettings("zio-schema-xml"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.xml"))
+  .settings(testDeps)
+
+lazy val zioSchemaXmlJS = zioSchemaXml.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaXmlJVM = zioSchemaXml.jvm
+
 lazy val zioSchemaThrift = project
   .in(file("zio-schema-thrift"))
   .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
@@ -480,6 +496,9 @@ lazy val docs = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
+    zioSchemaXmlJVM,
+    zioSchemaXmlJS,
+    zioSchemaXml.native,
     zioSchemaThrift
   )
   .enablePlugins(WebsitePlugin)
