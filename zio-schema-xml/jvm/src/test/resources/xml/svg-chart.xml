@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4FC3F7;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#0288D1;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <text x="200" y="30" text-anchor="middle" fill="white" font-size="18">Monthly Revenue</text>
+  <g transform="translate(50, 250)">
+    <line x1="0" y1="0" x2="300" y2="0" stroke="#ffffff" stroke-width="1"/>
+    <line x1="0" y1="0" x2="0" y2="-200" stroke="#ffffff" stroke-width="1"/>
+    <rect x="10" y="-120" width="30" height="120" fill="#FF7043"/>
+    <rect x="60" y="-160" width="30" height="160" fill="#FF7043"/>
+    <rect x="110" y="-80" width="30" height="80" fill="#FF7043"/>
+    <rect x="160" y="-190" width="30" height="190" fill="#FF7043"/>
+    <rect x="210" y="-140" width="30" height="140" fill="#FF7043"/>
+    <rect x="260" y="-175" width="30" height="175" fill="#FF7043"/>
+  </g>
+</svg>
