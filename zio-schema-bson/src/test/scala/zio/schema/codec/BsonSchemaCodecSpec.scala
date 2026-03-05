@@ -114,6 +114,37 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
   implicit lazy val fallbackCodec: BsonCodec[Fallback[String, Int]] =
     BsonSchemaCodec.bsonCodec(Schema.fallback[String, Int])
 
+  case class GenericRecordBig(
+    a: Option[String] = None,
+    b: Option[String] = None,
+    c: Option[String] = None,
+    d: Option[String] = None,
+    e: Option[String] = None,
+    f: Option[String] = None,
+    g: Option[String] = None,
+    h: Option[String] = None,
+    i: Option[String] = None,
+    j: Option[String] = None,
+    k: Option[String] = None,
+    l: Option[String] = None,
+    m: Option[String] = None,
+    n: Option[String] = None,
+    o: Option[String] = None,
+    p: Option[String] = None,
+    q: Option[String] = None,
+    r: Option[String] = None,
+    s: Option[String] = None,
+    t: Option[String] = None,
+    u: Option[String] = None,
+    v: Option[String] = None,
+    w: Option[String] = None
+  )
+
+  object GenericRecordBig {
+    implicit val schema: Schema[GenericRecordBig]        = DeriveSchema.gen
+    implicit lazy val codec: BsonCodec[GenericRecordBig] = BsonSchemaCodec.bsonCodec(schema)
+  }
+
   def spec: Spec[TestEnvironment with Scope, Any] = suite("BsonSchemaCodecSpec")(
     suite("round trip")(
       roundTripTest("SimpleClass")(
@@ -482,6 +513,12 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
           )
         )
       )
+    ),
+    suite("GenericRecord")(
+      test("decodes GenericRecord with missing optional fields") {
+        val result = BsonDocument.parse("{}").as[GenericRecordBig]
+        assertTrue(result.isRight)
+      }
     )
   )
 
