@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 
 import zio.schema.Schema
 import zio.stream.ZPipeline
-import zio.{ Chunk, Cause }
+import zio.{ Cause, Chunk }
 
 object XmlCodec {
 

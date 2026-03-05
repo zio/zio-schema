@@ -3,16 +3,17 @@ package zio.schema.codec
 import java.time._
 import java.util.{ Base64, UUID }
 
-import scala.collection.immutable.ListMap
-
 import zio.Chunk
 import zio.schema.{ DynamicValue, Fallback, Schema, StandardType }
 
 object XmlEncoder {
 
+  @inline private def emit(sb: StringBuilder, s: String): Unit = { sb.append(s); () }
+  @inline private def emitC(sb: StringBuilder, c: Char): Unit  = { sb.append(c); () }
+
   def encode[A](schema: Schema[A], value: A): String = {
     val sb = new StringBuilder
-    sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+    emit(sb, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
     encodeValue(sb, "root", schema, value)
     sb.toString()
   }
@@ -21,57 +22,57 @@ object XmlEncoder {
   private def encodeValue[A](sb: StringBuilder, tag: String, schema: Schema[A], value: A): Unit =
     (schema, value) match {
       case (Schema.GenericRecord(_, structure, _), v: Map[String, _]) =>
-        sb.append(s"<$tag>")
+        emit(sb, s"<$tag>")
         structure.toChunk.foreach { field =>
           v.get(field.name).foreach(fv => encodeValue(sb, field.name, field.schema.asInstanceOf[Schema[Any]], fv))
         }
-        sb.append(s"</$tag>")
+        emit(sb, s"</$tag>")
       case (Schema.Sequence(element, _, g, _, _), v) =>
-        sb.append(s"<$tag>")
+        emit(sb, s"<$tag>")
         g(v).foreach(item => encodeValue(sb, "item", element, item))
-        sb.append(s"</$tag>")
+        emit(sb, s"</$tag>")
       case (mapSchema: Schema.Map[_, _], map: Map[_, _]) =>
         val ms = mapSchema.asInstanceOf[Schema.Map[Any, Any]]
         val m  = map.asInstanceOf[scala.collection.immutable.Map[Any, Any]]
-        sb.append(s"<$tag>")
+        emit(sb, s"<$tag>")
         m.foreach { case (k, v) =>
-          sb.append("<entry>")
+          emit(sb, "<entry>")
           encodeValue(sb, "key", ms.keySchema, k)
           encodeValue(sb, "value", ms.valueSchema, v)
-          sb.append("</entry>")
+          emit(sb, "</entry>")
         }
-        sb.append(s"</$tag>")
+        emit(sb, s"</$tag>")
       case (setSchema: Schema.Set[_], set: Set[_]) =>
         val ss = setSchema.asInstanceOf[Schema.Set[Any]]
-        sb.append(s"<$tag>")
+        emit(sb, s"<$tag>")
         set.asInstanceOf[scala.collection.immutable.Set[Any]].foreach(item => encodeValue(sb, "item", ss.elementSchema, item))
-        sb.append(s"</$tag>")
+        emit(sb, s"</$tag>")
       case (Schema.Transform(schema, _, g, _, _), _) =>
         g(value).foreach(v => encodeValue(sb, tag, schema, v))
       case (Schema.Primitive(standardType, _), v) =>
         encodePrimitive(sb, tag, standardType, v)
       case (Schema.Tuple2(left, right, _), v @ (_, _)) =>
-        sb.append(s"<$tag>")
+        emit(sb, s"<$tag>")
         encodeValue(sb, "first", left, v._1)
         encodeValue(sb, "second", right, v._2)
-        sb.append(s"</$tag>")
+        emit(sb, s"</$tag>")
       case (optSchema: Schema.Optional[_], v: Option[_]) =>
         v match {
           case Some(inner) => encodeValue(sb, tag, optSchema.asInstanceOf[Schema.Optional[Any]].schema, inner)
-          case None        => sb.append(s"<$tag/>")
+          case None        => emit(sb, s"<$tag/>")
         }
       case (eitherSchema: Schema.Either[_, _], v: scala.util.Either[_, _]) =>
         val es = eitherSchema.asInstanceOf[Schema.Either[Any, Any]]
-        sb.append(s"<$tag>")
+        emit(sb, s"<$tag>")
         v match {
           case Left(l)  => encodeValue(sb, "left", es.left, l)
           case Right(r) => encodeValue(sb, "right", es.right, r)
         }
-        sb.append(s"</$tag>")
+        emit(sb, s"</$tag>")
       case (fallbackSchema: Schema.Fallback[_, _], v: Fallback[_, _]) =>
         val fs = fallbackSchema.asInstanceOf[Schema.Fallback[Any, Any]]
         val fv = v.asInstanceOf[Fallback[Any, Any]]
-        sb.append(s"<$tag>")
+        emit(sb, s"<$tag>")
         fv match {
           case Fallback.Left(l)       => encodeValue(sb, "left", fs.left, l)
           case Fallback.Right(r)      => encodeValue(sb, "right", fs.right, r)
@@ -79,27 +80,27 @@ object XmlEncoder {
             encodeValue(sb, "left", fs.left, l)
             encodeValue(sb, "right", fs.right, r)
         }
-        sb.append(s"</$tag>")
+        emit(sb, s"</$tag>")
       case (lzy @ Schema.Lazy(_), v) =>
         encodeValue(sb, tag, lzy.schema, v)
       case (Schema.CaseClass0(_, _, _), _) =>
-        sb.append(s"<$tag/>")
+        emit(sb, s"<$tag/>")
       case (cc: Schema.Record[_], v) =>
-        sb.append(s"<$tag>")
+        emit(sb, s"<$tag>")
         cc.fields.foreach { field =>
           val fieldValue = field.asInstanceOf[Schema.Field[Any, Any]].get(v)
           encodeValue(sb, field.name, field.schema.asInstanceOf[Schema[Any]], fieldValue)
         }
-        sb.append(s"</$tag>")
+        emit(sb, s"</$tag>")
       case (enumSchema: Schema.Enum[_], v) =>
         val cases = enumSchema.cases
         val matchedCase = cases.find(c => c.asInstanceOf[Schema.Case[Any, Any]].deconstructOption(v).isDefined)
         matchedCase.foreach { c =>
           val cs    = c.asInstanceOf[Schema.Case[Any, Any]]
           val inner = cs.deconstruct(v)
-          sb.append(s"""<$tag type="${escapeXml(cs.id)}">""")
+          emit(sb, s"""<$tag type="${escapeXml(cs.id)}">""")
           encodeValue(sb, "value", cs.schema.asInstanceOf[Schema[Any]], inner)
-          sb.append(s"</$tag>")
+          emit(sb, s"</$tag>")
         }
       case (Schema.Dynamic(_), v) =>
         encodeValue(sb, tag, DynamicValue.schema, v)
@@ -108,9 +109,9 @@ object XmlEncoder {
 
   private def encodePrimitive[A](sb: StringBuilder, tag: String, standardType: StandardType[A], value: A): Unit = {
     val text = primitiveToString(standardType, value)
-    sb.append(s"<$tag>")
-    sb.append(escapeXml(text))
-    sb.append(s"</$tag>")
+    emit(sb, s"<$tag>")
+    emit(sb, escapeXml(text))
+    emit(sb, s"</$tag>")
   }
 
   private[codec] def primitiveToString[A](standardType: StandardType[A], value: A): String =
@@ -154,12 +155,12 @@ object XmlEncoder {
     var i  = 0
     while (i < s.length) {
       s.charAt(i) match {
-        case '&'  => sb.append("&amp;")
-        case '<'  => sb.append("&lt;")
-        case '>'  => sb.append("&gt;")
-        case '"'  => sb.append("&quot;")
-        case '\'' => sb.append("&apos;")
-        case c    => sb.append(c)
+        case '&'  => emit(sb, "&amp;")
+        case '<'  => emit(sb, "&lt;")
+        case '>'  => emit(sb, "&gt;")
+        case '"'  => emit(sb, "&quot;")
+        case '\'' => emit(sb, "&apos;")
+        case c    => emitC(sb, c)
       }
       i += 1
     }

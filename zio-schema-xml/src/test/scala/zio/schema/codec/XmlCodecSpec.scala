@@ -2,8 +2,8 @@ package zio.schema.codec
 
 import zio._
 import zio.schema._
-import zio.test._
 import zio.test.Assertion._
+import zio.test._
 
 object XmlCodecSpec extends ZIOSpecDefault {
 
