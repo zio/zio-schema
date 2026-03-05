@@ -28,7 +28,7 @@ object XmlCodecSpec extends ZIOSpecDefault {
   sealed trait Color
 
   object Color {
-    case object Red                          extends Color
+    case object Red                           extends Color
     case class Custom(r: Int, g: Int, b: Int) extends Color
 
     implicit val schema: Schema[Color] = DeriveSchema.gen[Color]

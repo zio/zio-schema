@@ -15,7 +15,7 @@ object XmlDecoder {
 
   def decode[A](schema: Schema[A], xmlStr: String): Either[DecodeError, A] =
     Try(XML.loadString(xmlStr)).toEither match {
-      case Left(ex)   => Left(ReadError(Cause.fail(ex), s"Invalid XML: ${ex.getMessage}"))
+      case Left(ex)    => Left(ReadError(Cause.fail(ex), s"Invalid XML: ${ex.getMessage}"))
       case Right(elem) => decodeValue(schema, elem)
     }
 
@@ -25,7 +25,7 @@ object XmlDecoder {
       case Schema.GenericRecord(_, structure, _) =>
         decodeRecord(structure.toChunk, node).map(_.asInstanceOf[A])
       case Schema.Sequence(element, f, _, _, _) =>
-        val items = childElements(node, "item")
+        val items   = childElements(node, "item")
         val decoded = items.map(decodeValue(element, _))
         collectAll(decoded).map(chunk => f.asInstanceOf[Chunk[Any] => A](Chunk.fromIterable(chunk)))
       case mapSchema: Schema.Map[_, _] =>
@@ -39,8 +39,8 @@ object XmlDecoder {
         }
         collectAll(decoded).map(pairs => ListMap(pairs: _*).asInstanceOf[A])
       case setSchema: Schema.Set[_] =>
-        val ss    = setSchema.asInstanceOf[Schema.Set[Any]]
-        val items = childElements(node, "item")
+        val ss      = setSchema.asInstanceOf[Schema.Set[Any]]
+        val items   = childElements(node, "item")
         val decoded = items.map(decodeValue(ss.elementSchema, _))
         collectAll(decoded).map(_.toSet.asInstanceOf[A])
       case Schema.Transform(innerSchema, f, _, _, _) =>
@@ -55,7 +55,7 @@ object XmlDecoder {
           r <- childElement(node, "second").flatMap(decodeValue(right, _))
         } yield (l, r).asInstanceOf[A]
       case optSchema: Schema.Optional[_] =>
-        val os = optSchema.asInstanceOf[Schema.Optional[Any]]
+        val os       = optSchema.asInstanceOf[Schema.Optional[Any]]
         val children = node.child.filter(_.isInstanceOf[Elem])
         if (children.isEmpty && textContent(node).isEmpty)
           Right(None.asInstanceOf[A])
@@ -66,14 +66,12 @@ object XmlDecoder {
         childElement(node, "left") match {
           case Right(leftNode) => decodeValue(es.left, leftNode).map(l => Left(l).asInstanceOf[A])
           case Left(_) =>
-            childElement(node, "right").flatMap(rightNode =>
-              decodeValue(es.right, rightNode).map(r => Right(r).asInstanceOf[A])
-            )
+            childElement(node, "right").flatMap(rightNode => decodeValue(es.right, rightNode).map(r => Right(r).asInstanceOf[A]))
         }
       case fallbackSchema: Schema.Fallback[_, _] =>
-        val fs        = fallbackSchema.asInstanceOf[Schema.Fallback[Any, Any]]
-        val hasLeft   = childElement(node, "left")
-        val hasRight  = childElement(node, "right")
+        val fs       = fallbackSchema.asInstanceOf[Schema.Fallback[Any, Any]]
+        val hasLeft  = childElement(node, "left")
+        val hasRight = childElement(node, "right")
         (hasLeft, hasRight) match {
           case (Right(l), Right(r)) =>
             for {

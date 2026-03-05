@@ -35,11 +35,12 @@ object XmlEncoder {
         val ms = mapSchema.asInstanceOf[Schema.Map[Any, Any]]
         val m  = map.asInstanceOf[scala.collection.immutable.Map[Any, Any]]
         emit(sb, s"<$tag>")
-        m.foreach { case (k, v) =>
-          emit(sb, "<entry>")
-          encodeValue(sb, "key", ms.keySchema, k)
-          encodeValue(sb, "value", ms.valueSchema, v)
-          emit(sb, "</entry>")
+        m.foreach {
+          case (k, v) =>
+            emit(sb, "<entry>")
+            encodeValue(sb, "key", ms.keySchema, k)
+            encodeValue(sb, "value", ms.valueSchema, v)
+            emit(sb, "</entry>")
         }
         emit(sb, s"</$tag>")
       case (setSchema: Schema.Set[_], set: Set[_]) =>
@@ -74,8 +75,8 @@ object XmlEncoder {
         val fv = v.asInstanceOf[Fallback[Any, Any]]
         emit(sb, s"<$tag>")
         fv match {
-          case Fallback.Left(l)       => encodeValue(sb, "left", fs.left, l)
-          case Fallback.Right(r)      => encodeValue(sb, "right", fs.right, r)
+          case Fallback.Left(l)  => encodeValue(sb, "left", fs.left, l)
+          case Fallback.Right(r) => encodeValue(sb, "right", fs.right, r)
           case Fallback.Both(l, r) =>
             encodeValue(sb, "left", fs.left, l)
             encodeValue(sb, "right", fs.right, r)
@@ -93,7 +94,7 @@ object XmlEncoder {
         }
         emit(sb, s"</$tag>")
       case (enumSchema: Schema.Enum[_], v) =>
-        val cases = enumSchema.cases
+        val cases       = enumSchema.cases
         val matchedCase = cases.find(c => c.asInstanceOf[Schema.Case[Any, Any]].deconstructOption(v).isDefined)
         matchedCase.foreach { c =>
           val cs    = c.asInstanceOf[Schema.Case[Any, Any]]
@@ -116,38 +117,38 @@ object XmlEncoder {
 
   private[codec] def primitiveToString[A](standardType: StandardType[A], value: A): String =
     (standardType, value) match {
-      case (StandardType.UnitType, _)                                   => ""
-      case (StandardType.StringType, s: String)                         => s
-      case (StandardType.BoolType, b: Boolean)                          => b.toString
-      case (StandardType.ByteType, b: Byte)                             => b.toString
-      case (StandardType.ShortType, s: Short)                           => s.toString
-      case (StandardType.IntType, i: Int)                               => i.toString
-      case (StandardType.LongType, l: Long)                             => l.toString
-      case (StandardType.FloatType, f: Float)                           => f.toString
-      case (StandardType.DoubleType, d: Double)                         => d.toString
-      case (StandardType.BigIntegerType, v: java.math.BigInteger)       => v.toString
-      case (StandardType.BigDecimalType, v: java.math.BigDecimal)       => v.toString
-      case (StandardType.BinaryType, bytes: Chunk[Byte @unchecked])     => Base64.getEncoder.encodeToString(bytes.toArray)
-      case (StandardType.CharType, c: Char)                             => c.toString
-      case (StandardType.UUIDType, u: UUID)                             => u.toString
-      case (StandardType.DayOfWeekType, v: DayOfWeek)                   => v.toString
-      case (StandardType.MonthType, v: Month)                           => v.toString
-      case (StandardType.MonthDayType, v: MonthDay)                     => v.toString
-      case (StandardType.PeriodType, v: Period)                         => v.toString
-      case (StandardType.YearType, v: Year)                             => v.getValue.toString
-      case (StandardType.YearMonthType, v: YearMonth)                   => v.toString
-      case (StandardType.ZoneIdType, v: ZoneId)                         => v.getId
-      case (StandardType.ZoneOffsetType, v: ZoneOffset)                 => v.toString
-      case (StandardType.DurationType, v: Duration)                     => v.toString
-      case (StandardType.InstantType, v: Instant)                       => v.toString
-      case (StandardType.LocalDateType, v: LocalDate)                   => v.toString
-      case (StandardType.LocalTimeType, v: LocalTime)                   => v.toString
-      case (StandardType.LocalDateTimeType, v: LocalDateTime)           => v.toString
-      case (StandardType.OffsetTimeType, v: OffsetTime)                 => v.toString
-      case (StandardType.OffsetDateTimeType, v: OffsetDateTime)         => v.toString
-      case (StandardType.ZonedDateTimeType, v: ZonedDateTime)           => v.toString
-      case (StandardType.CurrencyType, v: java.util.Currency)           => v.getCurrencyCode
-      case (_, _)                                                       => value.toString
+      case (StandardType.UnitType, _)                               => ""
+      case (StandardType.StringType, s: String)                     => s
+      case (StandardType.BoolType, b: Boolean)                      => b.toString
+      case (StandardType.ByteType, b: Byte)                         => b.toString
+      case (StandardType.ShortType, s: Short)                       => s.toString
+      case (StandardType.IntType, i: Int)                           => i.toString
+      case (StandardType.LongType, l: Long)                         => l.toString
+      case (StandardType.FloatType, f: Float)                       => f.toString
+      case (StandardType.DoubleType, d: Double)                     => d.toString
+      case (StandardType.BigIntegerType, v: java.math.BigInteger)   => v.toString
+      case (StandardType.BigDecimalType, v: java.math.BigDecimal)   => v.toString
+      case (StandardType.BinaryType, bytes: Chunk[Byte @unchecked]) => Base64.getEncoder.encodeToString(bytes.toArray)
+      case (StandardType.CharType, c: Char)                         => c.toString
+      case (StandardType.UUIDType, u: UUID)                         => u.toString
+      case (StandardType.DayOfWeekType, v: DayOfWeek)               => v.toString
+      case (StandardType.MonthType, v: Month)                       => v.toString
+      case (StandardType.MonthDayType, v: MonthDay)                 => v.toString
+      case (StandardType.PeriodType, v: Period)                     => v.toString
+      case (StandardType.YearType, v: Year)                         => v.getValue.toString
+      case (StandardType.YearMonthType, v: YearMonth)               => v.toString
+      case (StandardType.ZoneIdType, v: ZoneId)                     => v.getId
+      case (StandardType.ZoneOffsetType, v: ZoneOffset)             => v.toString
+      case (StandardType.DurationType, v: Duration)                 => v.toString
+      case (StandardType.InstantType, v: Instant)                   => v.toString
+      case (StandardType.LocalDateType, v: LocalDate)               => v.toString
+      case (StandardType.LocalTimeType, v: LocalTime)               => v.toString
+      case (StandardType.LocalDateTimeType, v: LocalDateTime)       => v.toString
+      case (StandardType.OffsetTimeType, v: OffsetTime)             => v.toString
+      case (StandardType.OffsetDateTimeType, v: OffsetDateTime)     => v.toString
+      case (StandardType.ZonedDateTimeType, v: ZonedDateTime)       => v.toString
+      case (StandardType.CurrencyType, v: java.util.Currency)       => v.getCurrencyCode
+      case (_, _)                                                   => value.toString
     }
 
   private[codec] def escapeXml(s: String): String = {
