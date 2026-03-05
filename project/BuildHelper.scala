@@ -259,7 +259,11 @@ object BuildHelper {
         ProblemFilters.exclude[ReversedMissingMethodProblem](
           "zio.schema.Schema#Record.zio$schema$Schema$Record$_setter_$rejectExtraFields_="
         ),
-        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.schema.Schema#Record.rejectExtraFields")
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.schema.Schema#Record.rejectExtraFields"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroEnum"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroMap"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroRecord"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroRecordField")
       ),
       mimaFailOnProblem := true
     )
