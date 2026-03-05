@@ -1240,7 +1240,13 @@ object BsonSchemaCodec {
 
           reader.readEndDocument()
 
-          (ListMap.newBuilder[String, Any] ++= builder.result()).result()
+          val result = (ListMap.newBuilder[String, Any] ++= builder.result()).result()
+          structure.foldLeft(result) { (map, field) =>
+            if (map.contains(field.name)) map
+            else if ((field.optional || field.transient) && field.defaultValue.isDefined)
+              map + (field.name -> field.defaultValue.get)
+            else map
+          }
         }
 
         override def fromBsonValueUnsafe(
@@ -1248,7 +1254,7 @@ object BsonSchemaCodec {
           trace: List[BsonTrace],
           ctx: BsonDecoder.BsonDecoderContext
         ): ListMap[String, Any] = assumeType(trace)(BsonType.DOCUMENT, value) { value =>
-          ListMap(
+          val result = ListMap(
             value
               .asDocument()
               .asScala
@@ -1265,6 +1271,12 @@ object BsonSchemaCodec {
                   }
               }: _*
           )
+          structure.foldLeft(result) { (map, field) =>
+            if (map.contains(field.name)) map
+            else if ((field.optional || field.transient) && field.defaultValue.isDefined)
+              map + (field.name -> field.defaultValue.get)
+            else map
+          }
         }
       }
 
