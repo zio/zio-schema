@@ -6,6 +6,7 @@ import java.time.{ Duration, Month, MonthDay, Period, Year, YearMonth }
 
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable.ListMap
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 import scala.util.{ Right, Try }
 
@@ -275,16 +276,19 @@ object AvroSchemaCodec extends AvroSchemaCodec {
     )
   )
 
-  private def toAvroSchema(schema: Schema[_]): scala.util.Either[String, SchemaAvro] = {
+  private def toAvroSchema(
+    schema: Schema[_],
+    seen: mutable.Map[String, SchemaAvro] = mutable.Map.empty
+  ): scala.util.Either[String, SchemaAvro] = {
     schema match {
-      case e: Enum[_]                            => toAvroEnum(e)
-      case record: Record[_]                     => toAvroRecord(record)
-      case map: Schema.Map[_, _]                 => toAvroMap(map)
-      case map: Schema.NonEmptyMap[_, _]         => toAvroMap(map)
-      case seq: Schema.Sequence[_, _, _]         => toAvroSchema(seq.elementSchema).map(SchemaAvro.createArray)
-      case seq: Schema.NonEmptySequence[_, _, _] => toAvroSchema(seq.elementSchema).map(SchemaAvro.createArray)
-      case set: Schema.Set[_]                    => toAvroSchema(set.elementSchema).map(SchemaAvro.createArray)
-      case Transform(codec, _, _, _, _)          => toAvroSchema(codec)
+      case e: Enum[_]                            => toAvroEnum(e, seen)
+      case record: Record[_]                     => toAvroRecord(record, seen)
+      case map: Schema.Map[_, _]                 => toAvroMap(map, seen)
+      case map: Schema.NonEmptyMap[_, _]         => toAvroMap(map, seen)
+      case seq: Schema.Sequence[_, _, _]         => toAvroSchema(seq.elementSchema, seen).map(SchemaAvro.createArray)
+      case seq: Schema.NonEmptySequence[_, _, _] => toAvroSchema(seq.elementSchema, seen).map(SchemaAvro.createArray)
+      case set: Schema.Set[_]                    => toAvroSchema(set.elementSchema, seen).map(SchemaAvro.createArray)
+      case Transform(codec, _, _, _, _)          => toAvroSchema(codec, seen)
       case Primitive(standardType, _) =>
         standardType match {
           case StandardType.UnitType   => Right(SchemaAvro.create(SchemaAvro.Type.NULL))
@@ -390,7 +394,7 @@ object AvroSchemaCodec extends AvroSchemaCodec {
       case Optional(codec, _) =>
         for {
           codecName       <- getName(codec)
-          codecAvroSchema <- toAvroSchema(codec)
+          codecAvroSchema <- toAvroSchema(codec, seen)
           wrappedAvroSchema = codecAvroSchema match {
             case s: SchemaAvro if s.getType == SchemaAvro.Type.NULL =>
               wrapAvro(s, codecName, UnionWrapper)
@@ -401,13 +405,13 @@ object AvroSchemaCodec extends AvroSchemaCodec {
         } yield SchemaAvro.createUnion(SchemaAvro.create(SchemaAvro.Type.NULL), wrappedAvroSchema)
       case Fail(message, _) => Left(message)
       case tuple: Tuple2[_, _] =>
-        toAvroSchema(tuple.toRecord).map(
+        toAvroSchema(tuple.toRecord, seen).map(
           _.addMarkerProp(RecordDiscriminator(RecordType.Tuple))
         )
       case e @ Schema.Either(left, right, _) =>
         val eitherUnion = for {
-          l           <- toAvroSchema(left)
-          r           <- toAvroSchema(right)
+          l           <- toAvroSchema(left, seen)
+          r           <- toAvroSchema(right, seen)
           lname       <- getName(left)
           rname       <- getName(right)
           leftSchema  = if (l.getType == SchemaAvro.Type.UNION) wrapAvro(l, lname, UnionWrapper) else l
@@ -424,10 +428,10 @@ object AvroSchemaCodec extends AvroSchemaCodec {
         } yield wrapAvro(union, name, EitherWrapper)
 
       case Schema.Fallback(left, right, _, _) =>
-        toAvroSchema(Schema.Tuple2(Schema.Optional(left), Schema.Optional(right)))
+        toAvroSchema(Schema.Tuple2(Schema.Optional(left), Schema.Optional(right)), seen)
 
-      case Lazy(schema0) => toAvroSchema(schema0())
-      case Dynamic(_)    => toAvroSchema(Schema[MetaSchema])
+      case Lazy(schema0) => toAvroSchema(schema0(), seen)
+      case Dynamic(_)    => toAvroSchema(Schema[MetaSchema], seen)
     }
   }
 
@@ -542,7 +546,10 @@ object AvroSchemaCodec extends AvroSchemaCodec {
       .addMarkerProp(marker)
   }
 
-  private[codec] def toAvroEnum(enu: Enum[_]): scala.util.Either[String, SchemaAvro] = {
+  private[codec] def toAvroEnum(
+    enu: Enum[_],
+    seen: mutable.Map[String, SchemaAvro] = mutable.Map.empty
+  ): scala.util.Either[String, SchemaAvro] = {
     val avroEnumAnnotationExists = hasAvroEnumAnnotation(enu.annotations)
     val isAvroEnumEquivalent = enu.cases.map(_.schema).forall {
       case (Transform(Primitive(standardType, _), _, _, _, _))
@@ -574,7 +581,7 @@ object AvroSchemaCodec extends AvroSchemaCodec {
         case (symbol, (schema, annotations)) =>
           val name           = getNameOption(annotations).getOrElse(symbol)
           val schemaWithName = addNameAnnotationIfMissing(schema, name)
-          toAvroSchema(schemaWithName).map {
+          toAvroSchema(schemaWithName, seen).map {
             case s: SchemaAvro if s.getType == SchemaAvro.Type.UNION =>
               wrapAvro(s, name, UnionWrapper) // handle nested unions
             case s => s
@@ -590,8 +597,11 @@ object AvroSchemaCodec extends AvroSchemaCodec {
     }
   }
 
-  private def extractAvroFields(record: Record[_]): List[org.apache.avro.Schema.Field] =
-    record.fields.map(toAvroRecordField).toList.map(_.merge).partition {
+  private def extractAvroFields(
+    record: Record[_],
+    seen: mutable.Map[String, SchemaAvro]
+  ): List[org.apache.avro.Schema.Field] =
+    record.fields.map(toAvroRecordField(_, seen)).toList.map(_.merge).partition {
       case _: String => true
       case _         => false
     } match {
@@ -599,43 +609,59 @@ object AvroSchemaCodec extends AvroSchemaCodec {
       case _                                                           => null
     }
 
-  private[codec] def toAvroRecord(record: Record[_]): scala.util.Either[String, SchemaAvro] =
+  private[codec] def toAvroRecord(
+    record: Record[_],
+    seen: mutable.Map[String, SchemaAvro] = mutable.Map.empty
+  ): scala.util.Either[String, SchemaAvro] =
     for {
       name            <- getName(record)
       namespaceOption <- getNamespace(record.annotations)
-      result <- Right(
-                 SchemaAvro.createRecord(
-                   name,
-                   getDoc(record.annotations).orNull,
-                   namespaceOption.orNull,
-                   isErrorRecord(record),
-                   extractAvroFields(record).asJava
-                 )
-               )
+      result <- {
+        seen.get(name) match {
+          case Some(existing) => Right(existing)
+          case None =>
+            val recordSchema = SchemaAvro.createRecord(
+              name,
+              getDoc(record.annotations).orNull,
+              namespaceOption.orNull,
+              isErrorRecord(record)
+            )
+            seen += (name -> recordSchema)
+            val fields = extractAvroFields(record, seen)
+            if (fields != null) recordSchema.setFields(fields.asJava)
+            Right(recordSchema)
+        }
+      }
     } yield result
 
-  private[codec] def toAvroMap(map: Map[_, _]): scala.util.Either[String, SchemaAvro] =
+  private[codec] def toAvroMap(
+    map: Map[_, _],
+    seen: mutable.Map[String, SchemaAvro]
+  ): scala.util.Either[String, SchemaAvro] =
     map.keySchema match {
       case p: Schema.Primitive[_] if p.standardType == StandardType.StringType =>
-        toAvroSchema(map.valueSchema).map(SchemaAvro.createMap)
+        toAvroSchema(map.valueSchema, seen).map(SchemaAvro.createMap)
       case _ =>
         val tupleSchema = Schema
           .Tuple2(map.keySchema, map.valueSchema)
           .annotate(AvroAnnotations.name("Tuple"))
           .annotate(AvroAnnotations.namespace("scala"))
-        toAvroSchema(tupleSchema).map(SchemaAvro.createArray)
+        toAvroSchema(tupleSchema, seen).map(SchemaAvro.createArray)
     }
 
-  private[codec] def toAvroMap(map: NonEmptyMap[_, _]): scala.util.Either[String, SchemaAvro] =
+  private[codec] def toAvroMap(
+    map: NonEmptyMap[_, _],
+    seen: mutable.Map[String, SchemaAvro]
+  ): scala.util.Either[String, SchemaAvro] =
     map.keySchema match {
       case p: Schema.Primitive[_] if p.standardType == StandardType.StringType =>
-        toAvroSchema(map.valueSchema).map(SchemaAvro.createMap)
+        toAvroSchema(map.valueSchema, seen).map(SchemaAvro.createMap)
       case _ =>
         val tupleSchema = Schema
           .Tuple2(map.keySchema, map.valueSchema)
           .annotate(AvroAnnotations.name("Tuple"))
           .annotate(AvroAnnotations.namespace("scala"))
-        toAvroSchema(tupleSchema).map(SchemaAvro.createArray)
+        toAvroSchema(tupleSchema, seen).map(SchemaAvro.createArray)
     }
 
   private[codec] def toAvroDecimal(schema: Schema[_]): scala.util.Either[String, SchemaAvro] = {
@@ -669,8 +695,11 @@ object AvroSchemaCodec extends AvroSchemaCodec {
   private[codec] def toErrorMessage(err: Throwable, at: AnyRef) =
     s"Error mapping to Apache Avro schema: $err at ${at.toString}"
 
-  private[codec] def toAvroRecordField[Z](value: Field[Z, _]): scala.util.Either[String, SchemaAvro.Field] =
-    toAvroSchema(value.schema).map(
+  private[codec] def toAvroRecordField[Z](
+    value: Field[Z, _],
+    seen: mutable.Map[String, SchemaAvro]
+  ): scala.util.Either[String, SchemaAvro.Field] =
+    toAvroSchema(value.schema, seen).map(
       schema =>
         new SchemaAvro.Field(
           getNameOption(value.annotations).getOrElse(value.name),
