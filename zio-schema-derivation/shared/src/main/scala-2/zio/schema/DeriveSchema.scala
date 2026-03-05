@@ -242,9 +242,21 @@ object DeriveSchema {
           if (tpe.typeArgs.isEmpty) Nil
           else {
             val typeMembers = tpe.typeSymbol.asClass.typeParams.map(decodeName)
-            val typeArgs = tpe.typeArgs
-              .map(_.typeSymbol.fullName)
-              .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
+            val typeArgs = tpe.typeArgs.map { typeArg =>
+              val sym = typeArg.typeSymbol
+              if (sym.isAbstract || sym.isParameter || sym.fullName
+                    .startsWith("<") || sym.fullName == "scala.Nothing") {
+                val schemaType = c.typecheck(tq"_root_.zio.schema.Schema[$typeArg]", c.TYPEmode).tpe
+                c.inferImplicitValue(schemaType, withMacrosDisabled = true) match {
+                  case EmptyTree =>
+                    q"_root_.zio.schema.TypeId.parse(${sym.fullName}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]"
+                  case schemaTree =>
+                    q"_root_.zio.schema.Schema.getTypeId($schemaTree).asInstanceOf[_root_.zio.schema.TypeId.Nominal]"
+                }
+              } else {
+                q"_root_.zio.schema.TypeId.parse(${sym.fullName}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]"
+              }
+            }
             val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }
             List(
               q"new _root_.zio.schema.annotation.genericTypeInfo(_root_.scala.collection.immutable.ListMap(..$typeMembersWithArgs))"
@@ -588,9 +600,20 @@ object DeriveSchema {
         if (tpe.typeArgs.isEmpty) Nil
         else {
           val typeMembers = tpe.typeSymbol.asClass.typeParams.map(decodeName)
-          val typeArgs = tpe.typeArgs
-            .map(_.typeSymbol.fullName)
-            .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
+          val typeArgs = tpe.typeArgs.map { typeArg =>
+            val sym = typeArg.typeSymbol
+            if (sym.isAbstract || sym.isParameter || sym.fullName.startsWith("<") || sym.fullName == "scala.Nothing") {
+              val schemaType = c.typecheck(tq"_root_.zio.schema.Schema[$typeArg]", c.TYPEmode).tpe
+              c.inferImplicitValue(schemaType, withMacrosDisabled = true) match {
+                case EmptyTree =>
+                  q"_root_.zio.schema.TypeId.parse(${sym.fullName}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]"
+                case schemaTree =>
+                  q"_root_.zio.schema.Schema.getTypeId($schemaTree).asInstanceOf[_root_.zio.schema.TypeId.Nominal]"
+              }
+            } else {
+              q"_root_.zio.schema.TypeId.parse(${sym.fullName}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]"
+            }
+          }
           val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }
           List(
             q"new _root_.zio.schema.annotation.genericTypeInfo(_root_.scala.collection.immutable.ListMap(..$typeMembersWithArgs))"
@@ -646,9 +669,20 @@ object DeriveSchema {
           if (subtype.typeArgs.isEmpty) Nil
           else {
             val typeMembers = subtype.typeSymbol.asClass.typeParams.map(decodeName)
-            val typeArgs = subtype.typeArgs
-              .map(_.typeSymbol.fullName)
-              .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
+            val typeArgs = subtype.typeArgs.map { typeArg =>
+              val sym = typeArg.typeSymbol
+              if (sym.isAbstract || sym.isParameter || sym.fullName.startsWith("<") || sym.fullName == "scala.Nothing") {
+                val schemaType = c.typecheck(tq"_root_.zio.schema.Schema[$typeArg]", c.TYPEmode).tpe
+                c.inferImplicitValue(schemaType, withMacrosDisabled = true) match {
+                  case EmptyTree =>
+                    q"_root_.zio.schema.TypeId.parse(${sym.fullName}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]"
+                  case schemaTree =>
+                    q"_root_.zio.schema.Schema.getTypeId($schemaTree).asInstanceOf[_root_.zio.schema.TypeId.Nominal]"
+                }
+              } else {
+                q"_root_.zio.schema.TypeId.parse(${sym.fullName}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]"
+              }
+            }
             val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }
             List(
               q"new _root_.zio.schema.annotation.genericTypeInfo(_root_.scala.collection.immutable.ListMap(..$typeMembersWithArgs))"

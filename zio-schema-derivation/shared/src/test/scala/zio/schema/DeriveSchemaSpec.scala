@@ -276,6 +276,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
   sealed trait MiddleTrait    extends TraitWithMiddleTrait
   case object MiddleTraitLeaf extends MiddleTrait
 
+  sealed trait Animal
+  sealed trait Dog                         extends Animal
+  case class GoldenRetriever(name: String) extends Dog
+  sealed trait Fish                        extends Animal
+  case class Bass(color: String)           extends Fish
+
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class 0") {
@@ -613,6 +619,14 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
             )
           )
         assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly derives nested sealed trait hierarchy with populated sub-trees") {
+        val schema = DeriveSchema.gen[Animal]
+        assertTrue(schema.isInstanceOf[Schema.Enum[_]])
+      },
+      test("correctly derives sealed trait with middle sealed trait") {
+        val schema = DeriveSchema.gen[TraitWithMiddleTrait]
+        assertTrue(schema.isInstanceOf[Schema.Enum[_]])
       }
     ),
     versionSpecificSuite

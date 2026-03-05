@@ -199,7 +199,12 @@ object AvroCodec {
     case Schema.Sequence(element, f, _, _, _) =>
       decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(f.asInstanceOf[Chunk[Any] => A])
     case nes @ Schema.NonEmptySequence(element, _, _, _, _) =>
-      decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(nes.fromChunk.asInstanceOf[Chunk[Any] => A])
+      decodeSequence(raw, element.asInstanceOf[Schema[Any]]).flatMap { chunk =>
+        nes
+          .asInstanceOf[Schema.NonEmptySequence[A, Any, _]]
+          .fromChunkOption(chunk)
+          .toRight(DecodeError.MalformedFieldWithPath(Chunk.empty, s"${nes.identity} expected"))
+      }
     case Schema.Set(element, _) => decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(_.toSet.asInstanceOf[A])
     case mapSchema: Schema.Map[_, _] =>
       decodeMap(raw, mapSchema.asInstanceOf[Schema.Map[Any, Any]]).map(_.asInstanceOf[A])

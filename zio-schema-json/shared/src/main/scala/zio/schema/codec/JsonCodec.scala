@@ -422,6 +422,22 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       }
   }
 
+  private def constructEnumCase[Z, A](case_ : Schema.Case[Z, A]): Z =
+    case_.schema match {
+      case cc: Schema.CaseClass0[A] =>
+        case_.construct(cc.defaultConstruct())
+      case e: Schema.Enum[A] =>
+        e.defaultValue match {
+          case Right(v) => case_.construct(v)
+          case Left(err) =>
+            throw new RuntimeException(s"Cannot construct enum case ${case_.id}: $err")
+        }
+      case other =>
+        throw new RuntimeException(
+          s"Unsupported case schema type for ${case_.id}: ${other.getClass.getSimpleName}"
+        )
+    }
+
   object JsonEncoder {
 
     import Codecs._
@@ -640,7 +656,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       schema.nonTransientCases
         .map(
           case_ =>
-            case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct() ->
+            constructEnumCase(case_) ->
               format(case_.caseName, cfg)
         )
         .toMap
@@ -856,7 +872,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       case Schema.Tuple2(left, right, _)                  => ZJsonDecoder.tuple2(schemaDecoder(left, config), schemaDecoder(right, config))
       case Schema.Transform(c, f, _, a, _)                => schemaDecoder(a.foldLeft(c)((s, a) => s.annotate(a)), config, discriminator).mapOrFail(f)
       case Schema.Sequence(codec, f, _, _, _)             => ZJsonDecoder.chunk(schemaDecoder(codec, config)).map(f)
-      case s @ Schema.NonEmptySequence(codec, _, _, _, _) => ZJsonDecoder.chunk(schemaDecoder(codec, config)).map(s.fromChunk)
+      case s @ Schema.NonEmptySequence(codec, _, _, _, _) => ZJsonDecoder.chunk(schemaDecoder(codec, config)).mapOrFail(chunk => s.fromChunkOption(chunk).toRight(s"${s.identity} expected"))
       case Schema.Map(ks, vs, _)                          => mapDecoder(config)(ks, vs)
       case Schema.NonEmptyMap(ks, vs, _)                  => mapDecoder(config)(ks, vs).mapOrFail(m => NonEmptyMap.fromMapOption(m).toRight("NonEmptyMap expected"))
       case Schema.Set(s, _)                               => ZJsonDecoder.set(schemaDecoder(s, config))
@@ -935,9 +951,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
             if (caseNameAliases.size <= 64) {
               new JsonFieldDecoder[Z] {
                 private[this] val stringMatrix = new StringMatrix(caseNameAliases.keys.toArray)
-                private[this] val cases = caseNameAliases.values.map { case_ =>
-                  case_.schema.asInstanceOf[Schema.CaseClass0[Any]].defaultConstruct()
-                }.toArray.asInstanceOf[Array[Z]]
+                private[this] val cases =
+                  caseNameAliases.values.map(constructEnumCase[Z, Any]).toVector
 
                 override def unsafeDecodeField(trace: List[JsonError], in: String): Z = {
                   val idx = Lexer.enumeration(trace, new FastStringReader("\"" + in + "\""), stringMatrix)
@@ -951,7 +966,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
                 caseNameAliases.foreach {
                   case (name, case_) =>
-                    cases.put(name, case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct())
+                    cases.put(name, constructEnumCase(case_))
                 }
 
                 override def unsafeDecodeField(trace: List[JsonError], in: String): Z = {

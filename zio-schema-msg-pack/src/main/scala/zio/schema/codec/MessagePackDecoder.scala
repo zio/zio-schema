@@ -28,6 +28,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
         val fields = structure.toChunk
         decodeRecord(path, fields)
       case seqSchema @ Schema.Sequence(_, _, _, _, _)  => decodeSequence(path, seqSchema)
+      case s @ Schema.NonEmptySequence(_, _, _, _, _)  => decodeIterable(path, s.elementSchema).flatMap(chunk => s.fromChunkOption(chunk).toRight(MalformedFieldWithPath(path, s"${s.identity} expected")))
       case mapSchema @ Schema.Map(_, _, _)             => decodeMap(path, mapSchema)
       case setSchema @ Schema.Set(_, _)                => decodeSet(path, setSchema)
       case Schema.Transform(schema, f, _, _, _)        => decodeTransform(path, schema, f)

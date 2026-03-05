@@ -408,8 +408,6 @@ object BsonSchemaCodec {
         override def encode(writer: BsonWriter, value: Fallback[A, B], ctx: BsonEncoder.EncoderContext): Unit = {
           val nextCtx = BsonEncoder.EncoderContext.default
 
-          if (!ctx.inlineNextObject) writer.writeStartDocument()
-
           value match {
             case Fallback.Left(value) =>
               BsonEncoder[A].encode(writer, value, nextCtx)
@@ -421,13 +419,11 @@ object BsonSchemaCodec {
               BsonEncoder[B].encode(writer, right, nextCtx)
               writer.writeEndArray()
           }
-
-          if (!ctx.inlineNextObject) writer.writeEndDocument()
         }
 
         override def toBsonValue(value: Fallback[A, B]): BsonValue = value match {
-          case Fallback.Left(value)       => array(value.toBsonValue)
-          case Fallback.Right(value)      => array(value.toBsonValue)
+          case Fallback.Left(value)       => value.toBsonValue
+          case Fallback.Right(value)      => value.toBsonValue
           case Fallback.Both(left, right) => array(left.toBsonValue, right.toBsonValue)
         }
       }
@@ -442,15 +438,25 @@ object BsonSchemaCodec {
         ): Fallback[A, B] = unsafeCall(trace) {
           val nextCtx = BsonDecoder.BsonDecoderContext.default
 
-          try {
-            Fallback.Left(BsonDecoder[A].decodeUnsafe(reader, trace, nextCtx))
-          } catch {
-            case _: BsonDecoder.Error =>
-              try {
-                Fallback.Right(BsonDecoder[B].decodeUnsafe(reader, trace, nextCtx))
-              } catch {
-                case _: BsonDecoder.Error => throw BsonDecoder.Error(trace, "Both `left` and `right` cases missing.")
-              }
+          if (reader.getCurrentBsonType == BsonType.ARRAY) {
+            reader.readStartArray()
+            reader.readBsonType()
+            val left = BsonDecoder[A].decodeUnsafe(reader, trace, nextCtx)
+            reader.readBsonType()
+            val right = BsonDecoder[B].decodeUnsafe(reader, trace, nextCtx)
+            reader.readEndArray()
+            Fallback.Both(left, right)
+          } else {
+            try {
+              Fallback.Left(BsonDecoder[A].decodeUnsafe(reader, trace, nextCtx))
+            } catch {
+              case _: BsonDecoder.Error =>
+                try {
+                  Fallback.Right(BsonDecoder[B].decodeUnsafe(reader, trace, nextCtx))
+                } catch {
+                  case _: BsonDecoder.Error => throw BsonDecoder.Error(trace, "Both `left` and `right` cases missing.")
+                }
+            }
           }
         }
 
@@ -458,10 +464,15 @@ object BsonSchemaCodec {
           value: BsonValue,
           trace: List[BsonTrace],
           ctx: BsonDecoder.BsonDecoderContext
-        ): Fallback[A, B] =
-          assumeType(trace)(BsonType.DOCUMENT, value) { value =>
-            val nextCtx = BsonDecoder.BsonDecoderContext.default
+        ): Fallback[A, B] = {
+          val nextCtx = BsonDecoder.BsonDecoderContext.default
 
+          if (value.isArray && value.asArray().size() == 2) {
+            val arr   = value.asArray()
+            val left  = BsonDecoder[A].fromBsonValueUnsafe(arr.get(0), trace, nextCtx)
+            val right = BsonDecoder[B].fromBsonValueUnsafe(arr.get(1), trace, nextCtx)
+            Fallback.Both(left, right)
+          } else {
             try {
               Fallback.Left(BsonDecoder[A].fromBsonValueUnsafe(value, trace, nextCtx))
             } catch {
@@ -473,6 +484,7 @@ object BsonSchemaCodec {
                 }
             }
           }
+        }
       }
 
     protected[codec] def failDecoder[A](message: String): BsonDecoder[A] =
@@ -574,7 +586,17 @@ object BsonSchemaCodec {
         case Schema.Primitive(StandardType.StringType, _) => Option(BsonFieldEncoder.string)
         case Schema.Primitive(StandardType.LongType, _)   => Option(BsonFieldEncoder.long)
         case Schema.Primitive(StandardType.IntType, _)    => Option(BsonFieldEncoder.int)
-        case _                                            => None
+        case Schema.Transform(inner, _, g, _, _) =>
+          bsonFieldEncoder(inner).map { enc =>
+            val f: A => Any = { a =>
+              g(a) match {
+                case Right(b)    => b
+                case Left(error) => throw new IllegalArgumentException(s"Failed to encode map key: $error")
+              }
+            }
+            enc.asInstanceOf[BsonFieldEncoder[Any]].contramap(f)
+          }
+        case _ => None
       }
 
     private[codec] def mapEncoder[K, V](config: Config)(ks: Schema[K], vs: Schema[V]): BsonEncoder[Map[K, V]] = {
@@ -879,7 +901,7 @@ object BsonSchemaCodec {
       case Schema.Tuple2(left, right, _)                  => tuple2Decoder(schemaDecoder(config)(left), schemaDecoder(config)(right))
       case Schema.Transform(codec, f, _, _, _)            => schemaDecoder(config)(codec).mapOrFail(f)
       case Schema.Sequence(codec, f, _, _, _)             => chunkDecoder(schemaDecoder(config)(codec)).map(f)
-      case s @ Schema.NonEmptySequence(codec, _, _, _, _) => chunkDecoder(schemaDecoder(config)(codec)).map(s.fromChunk)
+      case s @ Schema.NonEmptySequence(codec, _, _, _, _) => chunkDecoder(schemaDecoder(config)(codec)).mapOrFail(chunk => s.fromChunkOption(chunk).toRight(s"${s.identity} expected"))
       case Schema.Map(ks, vs, _)                          => mapDecoder(config)(ks, vs)
       case s @ Schema.NonEmptyMap(ks, vs, _)              => mapDecoder(config)(ks, vs).map(s.fromMap)
       case Schema.Set(s, _)                               => chunkDecoder(schemaDecoder(config)(s)).map(entries => entries.toSet)
@@ -912,7 +934,9 @@ object BsonSchemaCodec {
         case Schema.Primitive(StandardType.StringType, _) => Some(BsonFieldDecoder.string)
         case Schema.Primitive(StandardType.LongType, _)   => Some(BsonFieldDecoder.long)
         case Schema.Primitive(StandardType.IntType, _)    => Some(BsonFieldDecoder.int)
-        case _                                            => None
+        case Schema.Transform(inner, f, _, _, _) =>
+          bsonFieldDecoder(inner).map(dec => dec.mapOrFail(f))
+        case _ => None
       }
 
     private def dynamicDecoder(config: Config)(schema: Schema.Dynamic): BsonDecoder[DynamicValue] = {

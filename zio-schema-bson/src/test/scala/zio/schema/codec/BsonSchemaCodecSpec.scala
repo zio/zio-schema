@@ -11,7 +11,7 @@ import org.bson.{ BsonDecimal128, _ }
 
 import zio.bson.BsonBuilder._
 import zio.bson._
-import zio.schema.{ DeriveGen, DeriveSchema, Schema }
+import zio.schema.{ DeriveGen, DeriveSchema, Fallback, Schema }
 import zio.test._
 import zio.test.diff.Diff
 import zio.{ Chunk, Scope, Task, UIO, ZIO }
@@ -86,9 +86,33 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
       } yield Customer(id, name, age, friends)
   }
 
+  case class WrappedString(value: String) extends AnyVal
+  case class MapWithWrappedKey(data: Map[WrappedString, Int])
+
+  object MapWithWrappedKey {
+    implicit lazy val wrappedStringSchema: Schema[WrappedString] =
+      Schema.primitive[String].transform(WrappedString(_), _.value)
+
+    implicit lazy val schema: Schema[MapWithWrappedKey]   = DeriveSchema.gen
+    implicit lazy val codec: BsonCodec[MapWithWrappedKey] = BsonSchemaCodec.bsonCodec(schema)
+
+    val example: MapWithWrappedKey = MapWithWrappedKey(
+      data = Map(
+        WrappedString("key1") -> 1,
+        WrappedString("key2") -> 2
+      )
+    )
+
+    lazy val gen: Gen[Sized, MapWithWrappedKey] =
+      Gen.mapOf(Gen.string.map(WrappedString(_)), Gen.int).map(MapWithWrappedKey(_))
+  }
+
   // Custom generator for BigDecimal values with rounding to ensure exact representation as Decimal128
   def genRoundedBigDecimal(scale: Int): Gen[Any, BigDecimal] =
     Gen.double.map(d => BigDecimal(d).setScale(scale, BigDecimal.RoundingMode.HALF_UP))
+
+  implicit lazy val fallbackCodec: BsonCodec[Fallback[String, Int]] =
+    BsonSchemaCodec.bsonCodec(Schema.fallback[String, Int])
 
   def spec: Spec[TestEnvironment with Scope, Any] = suite("BsonSchemaCodecSpec")(
     suite("round trip")(
@@ -124,6 +148,31 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
         genRoundedBigDecimal(14).map(BigDecimalClass(_)),
         BigDecimalClass(BigDecimal("279.00000000000000")),
         doc("value" -> new BsonDecimal128(Decimal128.parse("279.00000000000000")))
+      ),
+      roundTripTest("MapWithWrappedKey")(
+        MapWithWrappedKey.gen,
+        MapWithWrappedKey.example,
+        doc(
+          "data" -> doc(
+            "key1" -> int(1),
+            "key2" -> int(2)
+          )
+        )
+      ),
+      roundTripTest[Fallback[String, Int]]("Fallback.Left")(
+        Gen.string.map(s => Fallback.Left[String, Int](s)),
+        Fallback.Left[String, Int]("hello"),
+        str("hello")
+      ),
+      roundTripTest[Fallback[String, Int]]("Fallback.Right")(
+        Gen.int.map(i => Fallback.Right[String, Int](i)),
+        Fallback.Right[String, Int](42),
+        int(42)
+      ),
+      roundTripTest[Fallback[String, Int]]("Fallback.Both")(
+        Gen.string.zipWith(Gen.int)((s, i) => Fallback.Both[String, Int](s, i)),
+        Fallback.Both[String, Int]("hello", 42),
+        array(str("hello"), int(42))
       )
     ),
     suite("configuration")(

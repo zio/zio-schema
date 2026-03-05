@@ -210,6 +210,15 @@ import zio.{ Chunk, Scope }
               .exists(a => a.isInstanceOf[fieldDefaultValue[_]] && a.asInstanceOf[fieldDefaultValue[Int]].value == 52),
             capturedSchema.schema.defaultValue == Right(RecordWithDefaultValue(42, 52))
           )
+        },
+        test("genericTypeInfo resolves abstract type parameters via Schema") {
+          val capturedSchema = Derive.derive[CapturedSchema, GenericType[Int]](schemaCapturer)
+          val maybeTypeInfo  = capturedSchema.schema.annotations.collectFirst { case gt @ genericTypeInfo(_) => gt }
+          assertTrue(
+            maybeTypeInfo.contains(
+              genericTypeInfo(ListMap("T" -> TypeId.parse("scala.Int").asInstanceOf[TypeId.Nominal]))
+            )
+          )
         }
       ),
       suite("support factory")(
@@ -349,6 +358,13 @@ import zio.{ Chunk, Scope }
     //explicitly Int, because generic implicit definition leads to "Schema derivation exceeded" error
     implicit def schema: Schema[GenericRecordWithDefaultValue[Int]] =
       DeriveSchema.gen[GenericRecordWithDefaultValue[Int]]
+  }
+
+  case class GenericType[T](value: T)
+
+  object GenericType {
+    implicit def schema[T](implicit schemaT: Schema[T]): Schema[GenericType[T]] =
+      DeriveSchema.gen[GenericType[T]]
   }
 
   sealed trait Enum1

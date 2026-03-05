@@ -9,9 +9,14 @@ trait Regexs {
    * Checks whether a certain string represents a valid email address.
    */
   lazy val email: Validation[String] = {
-    val localPart               = Regex.letter ~ (Regex.digitOrLetter | Regex.oneOf('_', '.', '+', '-')).atMost(63)
+    val localPart = (Regex.digitOrLetter | Regex.oneOf('_', '+', '-')) ~ (Regex.digitOrLetter | Regex.oneOf(
+      '_',
+      '.',
+      '+',
+      '-'
+    )).atMost(63)
     val domainSegment           = Regex.digitOrLetter | Regex.oneOf('-')
-    val topLevelDomain          = domainSegment.between(2, 4)
+    val topLevelDomain          = domainSegment.between(2, 63)
     val domainPart              = (domainSegment.atLeast(1) ~ Regex.oneOf('.')).atLeast(1) ~ topLevelDomain
     val ipBlock: Regex => Regex = Regex.oneOf('[') ~ _ ~ Regex.oneOf(']')
     val emailBeginning          = localPart ~ Regex.oneOf('@')

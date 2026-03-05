@@ -71,6 +71,7 @@ object Regex {
       case '{'  => "\\{"
       case '}'  => "\\}"
       case '\\' => "\\\\"
+      case '-'  => "\\-"
       case _    => ch.toString
     }
 
