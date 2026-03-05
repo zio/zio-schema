@@ -890,6 +890,12 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
           val result = AvroSchemaCodec.encode(schema)
 
           assert(result)(isRight(equalTo("\"string\"")))
+        },
+        test("encodes recursive sealed trait without StackOverflowError") {
+          val schema = DeriveSchema.gen[SpecTestData.Recursive]
+          val result = AvroSchemaCodec.encodeToApacheAvro(schema)
+
+          assertTrue(result.isRight)
         }
       ),
       /**
@@ -2062,5 +2068,13 @@ object SpecTestData {
     sealed trait Enum
     case object EnumCase1 extends Enum
     case object EnumCase2 extends Enum
+
+  }
+
+  sealed trait Recursive
+
+  object Recursive {
+    case class Container(items: List[Recursive]) extends Recursive
+    case class Leaf(value: Int)                  extends Recursive
   }
 }
