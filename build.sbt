@@ -54,20 +54,20 @@ addCommandAlias("fixCheck", "scalafixAll --check")
 addCommandAlias(
   "testJVM",
   "testsJVM/test; zioSchemaMacrosJVM/test; zioSchemaJVM/test; zioSchemaDerivationJVM/test;" +
-    "zioSchemaOpticsJVM/test; zioSchemaJsonJVM/test; zioSchemaProtobufJVM/test; zioSchemaZioTestJVM/test;" +
+    "zioSchemaOpticsJVM/test; zioSchemaJsonJVM/test; zioSchemaProtobufJVM/test; zioSchemaXmlJVM/test; zioSchemaZioTestJVM/test;" +
     "zioSchemaAvro/test; zioSchemaThrift/test; zioSchemaBson/test; zioSchemaMsgPack/test"
 )
 
 addCommandAlias(
   "testNative",
   "zioSchemaMacrosNative/test; zioSchemaDerivationNative/test; zioSchemaJsonNative/test; zioSchemaOpticsNative/test;" +
-    "testsNative/test; zioSchemaNative/test; zioSchemaZioTestNative/test; zioSchemaProtobufNative/test;"
+    "testsNative/test; zioSchemaNative/test; zioSchemaZioTestNative/test; zioSchemaProtobufNative/test; zioSchemaXmlNative/test;"
 )
 
 addCommandAlias(
   "testJS",
   "zioSchemaMacrosJS/test; zioSchemaDerivationJS/test; zioSchemaJsonJS/test; zioSchemaOpticsJS/test; testsJS/test; zioSchemaJS/test; " +
-    "zioSchemaZioTestJS/test; zioSchemaProtobufJS/test;"
+    "zioSchemaZioTestJS/test; zioSchemaProtobufJS/test; zioSchemaXmlJS/test;"
 )
 
 lazy val root = project
@@ -97,6 +97,9 @@ lazy val root = project
     zioSchemaProtobufJS,
     zioSchemaProtobufJVM,
     zioSchemaProtobuf.native,
+    zioSchemaXmlJVM,
+    zioSchemaXmlJS,
+    zioSchemaXml.native,
     zioSchemaExamplesJS,
     zioSchemaExamplesJVM,
     zioSchemaExamples.native,
@@ -296,6 +299,33 @@ lazy val zioSchemaProtobufJS = zioSchemaProtobuf.js
 
 lazy val zioSchemaProtobufJVM = zioSchemaProtobuf.jvm
 
+lazy val zioSchemaXml = crossProject(JSPlatform, JVMPlatform, NativePlatform)
+  .in(file("zio-schema-xml"))
+  .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
+  .settings(stdSettings("zio-schema-xml"))
+  .settings(dottySettings)
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.xml"))
+  .nativeSettings(
+    Test / fork := false,
+    libraryDependencies ++= Seq(
+      "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
+    )
+  )
+  .jsSettings(
+    libraryDependencies ++= Seq(
+      "io.github.cquiroz" %%% "scala-java-time"      % scalaJavaTimeVersion,
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
+    )
+  )
+  .settings(testDeps)
+  .settings(mimaPreviousArtifacts := Set())
+
+lazy val zioSchemaXmlJS = zioSchemaXml.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaXmlJVM = zioSchemaXml.jvm
+
 lazy val zioSchemaThrift = project
   .in(file("zio-schema-thrift"))
   .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
@@ -480,7 +510,8 @@ lazy val docs = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
-    zioSchemaThrift
+    zioSchemaThrift,
+    zioSchemaXmlJVM
   )
   .enablePlugins(WebsitePlugin)
 

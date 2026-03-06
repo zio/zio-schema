@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context
+                           http://www.springframework.org/schema/context/spring-context.xsd">
+  <context:component-scan base-package="com.example"/>
+  <bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
+    <property name="driverClassName" value="org.postgresql.Driver"/>
+    <property name="url" value="jdbc:postgresql://localhost:5432/mydb"/>
+    <property name="username" value="admin"/>
+    <property name="password" value="secret"/>
+    <property name="maxTotal" value="10"/>
+  </bean>
+  <bean id="userService" class="com.example.UserService">
+    <constructor-arg ref="dataSource"/>
+    <property name="cacheEnabled" value="true"/>
+  </bean>
+</beans>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     version="1.1"
+     creator="ZIO Schema XML Codec"
+     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>Morning Run</name>
+    <desc>A short morning run around the park</desc>
+    <author>
+      <name>ZIO Runner</name>
+    </author>
+    <time>2024-06-15T07:30:00Z</time>
+  </metadata>
+  <trk>
+    <name>Run Track</name>
+    <trkseg>
+      <trkpt lat="40.7128" lon="-74.0060">
+        <ele>10.5</ele>
+        <time>2024-06-15T07:30:00Z</time>
+      </trkpt>
+      <trkpt lat="40.7135" lon="-74.0055">
+        <ele>11.2</ele>
+        <time>2024-06-15T07:31:00Z</time>
+      </trkpt>
+      <trkpt lat="40.7140" lon="-74.0048">
+        <ele>12.0</ele>
+        <time>2024-06-15T07:32:00Z</time>
+      </trkpt>
+      <trkpt lat="40.7138" lon="-74.0042">
+        <ele>11.8</ele>
+        <time>2024-06-15T07:33:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
