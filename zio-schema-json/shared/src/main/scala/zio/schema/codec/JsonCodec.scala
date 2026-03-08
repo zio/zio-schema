@@ -124,6 +124,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
    *   whether to treat streams as arrays when encoding/decoding
    * @param rejectExtraFields
    *   whether to reject extra fields during decoding
+   * @param doublePlainFormat
+   *   whether to encode Double and Float values in plain decimal format instead of scientific notation (e.g., `12345678.0` instead of `1.2345678E7`)
    */
   final case class Configuration(
     explicitEmptyCollections: ExplicitConfig = ExplicitConfig(),
@@ -131,7 +133,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     discriminatorSettings: DiscriminatorSetting = DiscriminatorSetting.default,
     fieldNameFormat: NameFormat = NameFormat.Identity,
     treatStreamsAsArrays: Boolean = false,
-    rejectExtraFields: Boolean = false
+    rejectExtraFields: Boolean = false,
+    doublePlainFormat: Boolean = false
   ) {
 
     val noDiscriminator: Boolean = discriminatorSettings match {
@@ -386,6 +389,16 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     protected[codec] def failDecoder[A](message: String): ZJsonDecoder[A] =
       (trace: List[ZJsonDecoder.JsonError], _: RetractReader) => Lexer.error(message, trace)
 
+    private[codec] val plainDoubleEncoder: ZJsonEncoder[Double] =
+      (a: Double, indent: Option[Int], out: Write) =>
+        if (a.isNaN || a.isInfinite) ZJsonCodec.double.encoder.unsafeEncode(a, indent, out)
+        else out.write(java.math.BigDecimal.valueOf(a).toPlainString)
+
+    private[codec] val plainFloatEncoder: ZJsonEncoder[Float] =
+      (a: Float, indent: Option[Int], out: Write) =>
+        if (a.isNaN || a.isInfinite) ZJsonCodec.float.encoder.unsafeEncode(a, indent, out)
+        else out.write(java.math.BigDecimal.valueOf(a.toDouble).toPlainString)
+
     private[codec] def primitiveCodec[A](standardType: StandardType[A]): ZJsonCodec[A] =
       standardType match {
         case StandardType.UnitType           => unitCodec
@@ -419,6 +432,13 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         case StandardType.ZoneIdType         => ZJsonCodec.zoneId //ZJsonCodec[java.time.ZoneId]
         case StandardType.ZoneOffsetType     => ZJsonCodec.zoneOffset //ZJsonCodec[java.time.ZoneOffset]
         case StandardType.CurrencyType       => ZJsonCodec.currency //ZJsonCodec[java.util.Currency]
+      }
+
+    private[codec] def plainPrimitiveEncoder[A](standardType: StandardType[A]): ZJsonEncoder[A] =
+      standardType match {
+        case StandardType.FloatType  => plainFloatEncoder.asInstanceOf[ZJsonEncoder[A]]
+        case StandardType.DoubleType => plainDoubleEncoder.asInstanceOf[ZJsonEncoder[A]]
+        case _                       => primitiveCodec(standardType).encoder
       }
   }
 
@@ -493,7 +513,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[this] def schemaEncoderSlow[A](schema: Schema[A], cfg: Configuration, discriminatorTuple: DiscriminatorTuple): ZJsonEncoder[A] =
       schema match {
-        case Schema.Primitive(standardType, _)           => primitiveCodec(standardType).encoder
+        case Schema.Primitive(standardType, _)           => if (cfg.doublePlainFormat) plainPrimitiveEncoder(standardType) else primitiveCodec(standardType).encoder
         case Schema.Optional(schema, _)                  => ZJsonEncoder.option(schemaEncoder(schema, cfg))
         case Schema.Tuple2(l, r, _)                      => ZJsonEncoder.tuple2(schemaEncoder(l, cfg), schemaEncoder(r, cfg))
         case Schema.Sequence(schema, _, g, _, _)         => ZJsonEncoder.chunk(schemaEncoder(schema, cfg)).contramap(g)
@@ -597,7 +617,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
               case DynamicValue.SetValue(values) =>
                 ZJsonEncoder.set(directEncoder).unsafeEncode(values, indent, out)
               case DynamicValue.Primitive(value, standardType) =>
-                primitiveCodec(standardType).encoder.unsafeEncode(value, indent, out)
+                (if (cfg.doublePlainFormat) plainPrimitiveEncoder(standardType)
+                 else primitiveCodec(standardType).encoder).unsafeEncode(value, indent, out)
               case DynamicValue.Singleton(_) =>
                 out.write("{}")
               case DynamicValue.SomeValue(value) =>

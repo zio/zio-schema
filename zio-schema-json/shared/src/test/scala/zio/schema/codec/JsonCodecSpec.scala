@@ -58,7 +58,30 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema.Primitive(StandardType.CurrencyType),
           java.util.Currency.getInstance("USD")
         )
-      } @@ TestAspect.jvmOnly
+      } @@ TestAspect.jvmOnly,
+      test("double plain format") {
+        assertEncodes(
+          Schema[Double],
+          12345678.0,
+          charSequenceToByteChunk("12345678"),
+          cfg = JsonCodec.Configuration(doublePlainFormat = true)
+        )
+      },
+      test("double scientific notation by default") {
+        assertEncodes(
+          Schema[Double],
+          12345678.0,
+          charSequenceToByteChunk("1.2345678E7")
+        )
+      },
+      test("float plain format") {
+        assertEncodes(
+          Schema[Float],
+          12345678.0f,
+          charSequenceToByteChunk("12345678"),
+          cfg = JsonCodec.Configuration(doublePlainFormat = true)
+        )
+      }
     ),
     suite("fallback")(
       test("left") {
