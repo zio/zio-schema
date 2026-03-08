@@ -69,6 +69,23 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
   enum EnumWithTraitMixin(val name: String):
     case MixedCase extends EnumWithTraitMixin("Name") with ExtraTrait
 
+  case class CaseClass23WithOverloadedApply(
+    f1: String, f2: String, f3: String, f4: String, f5: String,
+    f6: String, f7: String, f8: String, f9: String, f10: String,
+    f11: String, f12: String, f13: String, f14: String, f15: String,
+    f16: String, f17: String, f18: String, f19: String, f20: String,
+    f21: String, f22: String, f23: String
+  )
+
+  object CaseClass23WithOverloadedApply {
+    def apply(i: Int): CaseClass23WithOverloadedApply =
+      CaseClass23WithOverloadedApply(
+        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
+        "k", "l", "m", "n", "o", "p", "q", "r", "s", "t",
+        "u", "v", "w"
+      )
+  }
+
   def versionSpecificSuite = Spec.labeled(
     "Scala 3 specific tests",
     suite("Derivation")(
@@ -144,6 +161,11 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
       test("correctly derives enum case extending additional trait") {
         val schema = DeriveSchema.gen[EnumWithTraitMixin]
         assertTrue(schema.isInstanceOf[Schema.Enum[_]])
+      },
+
+      test("correctly derives 23+ field case class with overloaded apply (#859)") {
+        val schema = DeriveSchema.gen[CaseClass23WithOverloadedApply]
+        assertTrue(schema.isInstanceOf[Schema[_]])
       }
     )
   )

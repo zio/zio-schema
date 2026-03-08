@@ -291,8 +291,13 @@ private case class DeriveSchema()(using val ctx: Quotes) {
           }
         }
 
+      val typeParams = repr.dealias match {
+        case AppliedType(_, params) => params
+        case _                      => Nil
+      }
+
       def appliedConstructor(m: Expr[ListMap[String, _]])(using Quotes) =
-        Apply(Select.unique(Ref(repr.typeSymbol.companionModule), "apply"), casts(m)).asExprOf[T]
+        Select.overloaded(Ref(repr.typeSymbol.companionModule), "apply", typeParams, casts(m)).asExprOf[T]
 
       val fromMap = '{ (m: ListMap[String, _]) =>
         try { Right(${appliedConstructor('m)}) } catch {
