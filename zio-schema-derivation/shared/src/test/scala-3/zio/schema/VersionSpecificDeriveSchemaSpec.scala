@@ -97,9 +97,9 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
           case _ => assertTrue(false)
         }
       },
-      test("correctly assigns simpleEnum to enum") {
+      test("does not assign simpleEnum to enum with parent fields") {
         val derived: Schema[Colour] = DeriveSchema.gen[Colour]
-        assertTrue(derived.annotations == Chunk(simpleEnum(true)))
+        assertTrue(derived.annotations.collectFirst { case s: simpleEnum => s }.isEmpty)
       },
       test("doesn't assigns simpleEnum to non-simple enum") {
         val derived1: Schema[NonSimpleEnum1] = DeriveSchema.gen[NonSimpleEnum1]
