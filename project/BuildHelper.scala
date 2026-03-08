@@ -263,7 +263,10 @@ object BuildHelper {
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroEnum"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroMap"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroRecord"),
-        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroRecordField")
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroRecordField"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.JsonCodec#Configuration.copy"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.JsonCodec#Configuration.this"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.JsonCodec#Configuration.apply")
       ),
       mimaFailOnProblem := true
     )
