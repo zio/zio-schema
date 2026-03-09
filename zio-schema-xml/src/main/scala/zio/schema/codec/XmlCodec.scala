@@ -171,7 +171,7 @@ object XmlCodec {
         val fieldSchema = field.schema.asInstanceOf[Schema[Any]]
         val name = field.fieldName
         // For optional fields within records, omit the element entirely for None
-        fieldSchema match {
+        (fieldSchema: AnyRef) match {
           case opt: Schema.Optional[_] =>
             fieldValue.asInstanceOf[Option[Any]] match {
               case Some(inner) =>
@@ -445,7 +445,7 @@ object XmlCodec {
           }
           fieldElemOpt match {
             case Some(fieldElem) =>
-              fieldSchema match {
+              (fieldSchema: AnyRef) match {
                 case opt: Schema.Optional[_] =>
                   val innerSchema = opt.schema.asInstanceOf[Schema[Any]]
                   Some(decodeFromElem(innerSchema, fieldElem, newPath))
@@ -453,7 +453,7 @@ object XmlCodec {
                   decodeFromElem(fieldSchema, fieldElem, newPath)
               }
             case None =>
-              fieldSchema match {
+              (fieldSchema: AnyRef) match {
                 case _: Schema.Optional[_] => None
                 case _: Schema.Collection[_, _] =>
                   emptyCollection(fieldSchema).getOrElse(
