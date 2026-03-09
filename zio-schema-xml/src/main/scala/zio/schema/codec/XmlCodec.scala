@@ -189,14 +189,28 @@ object XmlCodec {
       val isSimple = enum0.annotations.exists(_.isInstanceOf[simpleEnum])
       enum0.nonTransientCases.find(_.isCase(value)) match {
         case Some(c) =>
-          val caseName = c.caseName
+          val caseName  = c.caseName
           val caseValue = c.asInstanceOf[Schema.Case[Z, Any]].deconstruct(value)
           if (isSimple) {
             Seq(Text(caseName))
           } else {
             val caseSchema = c.schema.asInstanceOf[Schema[Any]]
-            val children   = encodeChildren(caseSchema, caseValue)
-            Seq(Elem(null, caseName, Null, TopScope, children.isEmpty, children: _*))
+            // Check for @discriminatorName annotation
+            enum0.discriminatorName match {
+              case Some(discriminator) =>
+                // Encode with discriminator element + inline fields
+                val discriminatorElem =
+                  Elem(null, discriminator, Null, TopScope, minimizeEmpty = false, Text(caseName))
+                val innerNodes = encodeChildren(caseSchema, caseValue)
+                discriminatorElem +: innerNodes
+              case None if enum0.noDiscriminator =>
+                // @noDiscriminator: encode case fields directly without wrapper
+                encodeChildren(caseSchema, caseValue)
+              case None =>
+                // Default: wrap in case-name element
+                val children = encodeChildren(caseSchema, caseValue)
+                Seq(Elem(null, caseName, Null, TopScope, children.isEmpty, children: _*))
+            }
           }
         case None =>
           throw new RuntimeException(s"No matching case found for enum value: $value")
@@ -395,6 +409,21 @@ object XmlCodec {
       }).asInstanceOf[A]
 
     private def decodeRecord[R](record: Schema.Record[R], elem: Elem, path: Chunk[String]): R = {
+      // Reject extra fields if annotated with @rejectExtraFields
+      if (record.rejectExtraFields) {
+        val knownNames = record.fields.flatMap { field =>
+          if (field.transient) Chunk.empty
+          else Chunk.fromIterable(field.nameAndAliases)
+        }.toSet
+        val extraElems = elemChildren(elem).filterNot(e => knownNames.contains(e.label))
+        if (extraElems.nonEmpty) {
+          throw MalformedFieldWithPath(
+            path,
+            s"Unexpected field(s): ${extraElems.map(_.label).mkString(", ")}"
+          )
+        }
+      }
+
       val fieldValues = record.fields.map { field =>
         val name    = field.fieldName
         val newPath = path :+ name
@@ -408,7 +437,13 @@ object XmlCodec {
           )
         } else {
           val fieldSchema = field.schema.asInstanceOf[Schema[Any]]
-          findChildElem(elem, name) match {
+          // Look up child element by fieldName first, then by aliases (@fieldNameAliases)
+          val fieldElemOpt = findChildElem(elem, name).orElse {
+            field.aliases.collectFirst {
+              case alias if findChildElem(elem, alias).isDefined => findChildElem(elem, alias).get
+            }
+          }
+          fieldElemOpt match {
             case Some(fieldElem) =>
               fieldSchema match {
                 case Schema.Optional(innerSchema, _) =>
@@ -463,32 +498,94 @@ object XmlCodec {
             throw MalformedFieldWithPath(path, s"Unknown enum case: $text")
         }
       } else {
-        val children = elemChildren(elem)
-        if (children.isEmpty) {
-          throw MalformedFieldWithPath(path, "Expected child element for enum case")
-        }
-        val caseElem = children.head
-        val caseLabel = caseElem.label
-
-        // Search by caseName first, then by id
-        enum0.nonTransientCases.find(_.caseName == caseLabel) match {
-          case Some(c) =>
-            val caseSchema = c.schema.asInstanceOf[Schema[Any]]
-            val decoded    = decodeFromElem(caseSchema, caseElem, path :+ caseLabel)
-            c.asInstanceOf[Schema.Case[Z, Any]].construct(decoded)
+        // Check for @discriminatorName annotation
+        enum0.discriminatorName match {
+          case Some(discriminator) =>
+            decodeEnumWithDiscriminator(enum0, elem, path, discriminator)
+          case None if enum0.noDiscriminator =>
+            decodeEnumNoDiscriminator(enum0, elem, path)
           case None =>
-            // Try aliases
-            enum0.nonTransientCases.find(c => c.caseNameAliases.contains(caseLabel) || c.id == caseLabel) match {
-              case Some(c) =>
-                val caseSchema = c.schema.asInstanceOf[Schema[Any]]
-                val decoded    = decodeFromElem(caseSchema, caseElem, path :+ caseLabel)
-                c.asInstanceOf[Schema.Case[Z, Any]].construct(decoded)
-              case None =>
-                throw MalformedFieldWithPath(path, s"Unknown enum case: $caseLabel")
-            }
+            decodeEnumWrapped(enum0, elem, path)
         }
       }
     }
+
+    /** Default enum decoding: case wrapped in a named element */
+    private def decodeEnumWrapped[Z](enum0: Schema.Enum[Z], elem: Elem, path: Chunk[String]): Z = {
+      val children = elemChildren(elem)
+      if (children.isEmpty) {
+        throw MalformedFieldWithPath(path, "Expected child element for enum case")
+      }
+      val caseElem  = children.head
+      val caseLabel = caseElem.label
+
+      findEnumCase(enum0, caseLabel) match {
+        case Some(c) =>
+          val caseSchema = c.schema.asInstanceOf[Schema[Any]]
+          val decoded    = decodeFromElem(caseSchema, caseElem, path :+ caseLabel)
+          c.asInstanceOf[Schema.Case[Z, Any]].construct(decoded)
+        case None =>
+          throw MalformedFieldWithPath(path, s"Unknown enum case: $caseLabel")
+      }
+    }
+
+    /** Decode enum with @discriminatorName: discriminator element + inline fields */
+    private def decodeEnumWithDiscriminator[Z](
+      enum0: Schema.Enum[Z],
+      elem: Elem,
+      path: Chunk[String],
+      discriminator: String
+    ): Z = {
+      val discElem = findChildElem(elem, discriminator).getOrElse(
+        throw MalformedFieldWithPath(path, s"Missing discriminator element <$discriminator>")
+      )
+      val caseLabel = discElem.text.trim
+
+      findEnumCase(enum0, caseLabel) match {
+        case Some(c) =>
+          val caseSchema = c.schema.asInstanceOf[Schema[Any]]
+          // Decode from the parent elem directly (fields are siblings of the discriminator)
+          val decoded = decodeFromElem(caseSchema, elem, path :+ caseLabel)
+          c.asInstanceOf[Schema.Case[Z, Any]].construct(decoded)
+        case None =>
+          throw MalformedFieldWithPath(path, s"Unknown enum case: $caseLabel")
+      }
+    }
+
+    /** Decode enum with @noDiscriminator: try each case until one succeeds */
+    private def decodeEnumNoDiscriminator[Z](
+      enum0: Schema.Enum[Z],
+      elem: Elem,
+      path: Chunk[String]
+    ): Z = {
+      val errors = scala.collection.mutable.ListBuffer.empty[String]
+      val it     = enum0.nonTransientCases.iterator
+      while (it.hasNext) {
+        val c = it.next()
+        try {
+          val caseSchema = c.schema.asInstanceOf[Schema[Any]]
+          val decoded    = decodeFromElem(caseSchema, elem, path)
+          return c.asInstanceOf[Schema.Case[Z, Any]].construct(decoded)
+        } catch {
+          case _: DecodeError =>
+            errors += c.caseName
+          case NonFatal(_) =>
+            errors += c.caseName
+        }
+      }
+      throw MalformedFieldWithPath(
+        path,
+        s"No matching enum case found. Tried: ${errors.mkString(", ")}"
+      )
+    }
+
+    /** Find an enum case by caseName, caseNameAliases, or id */
+    private def findEnumCase[Z](enum0: Schema.Enum[Z], label: String): Option[Schema.Case[Z, _]] =
+      enum0.nonTransientCases
+        .find(_.caseName == label)
+        .orElse(
+          enum0.nonTransientCases.find(c => c.caseNameAliases.contains(label) || c.id == label)
+        )
 
     @nowarn
     private def decodePrimitive[A](standardType: StandardType[A], text: String, path: Chunk[String]): A =
