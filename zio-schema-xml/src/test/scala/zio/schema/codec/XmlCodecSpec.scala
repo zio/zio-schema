@@ -474,6 +474,75 @@ object XmlCodecSpec extends ZIOSpecDefault {
         PersonWithFieldName.schema,
         PersonWithFieldName("Alice", 30)
       )
+    },
+    test("decode with @fieldNameAliases - primary name") {
+      val xml   = """<PersonWithAliases><full_name>Alice</full_name><age>30</age></PersonWithAliases>"""
+      val bytes = Chunk.fromArray(xml.getBytes("UTF-8"))
+      for {
+        result <- ZIO.fromEither(XmlCodec.xmlCodec(PersonWithAliases.schema).decode(bytes))
+      } yield assert(result)(equalTo(PersonWithAliases("Alice", 30)))
+    },
+    test("decode with @fieldNameAliases - alias name") {
+      val xml   = """<PersonWithAliases><fullName>Bob</fullName><age>25</age></PersonWithAliases>"""
+      val bytes = Chunk.fromArray(xml.getBytes("UTF-8"))
+      for {
+        result <- ZIO.fromEither(XmlCodec.xmlCodec(PersonWithAliases.schema).decode(bytes))
+      } yield assert(result)(equalTo(PersonWithAliases("Bob", 25)))
+    },
+    test("round trip with @fieldNameAliases") {
+      assertRoundTrips(PersonWithAliases.schema, PersonWithAliases("Charlie", 35))
+    },
+    test("@rejectExtraFields rejects unknown elements") {
+      val xml    = """<StrictRecord><name>Alice</name><value>42</value><extra>bad</extra></StrictRecord>"""
+      val bytes  = Chunk.fromArray(xml.getBytes("UTF-8"))
+      val result = XmlCodec.xmlCodec(StrictRecord.schema).decode(bytes)
+      assert(result)(isLeft)
+    },
+    test("@rejectExtraFields accepts valid elements") {
+      val xml   = """<StrictRecord><name>Alice</name><value>42</value></StrictRecord>"""
+      val bytes = Chunk.fromArray(xml.getBytes("UTF-8"))
+      for {
+        result <- ZIO.fromEither(XmlCodec.xmlCodec(StrictRecord.schema).decode(bytes))
+      } yield assert(result)(equalTo(StrictRecord("Alice", 42)))
+    },
+    test("round trip with @rejectExtraFields") {
+      assertRoundTrips(StrictRecord.schema, StrictRecord("Bob", 99))
+    },
+    test("round trip with @discriminatorName enum") {
+      assertRoundTrips(
+        DiscriminatedAnimal.schema,
+        DiscriminatedAnimal.Dog("Rex", "Labrador"): DiscriminatedAnimal
+      )
+    },
+    test("round trip with @discriminatorName enum - other case") {
+      assertRoundTrips(
+        DiscriminatedAnimal.schema,
+        DiscriminatedAnimal.Cat("Whiskers", true): DiscriminatedAnimal
+      )
+    },
+    test("@discriminatorName encodes discriminator element") {
+      for {
+        bytes <- ZIO.succeed(
+                   XmlCodec
+                     .xmlCodec(DiscriminatedAnimal.schema)
+                     .encode(DiscriminatedAnimal.Dog("Rex", "Lab"): DiscriminatedAnimal)
+                 )
+        xml = new String(bytes.toArray, "UTF-8")
+      } yield assert(xml)(containsString("<type>Dog</type>")) &&
+        assert(xml)(containsString("<name>Rex</name>")) &&
+        assert(xml)(containsString("<breed>Lab</breed>"))
+    },
+    test("round trip with @noDiscriminator enum") {
+      assertRoundTrips(
+        UntaggedShape.schema,
+        UntaggedShape.Circle(5.0): UntaggedShape
+      )
+    },
+    test("round trip with @noDiscriminator enum - other case") {
+      assertRoundTrips(
+        UntaggedShape.schema,
+        UntaggedShape.Rectangle(3.0, 4.0): UntaggedShape
+      )
     }
   )
 
@@ -646,4 +715,35 @@ object XmlCodecSpec extends ZIOSpecDefault {
     Schema.Either(Record.schema, schemaOneOf)
 
   val fallbackSchema: Schema.Fallback[Int, String] = Schema.Fallback(Schema[Int], Schema[String], true)
+
+  // --- Models for annotation feature tests ---
+
+  case class PersonWithAliases(
+    @fieldName("full_name") @fieldNameAliases("fullName", "n") name: String,
+    age: Int
+  )
+  object PersonWithAliases {
+    implicit val schema: Schema[PersonWithAliases] = DeriveSchema.gen[PersonWithAliases]
+  }
+
+  @rejectExtraFields case class StrictRecord(name: String, value: Int)
+  object StrictRecord {
+    implicit val schema: Schema[StrictRecord] = DeriveSchema.gen[StrictRecord]
+  }
+
+  @discriminatorName("type") sealed trait DiscriminatedAnimal
+  object DiscriminatedAnimal {
+    case class Dog(name: String, breed: String) extends DiscriminatedAnimal
+    case class Cat(name: String, indoor: Boolean) extends DiscriminatedAnimal
+
+    implicit val schema: Schema[DiscriminatedAnimal] = DeriveSchema.gen[DiscriminatedAnimal]
+  }
+
+  @noDiscriminator sealed trait UntaggedShape
+  object UntaggedShape {
+    case class Circle(radius: Double)                 extends UntaggedShape
+    case class Rectangle(width: Double, height: Double) extends UntaggedShape
+
+    implicit val schema: Schema[UntaggedShape] = DeriveSchema.gen[UntaggedShape]
+  }
 }
