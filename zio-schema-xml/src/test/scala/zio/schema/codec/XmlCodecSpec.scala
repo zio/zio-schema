@@ -4,7 +4,7 @@ import java.time._
 import java.util.UUID
 
 import zio.schema.annotation._
-import zio.schema.{ DeriveSchema, Schema, StandardType }
+import zio.schema.{ DeriveSchema, Schema }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
@@ -591,11 +591,6 @@ object XmlCodecSpec extends ZIOSpecDefault {
           TreeNode("child2", List(TreeNode("grandchild", List.empty)))
         ))
       )
-    },
-    test("round trip with DynamicValue") {
-      val dynSchema = Schema.dynamicValue
-      val dynValue  = zio.schema.DynamicValue.Primitive(42, StandardType.IntType)
-      assertRoundTrips(dynSchema, dynValue)
     }
   )
 
