@@ -46,6 +46,7 @@ libraryDependencies += "dev.zio" %% "zio-schema-json"     % "1.8.2"
 libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "1.8.2"
 libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "1.8.2"
 libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "1.8.2"
+libraryDependencies += "dev.zio" %% "zio-schema-xml"      % "1.8.2"
 libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % "1.8.2"
 
 // Required for the automatic generic derivation of schemas
