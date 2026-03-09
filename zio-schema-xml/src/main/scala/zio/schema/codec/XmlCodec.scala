@@ -31,7 +31,7 @@ object XmlCodec {
         }
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
-        ZPipeline.mapChunksEither[Byte, A] { bytes =>
+        ZPipeline.mapChunksEither[Any, DecodeError, Byte, A] { bytes =>
           XmlDecoder.decode(schema, bytes).map(Chunk.single)
         }
     }
@@ -172,10 +172,10 @@ object XmlCodec {
         val name = field.fieldName
         // For optional fields within records, omit the element entirely for None
         fieldSchema match {
-          case Schema.Optional(_, _) =>
+          case opt: Schema.Optional[_] =>
             fieldValue.asInstanceOf[Option[Any]] match {
               case Some(inner) =>
-                val innerSchema = fieldSchema.asInstanceOf[Schema.Optional[Any]].schema
+                val innerSchema = opt.schema.asInstanceOf[Schema[Any]]
                 Seq(encodeToElem(innerSchema, inner, name))
               case None =>
                 Seq.empty
@@ -446,14 +446,15 @@ object XmlCodec {
           fieldElemOpt match {
             case Some(fieldElem) =>
               fieldSchema match {
-                case Schema.Optional(innerSchema, _) =>
-                  Some(decodeFromElem(innerSchema.asInstanceOf[Schema[Any]], fieldElem, newPath))
+                case opt: Schema.Optional[_] =>
+                  val innerSchema = opt.schema.asInstanceOf[Schema[Any]]
+                  Some(decodeFromElem(innerSchema, fieldElem, newPath))
                 case _ =>
                   decodeFromElem(fieldSchema, fieldElem, newPath)
               }
             case None =>
               fieldSchema match {
-                case Schema.Optional(_, _) => None
+                case _: Schema.Optional[_] => None
                 case _: Schema.Collection[_, _] =>
                   emptyCollection(fieldSchema).getOrElse(
                     throw MalformedFieldWithPath(newPath, s"Missing required field '$name'")
