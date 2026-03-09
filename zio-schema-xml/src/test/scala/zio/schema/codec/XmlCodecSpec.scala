@@ -4,7 +4,7 @@ import java.time._
 import java.util.UUID
 
 import zio.schema.annotation._
-import zio.schema.{ DeriveSchema, Schema }
+import zio.schema.{ DeriveSchema, Schema, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
@@ -543,6 +543,59 @@ object XmlCodecSpec extends ZIOSpecDefault {
         UntaggedShape.schema,
         UntaggedShape.Rectangle(3.0, 4.0): UntaggedShape
       )
+    },
+    test("round trip with @caseName annotation") {
+      assertRoundTrips(
+        RenamedEnum.schema,
+        RenamedEnum.Dog("Rex"): RenamedEnum
+      )
+    },
+    test("@caseName encodes using renamed case") {
+      for {
+        bytes <- ZIO.succeed(
+                   XmlCodec
+                     .xmlCodec(RenamedEnum.schema)
+                     .encode(RenamedEnum.Dog("Rex"): RenamedEnum)
+                 )
+        xml = new String(bytes.toArray, "UTF-8")
+      } yield assert(xml)(containsString("<dog_case>"))
+    },
+    test("decode with @caseNameAliases") {
+      val xml   = """<RenamedEnum><kitty><name>Whiskers</name></kitty></RenamedEnum>"""
+      val bytes = Chunk.fromArray(xml.getBytes("UTF-8"))
+      for {
+        result <- ZIO.fromEither(XmlCodec.xmlCodec(RenamedEnum.schema).decode(bytes))
+      } yield assert(result)(equalTo(RenamedEnum.Cat("Whiskers")))
+    },
+    test("round trip with @transientCase - active case") {
+      assertRoundTrips(
+        EnumWithTransient.schema,
+        EnumWithTransient.Active(42): EnumWithTransient
+      )
+    },
+    test("round trip with @optionalField") {
+      assertRoundTrips(WithOptionalField.schema, WithOptionalField("Alice", 30))
+    },
+    test("decode @optionalField with missing field uses default") {
+      val xml   = """<WithOptionalField><name>Bob</name></WithOptionalField>"""
+      val bytes = Chunk.fromArray(xml.getBytes("UTF-8"))
+      for {
+        result <- ZIO.fromEither(XmlCodec.xmlCodec(WithOptionalField.schema).decode(bytes))
+      } yield assert(result)(equalTo(WithOptionalField("Bob", 0)))
+    },
+    test("round trip with recursive schema (TreeNode)") {
+      assertRoundTrips(
+        TreeNode.schema,
+        TreeNode("root", List(
+          TreeNode("child1", List.empty),
+          TreeNode("child2", List(TreeNode("grandchild", List.empty)))
+        ))
+      )
+    },
+    test("round trip with DynamicValue") {
+      val dynSchema = Schema.dynamicValue
+      val dynValue  = zio.schema.DynamicValue.Primitive(42, StandardType.IntType)
+      assertRoundTrips(dynSchema, dynValue)
     }
   )
 
@@ -745,5 +798,35 @@ object XmlCodecSpec extends ZIOSpecDefault {
     case class Rectangle(width: Double, height: Double) extends UntaggedShape
 
     implicit val schema: Schema[UntaggedShape] = DeriveSchema.gen[UntaggedShape]
+  }
+
+  // @caseName and @caseNameAliases test models
+  sealed trait RenamedEnum
+  object RenamedEnum {
+    @caseName("dog_case") case class Dog(name: String)                                  extends RenamedEnum
+    @caseName("cat_case") @caseNameAliases("kitty", "feline") case class Cat(name: String) extends RenamedEnum
+
+    implicit val schema: Schema[RenamedEnum] = DeriveSchema.gen[RenamedEnum]
+  }
+
+  // @transientCase test model
+  sealed trait EnumWithTransient
+  object EnumWithTransient {
+    case class Active(value: Int) extends EnumWithTransient
+    @transientCase case class Internal(debug: String) extends EnumWithTransient
+
+    implicit val schema: Schema[EnumWithTransient] = DeriveSchema.gen[EnumWithTransient]
+  }
+
+  // @optionalField test model
+  case class WithOptionalField(name: String, @optionalField age: Int = 0)
+  object WithOptionalField {
+    implicit val schema: Schema[WithOptionalField] = DeriveSchema.gen[WithOptionalField]
+  }
+
+  // Recursive/self-referencing schema
+  case class TreeNode(value: String, children: List[TreeNode])
+  object TreeNode {
+    implicit lazy val schema: Schema[TreeNode] = DeriveSchema.gen[TreeNode]
   }
 }
