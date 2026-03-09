@@ -55,7 +55,7 @@ addCommandAlias(
   "testJVM",
   "testsJVM/test; zioSchemaMacrosJVM/test; zioSchemaJVM/test; zioSchemaDerivationJVM/test;" +
     "zioSchemaOpticsJVM/test; zioSchemaJsonJVM/test; zioSchemaProtobufJVM/test; zioSchemaZioTestJVM/test;" +
-    "zioSchemaAvro/test; zioSchemaThrift/test; zioSchemaBson/test; zioSchemaMsgPack/test"
+    "zioSchemaAvro/test; zioSchemaThrift/test; zioSchemaBson/test; zioSchemaMsgPack/test; zioSchemaXml/test"
 )
 
 addCommandAlias(
@@ -110,6 +110,7 @@ lazy val root = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
+    zioSchemaXml,
     docs
   )
 
@@ -322,6 +323,20 @@ lazy val zioSchemaMsgPack = project
       "org.msgpack"                  % "jackson-dataformat-msgpack" % msgpackVersion % Test,
       "com.fasterxml.jackson.module" %% "jackson-module-scala"      % jacksonScalaVersion % Test
     )
+  )
+  .settings(testDeps)
+
+lazy val zioSchemaXml = project
+  .in(file("zio-schema-xml"))
+  .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
+  .settings(stdSettings("zio-schema-xml"))
+  .settings(dottySettings)
+  .settings(buildInfoSettings("zio.schema.xml"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
+    ),
+    mimaPreviousArtifacts := Set()
   )
   .settings(testDeps)
 
