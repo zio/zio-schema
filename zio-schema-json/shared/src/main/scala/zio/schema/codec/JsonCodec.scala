@@ -12,7 +12,7 @@ import scala.util.control.NonFatal
 
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.ast.Json
-import zio.json.internal.{ FastStringReader, Lexer, RecordingReader, RetractReader, StringMatrix, Write }
+import zio.json.internal.{ FastStringReader, Lexer, RecordingReader, RetractReader, StringMatrix, UnexpectedEnd, Write }
 import zio.json.{
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
@@ -31,6 +31,34 @@ import zio.{ Cause, Chunk, ChunkBuilder, ZIO, ZNothing }
 object JsonCodec {
 
   private val streamEncoderSeparator: Chunk[Byte] = Chunk.single('\n'.toByte)
+
+  /**
+   * Decodes a JSON string using the given decoder, rejecting any input that
+   * contains non-whitespace characters after the first valid JSON value.
+   *
+   * This prevents silently accepting malformed inputs like `{}}` or `"foo""`,
+   * which zio-json's `decodeJson` would otherwise accept by stopping after the
+   * first valid value and ignoring the remainder (see
+   * https://github.com/zio/zio-schema/issues/712).
+   */
+  private[codec] def decodeJsonStrict[A](decoder: ZJsonDecoder[A], json: String): Either[String, A] = {
+    val reader = new FastStringReader(json)
+    try {
+      val result = decoder.unsafeDecode(Nil, reader)
+      // Verify no trailing non-whitespace characters remain
+      try {
+        val _ = reader.nextNonWhitespace()
+        // nextNonWhitespace() returned without throwing → found a trailing character
+        Left(s"Invalid JSON: unexpected trailing character after end of JSON value")
+      } catch {
+        case _: UnexpectedEnd => Right(result) // end of input — all good
+      }
+    } catch {
+      case UnsafeJson(trace)  => Left(JsonError.render(trace))
+      case _: UnexpectedEnd   => Left("Unexpected end of input")
+      case NonFatal(e)        => Left(Option(e.getMessage).getOrElse(e.getClass.getName))
+    }
+  }
 
   @deprecated(
     """Use JsonCodec.Configuration instead.
@@ -169,8 +197,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
-        jsonCodec
-          .decodeJson(new String(whole.toArray, JsonEncoder.CHARSET))
+        decodeJsonStrict(jsonCodec.decoder, new String(whole.toArray, JsonEncoder.CHARSET))
           .left
           .map(failure => DecodeError.ReadError(Cause.empty, failure))
 
@@ -314,7 +341,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   def schemaBasedBinaryCodec[A](cfg: Configuration)(implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
-        JsonDecoder.decode(
+        JsonDecoder.decodeStrict(
           schema,
           new String(whole.toArray, JsonEncoder.CHARSET),
           cfg
@@ -822,6 +849,12 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
     final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
       schemaDecoder(schema, config).decodeJson(json) match {
+        case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
+        case Right(value) => Right(value)
+      }
+
+    final def decodeStrict[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
+      decodeJsonStrict(schemaDecoder(schema, config), json) match {
         case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
         case Right(value) => Right(value)
       }
