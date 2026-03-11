@@ -71,7 +71,7 @@ Example of possible codecs are:
 - JSON Codec (already available)
 - Apache Avro Codec (in progress)
 - Apache Thrift Codec (in progress)
-- XML Codec
+- XML Codec (already available)
 - YAML Codec
 - Protobuf Codec (already available)
 - QueryString Codec
