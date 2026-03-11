@@ -177,7 +177,7 @@ object DynamicValue {
           remaining match {
             case Nil => done(Right(acc))
             case head :: tail =>
-              tailcall(toTypedValueTrampoline(head, schema.elementSchema).asInstanceOf[TailRec[Either[DecodeError, t]]]).flatMap {
+              tailcall(toTypedValueTrampoline[t](head, schema.elementSchema)).flatMap {
                 case Left(err)    => done(Left(err))
                 case Right(typed) => loopSeq(tail, acc :+ typed)
               }
@@ -189,7 +189,7 @@ object DynamicValue {
           remaining match {
             case Nil => done(Right(acc))
             case head :: tail =>
-              tailcall(toTypedValueTrampoline(head, schema.elementSchema).asInstanceOf[TailRec[Either[DecodeError, t]]]).flatMap {
+              tailcall(toTypedValueTrampoline[t](head, schema.elementSchema)).flatMap {
                 case Left(err)    => done(Left(err))
                 case Right(typed) => loopSet(tail, acc + typed)
               }
@@ -212,10 +212,10 @@ object DynamicValue {
           remaining match {
             case Nil => done(Right(acc))
             case (dk, dv) :: tail =>
-              tailcall(toTypedValueTrampoline(dk, schema.keySchema).asInstanceOf[TailRec[Either[DecodeError, k]]]).flatMap {
+              tailcall(toTypedValueTrampoline[k](dk, schema.keySchema)).flatMap {
                 case Left(err) => done(Left(err))
                 case Right(key) =>
-                  tailcall(toTypedValueTrampoline(dv, schema.valueSchema).asInstanceOf[TailRec[Either[DecodeError, v]]]).flatMap {
+                  tailcall(toTypedValueTrampoline[v](dv, schema.valueSchema)).flatMap {
                     case Left(err)    => done(Left(err))
                     case Right(value) => loopDict(tail, acc + (key -> value))
                   }
