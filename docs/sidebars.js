@@ -51,6 +51,7 @@ const sidebars = {
                 "derivations/codecs/json",
                 "derivations/codecs/message-pack",
                 "derivations/codecs/protobuf",
+                "derivations/codecs/xml",
               ],
             },
           ],
