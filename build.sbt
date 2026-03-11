@@ -110,6 +110,7 @@ lazy val root = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
+    zioSchemaXml,
     docs
   )
 
@@ -322,6 +323,20 @@ lazy val zioSchemaMsgPack = project
       "org.msgpack"                  % "jackson-dataformat-msgpack" % msgpackVersion % Test,
       "com.fasterxml.jackson.module" %% "jackson-module-scala"      % jacksonScalaVersion % Test
     )
+  )
+  .settings(testDeps)
+
+lazy val zioSchemaXml = project
+  .in(file("zio-schema-xml"))
+  .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
+  .settings(stdSettings("zio-schema-xml"))
+  .settings(dottySettings)
+  .settings(buildInfoSettings("zio.schema.xml"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scala-lang.modules" %% "scala-xml" % "2.3.0"
+    ),
+    mimaPreviousArtifacts := Set()
   )
   .settings(testDeps)
 
