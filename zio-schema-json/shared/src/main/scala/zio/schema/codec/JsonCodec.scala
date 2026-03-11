@@ -12,7 +12,7 @@ import scala.util.control.NonFatal
 
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.ast.Json
-import zio.json.internal.{ FastStringReader, Lexer, RecordingReader, RetractReader, StringMatrix, Write }
+import zio.json.internal.{ FastStringReader, Lexer, RecordingReader, RetractReader, StringMatrix, UnexpectedEnd, Write }
 import zio.json.{
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
@@ -168,11 +168,31 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
   implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
-      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
-        jsonCodec
-          .decodeJson(new String(whole.toArray, JsonEncoder.CHARSET))
-          .left
-          .map(failure => DecodeError.ReadError(Cause.empty, failure))
+      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] = {
+        val reader = new FastStringReader(new String(whole.toArray, JsonEncoder.CHARSET))
+        try {
+          val result = jsonCodec.decoder.unsafeDecode(Nil, reader)
+          // Verify no trailing content after valid JSON
+          try {
+            val next = reader.nextNonWhitespace()
+            if (next != -1) {
+              Left(
+                DecodeError.ReadError(
+                  Cause.empty,
+                  s"Invalid JSON: unexpected character '${next.toChar}' after end of JSON value"
+                )
+              )
+            } else {
+              Right(result)
+            }
+          } catch {
+            case _: UnexpectedEnd => Right(result)
+          }
+        } catch {
+          case UnsafeJson(trace) => Left(DecodeError.ReadError(Cause.empty, JsonError.render(trace)))
+          case NonFatal(e)       => Left(DecodeError.ReadError(Cause.fail(e), e.getMessage))
+        }
+      }
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
         ZPipeline.fromChannel(
@@ -820,11 +840,32 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
-    final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
-      schemaDecoder(schema, config).decodeJson(json) match {
-        case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
-        case Right(value) => Right(value)
+    final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] = {
+      val decoder = schemaDecoder(schema, config)
+      val reader  = new FastStringReader(json)
+      try {
+        val result = decoder.unsafeDecode(Nil, reader)
+        // Verify no trailing content remains after the JSON value
+        try {
+          val next = reader.nextNonWhitespace()
+          if (next != -1) {
+            Left(
+              DecodeError.ReadError(
+                Cause.empty,
+                s"Invalid JSON: unexpected character '${next.toChar}' after end of JSON value"
+              )
+            )
+          } else {
+            Right(result)
+          }
+        } catch {
+          case _: UnexpectedEnd => Right(result)
+        }
+      } catch {
+        case UnsafeJson(trace) => Left(DecodeError.ReadError(Cause.empty, JsonError.render(trace)))
+        case NonFatal(e)       => Left(DecodeError.ReadError(Cause.fail(e), e.getMessage))
       }
+    }
 
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
       new ZJsonDecoder[Option[A]] {

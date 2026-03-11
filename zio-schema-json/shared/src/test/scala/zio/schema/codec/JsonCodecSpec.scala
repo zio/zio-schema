@@ -34,6 +34,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     suite("JsonCodec Spec")(
       encoderSuite,
       decoderSuite,
+      trailingCharactersSuite,
       encoderDecoderSuite
     ) @@ timeout(180.seconds)
 
@@ -1606,6 +1607,57 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertZIO(result)(isLeft)
       }
     )
+  )
+
+  // Regression tests for https://github.com/zio/zio-schema/issues/712
+  private val trailingCharactersSuite = suite("trailing characters rejected (#712)")(
+    test("object with trailing brace") {
+      implicit val jc: zio.json.JsonCodec[Person] = JsonCodec.jsonCodec(personSchema)
+      val bc                                      = JsonCodec.zioJsonBinaryCodec[Person]
+      assertTrue(
+        bc.decode(
+          Chunk.fromArray("""{"name":"Alice","age":30}}""".getBytes(java.nio.charset.StandardCharsets.UTF_8))
+        ).isLeft,
+        bc.decode(
+          Chunk.fromArray("""{"name":"Alice","age":30}""".getBytes(java.nio.charset.StandardCharsets.UTF_8))
+        ) == Right(Person("Alice", 30))
+      )
+    },
+    test("array with trailing bracket") {
+      implicit val jc: zio.json.JsonCodec[List[Int]] = JsonCodec.jsonCodec(Schema[List[Int]])
+      val bc                                         = JsonCodec.zioJsonBinaryCodec[List[Int]]
+      assertTrue(
+        bc.decode(Chunk.fromArray("[1,2]]".getBytes(java.nio.charset.StandardCharsets.UTF_8))).isLeft,
+        bc.decode(Chunk.fromArray("[1,2]".getBytes(java.nio.charset.StandardCharsets.UTF_8))) == Right(List(1, 2))
+      )
+    },
+    test("number with trailing garbage") {
+      implicit val jc: zio.json.JsonCodec[Int] = JsonCodec.jsonCodec(Schema[Int])
+      val bc                                   = JsonCodec.zioJsonBinaryCodec[Int]
+      assertTrue(
+        bc.decode(Chunk.fromArray("42 x".getBytes(java.nio.charset.StandardCharsets.UTF_8))).isLeft,
+        bc.decode(Chunk.fromArray("42".getBytes(java.nio.charset.StandardCharsets.UTF_8))) == Right(42)
+      )
+    },
+    test("schemaBasedBinaryCodec rejects trailing characters") {
+      val bc = JsonCodec.schemaBasedBinaryCodec[Person](personSchema)
+      assertTrue(
+        bc.decode(
+          Chunk.fromArray("""{"name":"Alice","age":30}garbage""".getBytes(java.nio.charset.StandardCharsets.UTF_8))
+        ).isLeft,
+        bc.decode(
+          Chunk.fromArray("""{"name":"Alice","age":30}""".getBytes(java.nio.charset.StandardCharsets.UTF_8))
+        ) == Right(Person("Alice", 30))
+      )
+    },
+    test("trailing whitespace is allowed") {
+      implicit val jc: zio.json.JsonCodec[Boolean] = JsonCodec.jsonCodec(Schema[Boolean])
+      val bc                                       = JsonCodec.zioJsonBinaryCodec[Boolean]
+      assertTrue(
+        bc.decode(Chunk.fromArray("true   ".getBytes(java.nio.charset.StandardCharsets.UTF_8))) == Right(true),
+        bc.decode(Chunk.fromArray("true}}".getBytes(java.nio.charset.StandardCharsets.UTF_8))).isLeft
+      )
+    }
   )
 
   private val encoderDecoderSuite = suite("encoding then decoding")(
