@@ -112,12 +112,13 @@ object DynamicValue {
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
   ): TailRec[Either[DecodeError, ListMap[String, _]]] = {
-    val keys = values.keySet.toList
+    val structureMap: Map[String, Schema.Field[_, _]] = structure.map(f => f.name -> f).toMap
+    val keys                                          = values.keySet.toList
     def loop(remaining: List[String], acc: ListMap[String, Any]): TailRec[Either[DecodeError, ListMap[String, Any]]] =
       remaining match {
         case Nil => done(Right(acc))
         case key :: rest =>
-          (structure.find(_.name == key), values.get(key)) match {
+          (structureMap.get(key), values.get(key)) match {
             case (Some(field), Some(value)) =>
               tailcall(toTypedValueTrampoline(value, field.schema)).flatMap {
                 case Left(err)    => done(Left(err))
@@ -143,7 +144,8 @@ object DynamicValue {
         tailcall(decodeStructureTrampoline(values, s.fields)).flatMap {
           case Left(err) => done(Left(err))
           case Right(m) =>
-            val constructed = s.construct(Chunk.fromIterable(m.values))(Unsafe.unsafe)
+            val fieldValues = s.fields.map(field => m(field.name))
+            val constructed = s.construct(Chunk.fromIterable(fieldValues))(Unsafe.unsafe)
             done(constructed.left.map(err => DecodeError.MalformedField(s, err)))
         }
 
