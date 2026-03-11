@@ -6,6 +6,7 @@ import java.util.UUID
 
 import scala.collection.immutable.ListMap
 
+import zio.prelude.Validation
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
 import zio.{ Cause, Chunk, Unsafe }
@@ -26,6 +27,111 @@ sealed trait DynamicValue {
 
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
+
+  /**
+   * Converts this `DynamicValue` to a typed value of type `A`, accumulating ALL
+   * errors rather than failing fast on the first error.
+   *
+   * Unlike `toTypedValue` which returns `Either[String, A]` (fail-fast), this
+   * method returns `zio.prelude.Validation[String, A]` so that all conversion
+   * errors encountered are collected and reported together.
+   *
+   * The existing `toTypedValue` method is preserved for backward compatibility.
+   */
+  def toTypedValueAccumulating[A](implicit schema: Schema[A]): Validation[String, A] =
+    toTypedValueAccumulatingLazyError.mapError(_.message)
+
+  private def toTypedValueAccumulatingLazyError[A](implicit schema: Schema[A]): Validation[DecodeError, A] =
+    (self, schema) match {
+      case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
+        Validation.succeed(value.asInstanceOf[A])
+
+      case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
+        DynamicValue
+          .decodeStructureAccumulating(values, structure.toChunk)
+          .asInstanceOf[Validation[DecodeError, A]]
+
+      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
+        DynamicValue
+          .decodeStructureAccumulating(values, s.fields)
+          .map(m => Chunk.fromIterable(m.values))
+          .flatMap { vals =>
+            s.construct(vals)(Unsafe.unsafe) match {
+              case Left(err)  => Validation.fail(DecodeError.MalformedField(s, err))
+              case Right(a)   => Validation.succeed(a)
+            }
+          }
+
+      case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
+        s.caseOf(key) match {
+          case Some(caseValue) =>
+            value.toTypedValueAccumulatingLazyError(caseValue.schema).asInstanceOf[Validation[DecodeError, A]]
+          case None => Validation.fail(DecodeError.MissingCase(key, s))
+        }
+
+      case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
+        value.toTypedValueAccumulatingLazyError(schema1).map(Left(_))
+
+      case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
+        value.toTypedValueAccumulatingLazyError(schema1).map(Right(_))
+
+      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
+        val typedLeft  = leftValue.toTypedValueAccumulatingLazyError(leftSchema)
+        val typedRight = rightValue.toTypedValueAccumulatingLazyError(rightSchema)
+        typedLeft.zipWithPar(typedRight)((a, b) => (a -> b).asInstanceOf[A])
+
+      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
+        values
+          .foldLeft[Validation[DecodeError, Chunk[t]]](Validation.succeed(Chunk.empty)) { (acc, value) =>
+            acc.zipWithPar(value.toTypedValueAccumulatingLazyError(schema.elementSchema))(_ :+ _)
+          }
+          .map(schema.fromChunk)
+
+      case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
+        values.foldLeft[Validation[DecodeError, Set[t]]](Validation.succeed(Set.empty[t])) { (acc, value) =>
+          acc.zipWithPar(value.toTypedValueAccumulatingLazyError(schema.elementSchema))(_ + _)
+        }
+
+      case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
+        value.toTypedValueAccumulatingLazyError(schema).map(Some(_))
+
+      case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
+        Validation.succeed(None)
+
+      case (value, Schema.Transform(schema, f, _, _, _)) =>
+        value
+          .toTypedValueAccumulatingLazyError(schema)
+          .flatMap { v =>
+            f(v) match {
+              case Left(err)  => Validation.fail(DecodeError.MalformedField(schema, err))
+              case Right(a)   => Validation.succeed(a)
+            }
+          }
+
+      case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
+        entries.foldLeft[Validation[DecodeError, Map[k, v]]](Validation.succeed(Map.empty[k, v])) { (acc, entry) =>
+          val keyValidation   = entry._1.toTypedValueAccumulatingLazyError(schema.keySchema)
+          val valueValidation = entry._2.toTypedValueAccumulatingLazyError(schema.valueSchema)
+          acc.zipWithPar(keyValidation.zipWithPar(valueValidation)(_ -> _)) { (map, kv) =>
+            map + kv
+          }
+        }
+
+      case (_, l @ Schema.Lazy(_)) =>
+        toTypedValueAccumulatingLazyError(l.schema)
+
+      case (DynamicValue.Error(message), _) =>
+        Validation.fail(DecodeError.ReadError(Cause.empty, message))
+
+      case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
+        val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
+        dyn.toTypedValueAccumulatingLazyError(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
+
+      case (dyn, Schema.Dynamic(_)) => Validation.succeed(dyn.asInstanceOf[A])
+
+      case _ =>
+        Validation.fail(DecodeError.CastError(self, schema))
+    }
 
   private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DecodeError, A] =
     (self, schema) match {
@@ -204,6 +310,28 @@ object DynamicValue {
             Left(DecodeError.IncompatibleShape(values, structure))
         }
       case (Left(err), _) => Left(err)
+    }
+  }
+
+  /**
+   * Like `decodeStructure` but accumulates all errors using `zio.prelude.Validation`
+   * instead of failing fast on the first error.
+   */
+  def decodeStructureAccumulating(
+    values: ListMap[String, DynamicValue],
+    structure: Chunk[Schema.Field[_, _]]
+  ): Validation[DecodeError, ListMap[String, _]] = {
+    val keys = values.keySet
+    keys.foldLeft[Validation[DecodeError, ListMap[String, Any]]](Validation.succeed(ListMap.empty)) {
+      case (acc, key) =>
+        (structure.find(_.name == key), values.get(key)) match {
+          case (Some(field), Some(value)) =>
+            acc.zipWithPar(value.toTypedValueAccumulatingLazyError(field.schema)) { (record, decoded) =>
+              record + (key -> decoded)
+            }
+          case _ =>
+            acc.zipWithPar(Validation.fail(DecodeError.IncompatibleShape(values, structure)))((r, _) => r)
+        }
     }
   }
 
