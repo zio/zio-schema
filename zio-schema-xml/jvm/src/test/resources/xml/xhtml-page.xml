@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <title>ZIO Schema XML Codec</title>
+    <link rel="stylesheet" type="text/css" href="style.css"/>
+  </head>
+  <body>
+    <div id="header">
+      <h1>ZIO Schema XML Codec</h1>
+      <p>A zero-dependency XML codec for <a href="https://zio.dev">ZIO</a> Schema.</p>
+    </div>
+    <div id="content">
+      <h2>Features</h2>
+      <ul>
+        <li>Hand-written recursive descent parser</li>
+        <li>Zero external dependencies</li>
+        <li>Cross-platform: JVM, JS, Native</li>
+        <li>Full round-trip encoding &amp; decoding</li>
+      </ul>
+      <h2>Special Characters</h2>
+      <p>Handles &lt;, &gt;, &amp;, &quot;, and &apos; correctly.</p>
+    </div>
+  </body>
+</html>
