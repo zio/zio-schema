@@ -390,6 +390,18 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   def jsonDecoder[A](cfg: JsonCodec.Configuration)(schema: Schema[A]): ZJsonDecoder[A] =
     new StrictJsonDecoder(JsonDecoder.schemaDecoder(schema, cfg))
 
+  /**
+   * Returns the schema-based JSON decoder without strict trailing-character checks.
+   * Use this for stream decoding (e.g. decodeJsonPipeline) where input may contain
+   * multiple JSON values separated by newlines or other delimiters; strict decoding
+   * would reject the next value as "trailing" after the first.
+   */
+  def jsonDecoderForStream[A](schema: Schema[A]): ZJsonDecoder[A] =
+    JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default)
+
+  def jsonDecoderForStream[A](cfg: JsonCodec.Configuration)(schema: Schema[A]): ZJsonDecoder[A] =
+    JsonDecoder.schemaDecoder(schema, cfg)
+
   def jsonCodec[A](schema: Schema[A]): ZJsonCodec[A] =
     ZJsonCodec(jsonEncoder(schema), jsonDecoder(schema))
 

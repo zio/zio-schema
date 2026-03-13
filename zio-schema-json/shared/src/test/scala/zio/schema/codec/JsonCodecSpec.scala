@@ -1675,6 +1675,20 @@ object JsonCodecSpec extends ZIOSpecDefault {
         val result = codec.decode(charSequenceToByteChunk("[1,2]]"))
         assertTrue(result.isLeft)
       }
+    ),
+    suite("jsonDecoder(...).decodeJson(str) – issue #712 string API")(
+      test("object with trailing }") {
+        val result = JsonCodec.jsonDecoder(personSchema).decodeJson("""{"name":"Alice","age":30}}""")
+        assertTrue(result.isLeft)
+      },
+      test("string with trailing \"") {
+        val result = JsonCodec.jsonDecoder(Schema[String]).decodeJson("\"foo\"\"")
+        assertTrue(result.isLeft)
+      },
+      test("valid object succeeds") {
+        val result = JsonCodec.jsonDecoder(personSchema).decodeJson("""{"name":"Alice","age":30}""")
+        assertTrue(result == Right(Person("Alice", 30)))
+      }
     )
   )
 
