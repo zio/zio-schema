@@ -134,7 +134,9 @@ object DynamicValueSpec extends ZIOSpecDefault {
             )
           )
 
-          assert(reorderedRecord.toTypedValueAccumulating[Person])(equalTo(zio.prelude.Validation.succeed(Person("Alice", 30))))
+          assert(reorderedRecord.toTypedValueAccumulating[Person])(
+            equalTo(zio.prelude.Validation.succeed(Person("Alice", 30)))
+          )
         },
         test("accumulates multiple record field errors") {
           val badRecord = DynamicValue.Record(
