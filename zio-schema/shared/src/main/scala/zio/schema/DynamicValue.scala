@@ -74,12 +74,12 @@ sealed trait DynamicValue {
 
       case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
         values
-          .foldLeft[Validation[DecodeError, Chunk[t]]](Validation.succeed(Chunk.empty)) { (acc, value) =>
+          .foldLeft[Validation[DecodeError, List[t]]](Validation.succeed(List.empty[t])) { (acc, value) =>
             acc.zipWithPar(
               value.toTypedValueAccumulatingLazyError(schema.elementSchema)
-            )(_ :+ _)
+            )((decoded, value) => value :: decoded)
           }
-          .map(schema.fromChunk)
+          .map(values => schema.fromChunk(Chunk.fromIterable(values.reverse)))
 
       case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
         values.foldLeft[Validation[DecodeError, Set[t]]](Validation.succeed(Set.empty[t])) { (acc, value) =>
@@ -316,17 +316,29 @@ object DynamicValue {
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
   ): Validation[DecodeError, ListMap[String, _]] = {
-    val keys = values.keySet
-    keys.foldLeft[Validation[DecodeError, ListMap[String, Any]]](Validation.succeed(ListMap.empty)) {
-      case (acc, key) =>
-        (structure.find(_.name == key), values.get(key)) match {
-          case (Some(field), Some(value)) =>
-            acc.zipWithPar(
-              value.toTypedValueAccumulatingLazyError(field.schema)
-            )((record, value) => record + (key -> value))
-          case _ =>
-            acc.zipWithPar(Validation.fail(DecodeError.IncompatibleShape(values, structure)))((record, _) => record)
-        }
+    val fieldNames: Set[String] = structure.map(field => field.name: String).toSet
+
+    val decodedFields =
+      structure.foldLeft[Validation[DecodeError, ListMap[String, Any]]](Validation.succeed(ListMap.empty)) {
+        case (acc, field) =>
+          val decodedField =
+            values.get(field.name) match {
+              case Some(value) =>
+                value.toTypedValueAccumulatingLazyError(field.schema).map(field.name -> _)
+              case None =>
+                Validation.fail(DecodeError.IncompatibleShape(values, structure))
+            }
+
+          acc.zipWithPar(decodedField) {
+            case (record, (name, value)) =>
+              record + (name -> value)
+          }
+      }
+
+    values.keySet.diff(fieldNames).foldLeft(decodedFields) { (acc, _) =>
+      acc.zipWithPar(
+        Validation.fail(DecodeError.IncompatibleShape(values, structure))
+      )((record, _) => record)
     }
   }
 

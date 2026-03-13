@@ -2,8 +2,8 @@ package zio.schema
 
 import scala.collection.immutable.ListMap
 
-import zio.prelude.ZValidation
 import zio._
+import zio.prelude.ZValidation
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
@@ -114,22 +114,27 @@ object DynamicValueSpec extends ZIOSpecDefault {
           val person = Person("Alice", 30)
           val result = DynamicValue.fromSchemaAndValue(Person.schema, person).toTypedValueAccumulating[Person]
 
-          result match {
-            case ZValidation.Success(_, value) => assertTrue(value == person)
-            case ZValidation.Failure(_, _)     => assertTrue(false)
-          }
+          assert(result)(equalTo(zio.prelude.Validation.succeed(person)))
         },
         test("matches toTypedValue on successful primitive decodes") {
           check(SchemaGen.anyPrimitiveAndValue) {
             case (schema, value) =>
               val dynamic = DynamicValue.fromSchemaAndValue(schema, value)
 
-              (dynamic.toTypedValue(schema), dynamic.toTypedValueAccumulating(schema)) match {
-                case (Right(fast), ZValidation.Success(_, accumulating)) => assertTrue(fast == accumulating)
-                case (Left(_), _)                                        => assertTrue(false)
-                case (_, ZValidation.Failure(_, _))                      => assertTrue(false)
-              }
+              assertTrue(dynamic.toTypedValue(schema) == Right(value)) &&
+              assertTrue(dynamic.toTypedValueAccumulating(schema) == zio.prelude.Validation.succeed(value))
           }
+        },
+        test("decodes records using schema field order") {
+          val reorderedRecord = DynamicValue.Record(
+            TypeId.parse("zio.schema.DynamicValueSpec.Person"),
+            ListMap(
+              "age"  -> DynamicValue.Primitive(30, StandardType.IntType),
+              "name" -> DynamicValue.Primitive("Alice", StandardType.StringType)
+            )
+          )
+
+          assert(reorderedRecord.toTypedValueAccumulating[Person])(equalTo(zio.prelude.Validation.succeed(Person("Alice", 30))))
         },
         test("accumulates multiple record field errors") {
           val badRecord = DynamicValue.Record(
@@ -154,6 +159,36 @@ object DynamicValueSpec extends ZIOSpecDefault {
 
           assertTrue(result.isFailure) &&
           assertTrue(errorCount(result) >= 2)
+        },
+        test("accumulates set element errors") {
+          val badSet = DynamicValue.SetValue(
+            Set(
+              DynamicValue.Primitive("first", StandardType.StringType),
+              DynamicValue.Primitive("second", StandardType.StringType)
+            )
+          )
+          val result = badSet.toTypedValueAccumulating[Set[Int]]
+
+          assertTrue(result.isFailure) &&
+          assertTrue(errorCount(result) >= 2)
+        },
+        test("accumulates map key and value errors") {
+          val badMap = DynamicValue.Dictionary(
+            Chunk(
+              (
+                DynamicValue.Primitive("bad-key-1", StandardType.StringType),
+                DynamicValue.Primitive("bad-value-1", StandardType.StringType)
+              ),
+              (
+                DynamicValue.Primitive("bad-key-2", StandardType.StringType),
+                DynamicValue.Primitive("bad-value-2", StandardType.StringType)
+              )
+            )
+          )
+          val result = badMap.toTypedValueAccumulating[Map[Int, Int]]
+
+          assertTrue(result.isFailure) &&
+          assertTrue(errorCount(result) >= 4)
         },
         test("accumulates sequence element errors") {
           val badSequence = DynamicValue.Sequence(
