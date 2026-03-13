@@ -1677,6 +1677,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
       }
     ),
     suite("jsonDecoder(...).decodeJson(str) – issue #712 string API")(
+      test("issue reproducer object with extra closing brace") {
+        val result = JsonCodec.jsonDecoder(Schema[Map[String, Int]]).decodeJson("""{"a":1}}""")
+        assertTrue(result.isLeft)
+      },
+      test("issue reproducer string with extra quote") {
+        val result = JsonCodec.jsonDecoder(Schema[String]).decodeJson("\"hey\"\"")
+        assertTrue(result.isLeft)
+      },
       test("object with trailing }") {
         val result = JsonCodec.jsonDecoder(personSchema).decodeJson("""{"name":"Alice","age":30}}""")
         assertTrue(result.isLeft)
