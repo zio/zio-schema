@@ -8,7 +8,6 @@ import scala.collection.immutable.ListMap
 
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
-import scala.annotation.nowarn
 import zio.{ Cause, Chunk, Unsafe }
 
 sealed trait DynamicValue {
@@ -278,7 +277,7 @@ object DynamicValue {
         else (value, that.value) match {
           case (bd1: java.math.BigDecimal, bd2: java.math.BigDecimal) =>
             bd1.compareTo(bd2) == 0
-          case (v1, v2) => v1 == v2
+          case _ => value == that.value
         }
       case _ => false
     }
