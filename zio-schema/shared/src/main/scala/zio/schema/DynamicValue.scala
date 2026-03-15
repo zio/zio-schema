@@ -8,11 +8,13 @@ import scala.collection.immutable.ListMap
 
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
+import scala.annotation.nowarn
 import zio.{ Cause, Chunk, Unsafe }
 
 sealed trait DynamicValue {
   self =>
 
+  @nowarn("msg=deprecated")
   override def hashCode(): Int = {
     import scala.util.hashing.MurmurHash3
     self match {
