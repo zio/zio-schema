@@ -1,11 +1,11 @@
 package zio.schema
-import java.math.{ BigDecimal, BigInteger }
+import java.math. { BigDecimal, BigInteger }
 import java.time._
 import java.util.UUID
 import scala.collection.immutable.ListMap
 import zio.schema.codec.DecodeError
-import zio.schema.meta.{ MetaSchema, Migration }
-import zio.{ Cause, Chunk, Unsafe }
+import zio.schema.meta. { MetaSchema, Migration }
+import zio. { Cause, Chunk, Unsafe }
 sealed trait DynamicValue {
   self =>
   def transform(transforms: Chunk[Migration]): Either[String, DynamicValue] =
@@ -211,7 +211,8 @@ object DynamicValue {
 
   sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
     override def hashCode(): Int = {
-      val v = value match {
+      val v =
+    value match {
         case bd: java.math.BigDecimal => bd.stripTrailingZeros()
         case _                        => value
       }
