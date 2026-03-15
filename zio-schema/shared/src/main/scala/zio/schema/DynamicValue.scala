@@ -14,92 +14,6 @@ import zio.{ Cause, Chunk, Unsafe }
 sealed trait DynamicValue {
   self =>
 
-  @nowarn("msg=deprecated")
-  override def hashCode(): Int = {
-    import scala.util.hashing.MurmurHash3
-    self match {
-      case DynamicValue.Record(id, values) =>
-        MurmurHash3.productHash(("Record", id, values).asInstanceOf[Product])
-      case DynamicValue.Enumeration(id, value) =>
-        MurmurHash3.productHash(("Enumeration", id, value).asInstanceOf[Product])
-      case DynamicValue.Sequence(values) =>
-        MurmurHash3.productHash(("Sequence", values).asInstanceOf[Product])
-      case DynamicValue.Dictionary(entries) =>
-        // Sort entries by key hashCode to make it deterministic if order is changed
-        // Actually, sorting is expensive. Let's see if we can just hash the Chunk.
-        MurmurHash3.productHash(("Dictionary", entries).asInstanceOf[Product])
-      case DynamicValue.SetValue(values) =>
-        MurmurHash3.setHash(values)
-      case DynamicValue.Primitive(value, standardType) =>
-        val v = value match {
-          case bd: java.math.BigDecimal => bd.stripTrailingZeros()
-          case _                        => value
-        }
-        MurmurHash3.productHash(("Primitive", v, standardType).asInstanceOf[Product])
-      case DynamicValue.Singleton(instance) =>
-        MurmurHash3.productHash(("Singleton", instance).asInstanceOf[Product])
-      case DynamicValue.SomeValue(value) =>
-        MurmurHash3.productHash(("SomeValue", value).asInstanceOf[Product])
-      case DynamicValue.NoneValue =>
-        "NoneValue".hashCode
-      case DynamicValue.Tuple(left, right) =>
-        MurmurHash3.productHash(("Tuple", left, right).asInstanceOf[Product])
-      case DynamicValue.LeftValue(value) =>
-        MurmurHash3.productHash(("LeftValue", value).asInstanceOf[Product])
-      case DynamicValue.RightValue(value) =>
-        MurmurHash3.productHash(("RightValue", value).asInstanceOf[Product])
-      case DynamicValue.BothValue(left, right) =>
-        MurmurHash3.productHash(("BothValue", left, right).asInstanceOf[Product])
-      case DynamicValue.DynamicAst(ast) =>
-        MurmurHash3.productHash(("DynamicAst", ast).asInstanceOf[Product])
-      case DynamicValue.Error(message) =>
-        MurmurHash3.productHash(("Error", message).asInstanceOf[Product])
-    }
-  }
-
-  override def equals(other: Any): Boolean = other match {
-    case that: DynamicValue =>
-      (self, that) match {
-        case (DynamicValue.Record(id1, v1), DynamicValue.Record(id2, v2)) =>
-          id1 == id2 && v1 == v2
-        case (DynamicValue.Enumeration(id1, v1), DynamicValue.Enumeration(id2, v2)) =>
-          id1 == id2 && v1 == v2
-        case (DynamicValue.Sequence(v1), DynamicValue.Sequence(v2)) =>
-          v1 == v2
-        case (DynamicValue.Dictionary(v1), DynamicValue.Dictionary(v2)) =>
-          v1 == v2
-        case (DynamicValue.SetValue(v1), DynamicValue.SetValue(v2)) =>
-          v1 == v2
-        case (DynamicValue.Primitive(v1, t1), DynamicValue.Primitive(v2, t2)) =>
-          if (t1 != t2) false
-          else (v1, v2) match {
-            case (bd1: java.math.BigDecimal, bd2: java.math.BigDecimal) =>
-              bd1.compareTo(bd2) == 0
-            case _ => v1 == v2
-          }
-        case (DynamicValue.Singleton(i1), DynamicValue.Singleton(i2)) =>
-          i1 == i2
-        case (DynamicValue.SomeValue(v1), DynamicValue.SomeValue(v2)) =>
-          v1 == v2
-        case (DynamicValue.NoneValue, DynamicValue.NoneValue) =>
-          true
-        case (DynamicValue.Tuple(l1, r1), DynamicValue.Tuple(l2, r2)) =>
-          l1 == l2 && r1 == r2
-        case (DynamicValue.LeftValue(v1), DynamicValue.LeftValue(v2)) =>
-          v1 == v2
-        case (DynamicValue.RightValue(v1), DynamicValue.RightValue(v2)) =>
-          v1 == v2
-        case (DynamicValue.BothValue(l1, r1), DynamicValue.BothValue(l2, r2)) =>
-          l1 == l2 && r1 == r2
-        case (DynamicValue.DynamicAst(a1), DynamicValue.DynamicAst(a2)) =>
-          a1 == a2
-        case (DynamicValue.Error(m1), DynamicValue.Error(m2)) =>
-          m1 == m2
-        case _ => false
-      }
-    case _ => false
-  }
-
   def transform(transforms: Chunk[Migration]): Either[String, DynamicValue] =
     transforms.foldRight[Either[String, DynamicValue]](Right(self)) {
       case (transform, Right(value)) => transform.migrate(value)
@@ -294,35 +208,174 @@ object DynamicValue {
     }
   }
 
-  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
+  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("Record", id, values).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: Record => id == that.id && values == that.values
+      case _            => false
+    }
+  }
 
-  final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue
+  final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("Enumeration", id, value).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: Enumeration => id == that.id && value == that.value
+      case _                 => false
+    }
+  }
 
-  final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
+  final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("Sequence", values).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: Sequence => values == that.values
+      case _              => false
+    }
+  }
 
-  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
+  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("Dictionary", entries).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: Dictionary => entries == that.entries
+      case _                => false
+    }
+  }
 
-  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue
+  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.setHash(values)
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: SetValue => values == that.values
+      case _              => false
+    }
+  }
 
-  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
+  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      val v = value match {
+        case bd: java.math.BigDecimal => bd.stripTrailingZeros()
+        case _                        => value
+      }
+      MurmurHash3.productHash(("Primitive", v, standardType).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: Primitive[_] =>
+        if (standardType != that.standardType) false
+        else (value, that.value) match {
+          case (bd1: java.math.BigDecimal, bd2: java.math.BigDecimal) =>
+            bd1.compareTo(bd2) == 0
+          case (v1, v2) => v1 == v2
+        }
+      case _ => false
+    }
+  }
 
-  sealed case class Singleton[A](instance: A) extends DynamicValue
+  sealed case class Singleton[A](instance: A) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("Singleton", instance).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: Singleton[_] => instance == that.instance
+      case _                  => false
+    }
+  }
 
-  final case class SomeValue(value: DynamicValue) extends DynamicValue
+  final case class SomeValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("SomeValue", value).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: SomeValue => value == that.value
+      case _               => false
+    }
+  }
 
-  case object NoneValue extends DynamicValue
+  case object NoneValue extends DynamicValue {
+    override def hashCode(): Int             = "NoneValue".hashCode
+    override def equals(other: Any): Boolean = other.isInstanceOf[NoneValue.type]
+  }
 
-  sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue
+  sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("Tuple", left, right).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: Tuple => left == that.left && right == that.right
+      case _           => false
+    }
+  }
 
-  final case class LeftValue(value: DynamicValue) extends DynamicValue
+  final case class LeftValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("LeftValue", value).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: LeftValue => value == that.value
+      case _               => false
+    }
+  }
 
-  final case class RightValue(value: DynamicValue) extends DynamicValue
+  final case class RightValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("RightValue", value).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: RightValue => value == that.value
+      case _                => false
+    }
+  }
 
-  final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue
+  final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("BothValue", left, right).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: BothValue => left == that.left && right == that.right
+      case _               => false
+    }
+  }
 
-  final case class DynamicAst(ast: MetaSchema) extends DynamicValue
+  final case class DynamicAst(ast: MetaSchema) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("DynamicAst", ast).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: DynamicAst => ast == that.ast
+      case _                => false
+    }
+  }
 
-  final case class Error(message: String) extends DynamicValue
+  final case class Error(message: String) extends DynamicValue {
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      MurmurHash3.productHash(("Error", message).asInstanceOf[Product])
+    }
+    override def equals(other: Any): Boolean = other match {
+      case that: Error => message == that.message
+      case _           => false
+    }
+  }
 
   lazy val typeId: TypeId = TypeId.parse("zio.schema.DynamicValue")
 
