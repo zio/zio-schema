@@ -19,7 +19,7 @@ sealed trait DynamicValue {
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
   private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DecodeError, A] =
-    (self, schema)  match {
+    (self, schema) match {
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
         Right(value.asInstanceOf[A])
       case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
@@ -30,7 +30,7 @@ sealed trait DynamicValue {
           .map(m => Chunk.fromIterable(m.values))
           .flatMap(values => s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
-        s.caseOf(key)  match {
+        s.caseOf(key) match {
           case Some(caseValue) =>
             value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
           case None => Left(DecodeError.MissingCase(key, s))
@@ -42,7 +42,7 @@ sealed trait DynamicValue {
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
         val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
         val typedRight = rightValue.toTypedValueLazyError(rightSchema)
-        (typedLeft, typedRight)  match {
+        (typedLeft, typedRight) match {
           case (Left(e1), Left(e2)) =>
             Left(DecodeError.And(e1, e2))
           case (_, Left(e))         => Left(e)
@@ -114,7 +114,7 @@ object DynamicValue {
       schema: Schema.Either[_, _],
       value: Either[DynamicValue, DynamicValue]
     ): DynamicValue =
-      value  match {
+      value match {
         case Left(value)  => DynamicValue.LeftValue(value)
         case Right(value) => DynamicValue.RightValue(value)
       }
@@ -122,13 +122,13 @@ object DynamicValue {
       schema: Schema.Fallback[_, _],
       value: Fallback[DynamicValue, DynamicValue]
     ): DynamicValue =
-      value  match {
+      value match {
         case Fallback.Left(value)       => DynamicValue.LeftValue(value)
         case Fallback.Right(value)      => DynamicValue.RightValue(value)
         case Fallback.Both(left, right) => DynamicValue.BothValue(left, right)
       }
     override protected def processOption(schema: Schema.Optional[_], value: Option[DynamicValue]): DynamicValue =
-      value  match {
+      value match {
         case Some(value) => DynamicValue.SomeValue(value)
         case None        => DynamicValue.NoneValue
       }
@@ -154,7 +154,7 @@ object DynamicValue {
     val keys = values.keySet
     keys.foldLeft[Either[DecodeError, ListMap[String, Any]]](Right(ListMap.empty)) {
       case (Right(record), key) =>
-        (structure.find(_.name == key), values.get(key))  match {
+        (structure.find(_.name == key), values.get(key)) match {
           case (Some(field), Some(value)) =>
             value.toTypedValueLazyError(field.schema).map(value => (record + (key -> value)))
           case _ =>
@@ -164,57 +164,63 @@ object DynamicValue {
     }
   }
 
-  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue  {
+
+  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue {
     override def hashCode(): Int = ("Record", id, values).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: Record => id == that.id && values == that.values
       case _            => false
     }
   }
 
-  final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue  {
+
+  final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue {
     override def hashCode(): Int = ("Enumeration", id, value).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: Enumeration => id == that.id && value == that.value
       case _                 => false
     }
   }
 
-  final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue  {
+
+  final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue {
     override def hashCode(): Int = ("Sequence", values).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: Sequence => values == that.values
       case _              => false
     }
   }
 
-  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue  {
+
+  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
     override def hashCode(): Int = ("Dictionary", entries).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: Dictionary => entries == that.entries
       case _                => false
     }
   }
 
-  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue  {
+
+  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue {
     override def hashCode(): Int = values.hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: SetValue => values == that.values
       case _              => false
     }
   }
-  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue  {
+
+  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
     override def hashCode(): Int = {
-      val v = value  match {
+      val v = value match {
         case bd: java.math.BigDecimal => bd.stripTrailingZeros()
         case _                        => value
       }
       ("Primitive", v, standardType).hashCode()
     }
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: Primitive[_] =>
         if (standardType != that.standardType) false
-        else (value, that.value)  match {
+        else (value, that.value) match {
           case (bd1: java.math.BigDecimal, bd2: java.math.BigDecimal) =>
             bd1.compareTo(bd2) == 0
           case _ => value == that.value
@@ -222,68 +228,77 @@ object DynamicValue {
       case _ => false
     }
   }
-  sealed case class Singleton[A](instance: A) extends DynamicValue  {
+
+  sealed case class Singleton[A](instance: A) extends DynamicValue {
     override def hashCode(): Int = ("Singleton", instance).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: Singleton[_] => instance == that.instance
       case _                  => false
     }
   }
 
-  final case class SomeValue(value: DynamicValue) extends DynamicValue  {
+
+  final case class SomeValue(value: DynamicValue) extends DynamicValue {
     override def hashCode(): Int = ("SomeValue", value).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: SomeValue => value == that.value
       case _               => false
     }
   }
+
   case object NoneValue extends DynamicValue {
     override def hashCode(): Int             = "NoneValue".hashCode()
     override def equals(other: Any): Boolean = other.isInstanceOf[NoneValue.type]
   }
-  sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue  {
+
+  sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue {
     override def hashCode(): Int = ("Tuple", left, right).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: Tuple => left == that.left && right == that.right
       case _           => false
     }
   }
 
-  final case class LeftValue(value: DynamicValue) extends DynamicValue  {
+
+  final case class LeftValue(value: DynamicValue) extends DynamicValue {
     override def hashCode(): Int = ("LeftValue", value).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: LeftValue => value == that.value
       case _               => false
     }
   }
 
-  final case class RightValue(value: DynamicValue) extends DynamicValue  {
+
+  final case class RightValue(value: DynamicValue) extends DynamicValue {
     override def hashCode(): Int = ("RightValue", value).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: RightValue => value == that.value
       case _                => false
     }
   }
 
-  final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue  {
+
+  final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue {
     override def hashCode(): Int = ("BothValue", left, right).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: BothValue => left == that.left && right == that.right
       case _               => false
     }
   }
 
-  final case class DynamicAst(ast: MetaSchema) extends DynamicValue  {
+
+  final case class DynamicAst(ast: MetaSchema) extends DynamicValue {
     override def hashCode(): Int = ("DynamicAst", ast).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: DynamicAst => ast == that.ast
       case _                => false
     }
   }
 
-  final case class Error(message: String) extends DynamicValue  {
+
+  final case class Error(message: String) extends DynamicValue {
     override def hashCode(): Int = ("Error", message).hashCode()
-    override def equals(other: Any): Boolean = other  match {
+    override def equals(other: Any): Boolean = other match {
       case that: Error => message == that.message
       case _           => false
     }
@@ -572,7 +587,7 @@ object DynamicValue {
       (d: DynamicValue) => d.isInstanceOf[DynamicValue.Singleton[_]]
     )
   private def hasStandardType(value: DynamicValue, standardType: StandardType[_]): Boolean =
-    value  match {
+    value match {
       case DynamicValue.Primitive(_, tpe) => tpe == standardType
       case _                              => false
     }
