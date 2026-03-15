@@ -8,7 +8,6 @@ import scala.collection.immutable.ListMap
 
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
-import scala.annotation.nowarn
 import zio.{ Cause, Chunk, Unsafe }
 
 sealed trait DynamicValue {
@@ -209,11 +208,7 @@ object DynamicValue {
   }
 
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("Record", id, values).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("Record", id, values).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: Record => id == that.id && values == that.values
       case _            => false
@@ -221,11 +216,7 @@ object DynamicValue {
   }
 
   final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("Enumeration", id, value).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("Enumeration", id, value).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: Enumeration => id == that.id && value == that.value
       case _                 => false
@@ -233,11 +224,7 @@ object DynamicValue {
   }
 
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("Sequence", values).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("Sequence", values).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: Sequence => values == that.values
       case _              => false
@@ -245,11 +232,7 @@ object DynamicValue {
   }
 
   final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("Dictionary", entries).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("Dictionary", entries).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: Dictionary => entries == that.entries
       case _                => false
@@ -257,11 +240,7 @@ object DynamicValue {
   }
 
   final case class SetValue(values: Set[DynamicValue]) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.setHash(values)
-    }
+    override def hashCode(): Int = values.hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: SetValue => values == that.values
       case _              => false
@@ -269,14 +248,12 @@ object DynamicValue {
   }
 
   sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
-    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
       val v = value match {
         case bd: java.math.BigDecimal => bd.stripTrailingZeros()
         case _                        => value
       }
-      MurmurHash3.productHash(("Primitive", v, standardType).asInstanceOf[Product])
+      ("Primitive", v, standardType).hashCode()
     }
     override def equals(other: Any): Boolean = other match {
       case that: Primitive[_] =>
@@ -291,11 +268,7 @@ object DynamicValue {
   }
 
   sealed case class Singleton[A](instance: A) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("Singleton", instance).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("Singleton", instance).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: Singleton[_] => instance == that.instance
       case _                  => false
@@ -303,11 +276,7 @@ object DynamicValue {
   }
 
   final case class SomeValue(value: DynamicValue) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("SomeValue", value).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("SomeValue", value).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: SomeValue => value == that.value
       case _               => false
@@ -315,16 +284,12 @@ object DynamicValue {
   }
 
   case object NoneValue extends DynamicValue {
-    override def hashCode(): Int             = "NoneValue".hashCode
+    override def hashCode(): Int             = "NoneValue".hashCode()
     override def equals(other: Any): Boolean = other.isInstanceOf[NoneValue.type]
   }
 
   sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("Tuple", left, right).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("Tuple", left, right).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: Tuple => left == that.left && right == that.right
       case _           => false
@@ -332,11 +297,7 @@ object DynamicValue {
   }
 
   final case class LeftValue(value: DynamicValue) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("LeftValue", value).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("LeftValue", value).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: LeftValue => value == that.value
       case _               => false
@@ -344,11 +305,7 @@ object DynamicValue {
   }
 
   final case class RightValue(value: DynamicValue) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("RightValue", value).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("RightValue", value).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: RightValue => value == that.value
       case _                => false
@@ -356,11 +313,7 @@ object DynamicValue {
   }
 
   final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("BothValue", left, right).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("BothValue", left, right).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: BothValue => left == that.left && right == that.right
       case _               => false
@@ -368,11 +321,7 @@ object DynamicValue {
   }
 
   final case class DynamicAst(ast: MetaSchema) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("DynamicAst", ast).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("DynamicAst", ast).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: DynamicAst => ast == that.ast
       case _                => false
@@ -380,11 +329,7 @@ object DynamicValue {
   }
 
   final case class Error(message: String) extends DynamicValue {
-    @nowarn("msg=deprecated")
-    override def hashCode(): Int = {
-      import scala.util.hashing.MurmurHash3
-      MurmurHash3.productHash(("Error", message).asInstanceOf[Product])
-    }
+    override def hashCode(): Int = ("Error", message).hashCode()
     override def equals(other: Any): Boolean = other match {
       case that: Error => message == that.message
       case _           => false
