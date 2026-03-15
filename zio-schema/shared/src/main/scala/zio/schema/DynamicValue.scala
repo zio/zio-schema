@@ -164,7 +164,6 @@ object DynamicValue {
     }
   }
 
-
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue {
     override def hashCode(): Int = ("Record", id, values).hashCode()
     override def equals(other: Any): Boolean = other match {
@@ -172,7 +171,6 @@ object DynamicValue {
       case _            => false
     }
   }
-
 
   final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue {
     override def hashCode(): Int = ("Enumeration", id, value).hashCode()
@@ -182,7 +180,6 @@ object DynamicValue {
     }
   }
 
-
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue {
     override def hashCode(): Int = ("Sequence", values).hashCode()
     override def equals(other: Any): Boolean = other match {
@@ -191,7 +188,6 @@ object DynamicValue {
     }
   }
 
-
   final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
     override def hashCode(): Int = ("Dictionary", entries).hashCode()
     override def equals(other: Any): Boolean = other match {
@@ -199,7 +195,6 @@ object DynamicValue {
       case _                => false
     }
   }
-
 
   final case class SetValue(values: Set[DynamicValue]) extends DynamicValue {
     override def hashCode(): Int = values.hashCode()
@@ -237,7 +232,6 @@ object DynamicValue {
     }
   }
 
-
   final case class SomeValue(value: DynamicValue) extends DynamicValue {
     override def hashCode(): Int = ("SomeValue", value).hashCode()
     override def equals(other: Any): Boolean = other match {
@@ -259,7 +253,6 @@ object DynamicValue {
     }
   }
 
-
   final case class LeftValue(value: DynamicValue) extends DynamicValue {
     override def hashCode(): Int = ("LeftValue", value).hashCode()
     override def equals(other: Any): Boolean = other match {
@@ -267,7 +260,6 @@ object DynamicValue {
       case _               => false
     }
   }
-
 
   final case class RightValue(value: DynamicValue) extends DynamicValue {
     override def hashCode(): Int = ("RightValue", value).hashCode()
@@ -277,7 +269,6 @@ object DynamicValue {
     }
   }
 
-
   final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue {
     override def hashCode(): Int = ("BothValue", left, right).hashCode()
     override def equals(other: Any): Boolean = other match {
@@ -286,7 +277,6 @@ object DynamicValue {
     }
   }
 
-
   final case class DynamicAst(ast: MetaSchema) extends DynamicValue {
     override def hashCode(): Int = ("DynamicAst", ast).hashCode()
     override def equals(other: Any): Boolean = other match {
@@ -294,7 +284,6 @@ object DynamicValue {
       case _                => false
     }
   }
-
 
   final case class Error(message: String) extends DynamicValue {
     override def hashCode(): Int = ("Error", message).hashCode()
