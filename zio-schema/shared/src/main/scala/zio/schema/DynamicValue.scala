@@ -8,6 +8,7 @@ import scala.collection.immutable.ListMap
 
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
+import scala.annotation.nowarn
 import zio.{ Cause, Chunk, Unsafe }
 
 sealed trait DynamicValue {
@@ -208,6 +209,7 @@ object DynamicValue {
   }
 
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("Record", id, values).asInstanceOf[Product])
@@ -219,6 +221,7 @@ object DynamicValue {
   }
 
   final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("Enumeration", id, value).asInstanceOf[Product])
@@ -230,6 +233,7 @@ object DynamicValue {
   }
 
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("Sequence", values).asInstanceOf[Product])
@@ -241,6 +245,7 @@ object DynamicValue {
   }
 
   final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("Dictionary", entries).asInstanceOf[Product])
@@ -252,6 +257,7 @@ object DynamicValue {
   }
 
   final case class SetValue(values: Set[DynamicValue]) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.setHash(values)
@@ -263,6 +269,7 @@ object DynamicValue {
   }
 
   sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       val v = value match {
@@ -284,6 +291,7 @@ object DynamicValue {
   }
 
   sealed case class Singleton[A](instance: A) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("Singleton", instance).asInstanceOf[Product])
@@ -295,6 +303,7 @@ object DynamicValue {
   }
 
   final case class SomeValue(value: DynamicValue) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("SomeValue", value).asInstanceOf[Product])
@@ -311,6 +320,7 @@ object DynamicValue {
   }
 
   sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("Tuple", left, right).asInstanceOf[Product])
@@ -322,6 +332,7 @@ object DynamicValue {
   }
 
   final case class LeftValue(value: DynamicValue) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("LeftValue", value).asInstanceOf[Product])
@@ -333,6 +344,7 @@ object DynamicValue {
   }
 
   final case class RightValue(value: DynamicValue) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("RightValue", value).asInstanceOf[Product])
@@ -344,6 +356,7 @@ object DynamicValue {
   }
 
   final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("BothValue", left, right).asInstanceOf[Product])
@@ -355,6 +368,7 @@ object DynamicValue {
   }
 
   final case class DynamicAst(ast: MetaSchema) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("DynamicAst", ast).asInstanceOf[Product])
@@ -366,6 +380,7 @@ object DynamicValue {
   }
 
   final case class Error(message: String) extends DynamicValue {
+    @nowarn("msg=deprecated")
     override def hashCode(): Int = {
       import scala.util.hashing.MurmurHash3
       MurmurHash3.productHash(("Error", message).asInstanceOf[Product])
