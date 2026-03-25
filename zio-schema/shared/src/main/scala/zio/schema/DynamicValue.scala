@@ -1,4 +1,5 @@
-package zio.schema
+import zio.prelude.Validation
+2package zio.schema
 
 import java.math.{ BigDecimal, BigInteger }
 import java.time._
@@ -18,42 +19,42 @@ sealed trait DynamicValue {
       case (transform, Right(value)) => transform.migrate(value)
       case (_, error @ Left(_))      => error
     }
-
-  def toTypedValue[A](implicit schema: Schema[A]): Either[String, A] =
+def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] = 
     toTypedValueLazyError.left.map(_.message)
 
-  def toValue[A](implicit schema: Schema[A]): Either[DecodeError, A] = toTypedValueLazyError
+  def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
+    toTypedValueLazyError.mapError(_.message)
+    
 
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
 
-  private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DecodeError, A] =
+  private def toTypedValueLazyError[A](implicit schema: Schema[A]): validation[DecodeError, A] =
     (self, schema) match {
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
-        Right(value.asInstanceOf[A])
+       validation,succeed (value.asInstanceOf[A])      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
+        
+          case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
+            Validation.validateAll(s.fields.map { field =>
+                values.get(field.name) match {
+                	      // Recursively call toTypedValueLazyError for each field
+                	            case Some(dv) => dv.toTypedValueLazyError(field.schema).mapError(e => DecodeError.And(DecodeError.Read(Chunk(field.name), "Field error"), e))
+                	                  case None    => Validation.fail(DecodeError.Read(Chunk(field.name), s"Missing field ${field.name}"))
+                	                      }
+                	                        }).map(fields => s.construct(Chunk.fromIterable(fields)))
 
-      case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
-        DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[DecodeError, A]]
 
-      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
-        DynamicValue
-          .decodeStructure(values, s.fields)
-          .map(m => Chunk.fromIterable(m.values))
-          .flatMap(values => s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
 
-      case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
         s.caseOf(key) match {
           case Some(caseValue) =>
             value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
-          case None => Left(DecodeError.MissingCase(key, s))
-        }
+          case None => Left(DecodeError.MissingCase(key, s)       }
 
       case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
         value.toTypedValueLazyError(schema1).map(Left(_))
 
       case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
         value.toTypedValueLazyError(schema1).map(Right(_))
-
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
         val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
         val typedRight = rightValue.toTypedValueLazyError(rightSchema)
@@ -937,3 +938,8 @@ object DynamicValue {
       }
     )
 }
+
+
+
+
+
