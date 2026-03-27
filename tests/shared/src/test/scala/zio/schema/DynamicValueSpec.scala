@@ -100,6 +100,61 @@ object DynamicValueSpec extends ZIOSpecDefault {
             assertTrue(json2 == Right(json))
           }
         } @@ TestAspect.size(250) @@ TestAspect.ignore
+      ),
+      suite("deterministic hashCode")(
+        test("Primitive hashCode is stable across separate instances") {
+          val a = DynamicValue.Primitive(42, StandardType.IntType)
+          val b = DynamicValue.Primitive(42, StandardType.IntType)
+          assertTrue(a.hashCode() == b.hashCode()) && assertTrue(a == b)
+        },
+        test("Primitive hashCode uses tag, not identity") {
+          // Two calls must yield the same hash, proving we don't use System.identityHashCode
+          val h1 = DynamicValue.Primitive("hello", StandardType.StringType).hashCode()
+          val h2 = DynamicValue.Primitive("hello", StandardType.StringType).hashCode()
+          assertTrue(h1 == h2)
+        },
+        test("different Primitive values have different hashCodes") {
+          val a = DynamicValue.Primitive(1, StandardType.IntType)
+          val b = DynamicValue.Primitive(2, StandardType.IntType)
+          assertTrue(a.hashCode() != b.hashCode())
+        },
+        test("Dictionary hashCode is order-independent") {
+          val k1 = DynamicValue.Primitive("a", StandardType.StringType)
+          val v1 = DynamicValue.Primitive(1, StandardType.IntType)
+          val k2 = DynamicValue.Primitive("b", StandardType.StringType)
+          val v2 = DynamicValue.Primitive(2, StandardType.IntType)
+          val d1 = DynamicValue.Dictionary(Chunk((k1, v1), (k2, v2)))
+          val d2 = DynamicValue.Dictionary(Chunk((k2, v2), (k1, v1)))
+          assertTrue(d1.hashCode() == d2.hashCode()) && assertTrue(d1 == d2)
+        },
+        test("Dictionary with different entries are not equal") {
+          val k1 = DynamicValue.Primitive("a", StandardType.StringType)
+          val v1 = DynamicValue.Primitive(1, StandardType.IntType)
+          val k2 = DynamicValue.Primitive("b", StandardType.StringType)
+          val v2 = DynamicValue.Primitive(2, StandardType.IntType)
+          val v3 = DynamicValue.Primitive(3, StandardType.IntType)
+          val d1 = DynamicValue.Dictionary(Chunk((k1, v1), (k2, v2)))
+          val d2 = DynamicValue.Dictionary(Chunk((k1, v1), (k2, v3)))
+          assertTrue(d1 != d2)
+        },
+        test("equivalent dynamic values from toDynamic have equal hashCode") {
+          check(SchemaGen.anyTreeAndValue) {
+            case (schema, value) =>
+              val dyn1 = schema.toDynamic(value)
+              val dyn2 = schema.toDynamic(value)
+              assertTrue(dyn1.hashCode() == dyn2.hashCode()) && assertTrue(dyn1 == dyn2)
+          }
+        },
+        test("hashCode/equals contract: equal objects have equal hashCodes") {
+          check(SchemaGen.anyLeafAndValue) {
+            case (schema, value) =>
+              val dyn1 = schema.toDynamic(value)
+              val dyn2 = schema.toDynamic(value)
+              assertTrue(
+                !(dyn1 == dyn2) || (dyn1.hashCode() == dyn2.hashCode())
+              )
+          }
+        }
       )
     )
 
