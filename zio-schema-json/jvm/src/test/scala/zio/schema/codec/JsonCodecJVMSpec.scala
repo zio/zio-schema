@@ -81,7 +81,7 @@ object JsonCodecJVMSpec extends ZIOSpecDefault {
     val result = ZStream
       .fromChunk(chunk)
       .via(ZPipeline.decodeCharsWith(StandardCharsets.UTF_8))
-      .via(JsonCodec.jsonDecoder(schema).decodeJsonPipeline(delimiter))
+      .via(JsonCodec.jsonDecoderForStream(schema).decodeJsonPipeline(delimiter))
       .runCollect
       .either
     assertZIO(result)(isRight(equalTo(value)))
