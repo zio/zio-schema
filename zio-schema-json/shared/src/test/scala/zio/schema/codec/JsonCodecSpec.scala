@@ -34,6 +34,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     suite("JsonCodec Spec")(
       encoderSuite,
       decoderSuite,
+      trailingCharactersSuite,
       encoderDecoderSuite
     ) @@ timeout(180.seconds)
 
@@ -1604,6 +1605,97 @@ object JsonCodecSpec extends ZIOSpecDefault {
         val decoder = JsonCodec.schemaBasedBinaryCodec(schema).streamDecoder
         val result  = ZStream.fromChunk(charSequenceToByteChunk("[]")).via(decoder).runCollect.either
         assertZIO(result)(isLeft)
+      }
+    )
+  )
+
+  // Regression tests for https://github.com/zio/zio-schema/issues/712
+  // JsonCodec must reject inputs with trailing non-whitespace characters after a valid JSON value.
+  private val trailingCharactersSuite = suite("strict JSON parsing – reject trailing characters")(
+    suite("schemaBasedBinaryCodec (primary public API)")(
+      test("object with trailing }") {
+        val codec  = JsonCodec.schemaBasedBinaryCodec[Person](personSchema)
+        val result = codec.decode(charSequenceToByteChunk("""{"name":"Alice","age":30}}"""))
+        assertTrue(result.isLeft)
+      },
+      test("object without trailing chars succeeds") {
+        val codec  = JsonCodec.schemaBasedBinaryCodec[Person](personSchema)
+        val result = codec.decode(charSequenceToByteChunk("""{"name":"Alice","age":30}"""))
+        assertTrue(result == Right(Person("Alice", 30)))
+      },
+      test("string with trailing \"") {
+        val codec  = JsonCodec.schemaBasedBinaryCodec[String](Schema[String])
+        val result = codec.decode(charSequenceToByteChunk("\"foo\"\""))
+        assertTrue(result.isLeft)
+      },
+      test("string without trailing chars succeeds") {
+        val codec  = JsonCodec.schemaBasedBinaryCodec[String](Schema[String])
+        val result = codec.decode(charSequenceToByteChunk("\"foo\""))
+        assertTrue(result == Right("foo"))
+      },
+      test("array with trailing ]") {
+        val codec  = JsonCodec.schemaBasedBinaryCodec[List[Int]](Schema[List[Int]])
+        val result = codec.decode(charSequenceToByteChunk("[1,2]]"))
+        assertTrue(result.isLeft)
+      },
+      test("number with trailing garbage") {
+        val codec  = JsonCodec.schemaBasedBinaryCodec[Int](Schema[Int])
+        val result = codec.decode(charSequenceToByteChunk("42 x"))
+        assertTrue(result.isLeft)
+      },
+      test("trailing whitespace only is accepted") {
+        val codec  = JsonCodec.schemaBasedBinaryCodec[Int](Schema[Int])
+        val result = codec.decode(charSequenceToByteChunk("42 "))
+        assertTrue(result == Right(42))
+      },
+      test("empty object with trailing }}") {
+        val codec  = JsonCodec.schemaBasedBinaryCodec[Map[String, String]](Schema[Map[String, String]])
+        val result = codec.decode(charSequenceToByteChunk("{}}}"))
+        assertTrue(result.isLeft)
+      },
+      test("boolean with trailing }}") {
+        val codec  = JsonCodec.schemaBasedBinaryCodec[Boolean](Schema[Boolean])
+        val result = codec.decode(charSequenceToByteChunk("true}}"))
+        assertTrue(result.isLeft)
+      }
+    ),
+    suite("zioJsonBinaryCodec")(
+      test("object with trailing }") {
+        val codec  = JsonCodec.zioJsonBinaryCodec[Person](JsonCodec.jsonCodec(personSchema))
+        val result = codec.decode(charSequenceToByteChunk("""{"name":"Alice","age":30}}"""))
+        assertTrue(result.isLeft)
+      },
+      test("string with trailing \"") {
+        val codec  = JsonCodec.zioJsonBinaryCodec[String](JsonCodec.jsonCodec(Schema[String]))
+        val result = codec.decode(charSequenceToByteChunk("\"foo\"\""))
+        assertTrue(result.isLeft)
+      },
+      test("array with trailing ]") {
+        val codec  = JsonCodec.zioJsonBinaryCodec[List[Int]](JsonCodec.jsonCodec(Schema[List[Int]]))
+        val result = codec.decode(charSequenceToByteChunk("[1,2]]"))
+        assertTrue(result.isLeft)
+      }
+    ),
+    suite("jsonDecoder(...).decodeJson(str) – issue #712 string API")(
+      test("issue reproducer object with extra closing brace") {
+        val result = JsonCodec.jsonDecoder(Schema[Map[String, Int]]).decodeJson("""{"a":1}}""")
+        assertTrue(result.isLeft)
+      },
+      test("issue reproducer string with extra quote") {
+        val result = JsonCodec.jsonDecoder(Schema[String]).decodeJson("\"hey\"\"")
+        assertTrue(result.isLeft)
+      },
+      test("object with trailing }") {
+        val result = JsonCodec.jsonDecoder(personSchema).decodeJson("""{"name":"Alice","age":30}}""")
+        assertTrue(result.isLeft)
+      },
+      test("string with trailing \"") {
+        val result = JsonCodec.jsonDecoder(Schema[String]).decodeJson("\"foo\"\"")
+        assertTrue(result.isLeft)
+      },
+      test("valid object succeeds") {
+        val result = JsonCodec.jsonDecoder(personSchema).decodeJson("""{"name":"Alice","age":30}""")
+        assertTrue(result == Right(Person("Alice", 30)))
       }
     )
   )
