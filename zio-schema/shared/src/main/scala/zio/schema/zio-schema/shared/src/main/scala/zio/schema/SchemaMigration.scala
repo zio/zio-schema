@@ -16,8 +16,8 @@ object SchemaMigration {
 
   /**
    * Thread-safe & Memory-safe cache for DynamicValue transformations.
-   * Using a synchronized WeakHashMap ensures automatic eviction of entries,
-   * preventing memory leaks in high-concurrency, long-running ZIO environments.
+   * Uses a synchronized WeakHashMap to provide automatic eviction of entries,
+   * ensuring no memory leaks occur in long-running ZIO services.
    */
   private val transformCache = Collections.synchronizedMap(new WeakHashMap[(SchemaMigration, DynamicValue), DynamicValue]())
 
@@ -36,7 +36,7 @@ object SchemaMigration {
     def apply(s: Schema[_]): Either[String, Schema[_]] = s match {
       case r: Record[_] => 
         Right(record((r.fields :+ Field(name, schema, get = _ => default)): _*))
-      case _ => Left(s"Target is not a record")
+      case _ => Left(s"Target schema is not a record: $s")
     }
     def transform(v: DynamicValue): DynamicValue = v match {
       case Record(id, fields) => Record(id, fields.updated(name, default))
@@ -48,7 +48,7 @@ object SchemaMigration {
   final case class RemoveField(name: String, schema: Schema[_], default: DynamicValue) extends SchemaMigration {
     def apply(s: Schema[_]): Either[String, Schema[_]] = s match {
       case r: Record[_] => Right(record(r.fields.filterNot(_.id == name): _*))
-      case _ => Left("Target is not a record")
+      case _ => Left(s"Target schema is not a record: $s")
     }
     def transform(v: DynamicValue): DynamicValue = v match {
       case Record(id, fields) => Record(id, fields.removed(name))
@@ -64,7 +64,7 @@ object SchemaMigration {
           if (f.id == from) Field(to, f.schema, get = f.get) else f
         }
         Right(record(updatedFields: _*))
-      case _ => Left("Target is not a record")
+      case _ => Left(s"Target schema is not a record: $s")
     }
     def transform(v: DynamicValue): DynamicValue = v match {
       case Record(id, fields) => 
@@ -82,22 +82,26 @@ object SchemaMigration {
         }
         updated.foldLeft[Either[String, Chunk[Field[_, _]]]](Right(Chunk.empty))((acc, e) => for (c <- acc; f <- e) yield c :+ f)
           .map(fields => record(fields: _*))
-      case _ => Left("Nested update failed")
+      case _ => Left(s"Nested update failed for field: $name")
     }
     def transform(v: DynamicValue): DynamicValue = v match {
-      case Record(id, fields) => fields.get(name).map(d => Record(id, fields.updated(name, memoizedTransform(migration, d)))).getOrElse(v)
+      case Record(id, fields) => 
+        fields.get(name).map(d => Record(id, fields.updated(name, memoizedTransform(migration, d)))).getOrElse(v)
       case _ => v
     }
     def reverse: SchemaMigration = UpdateNestedField(name, migration.reverse)
   }
 
   final case class Combined(migrations: Chunk[SchemaMigration]) extends SchemaMigration {
-    def apply(s: Schema[_]): Either[String, Schema[_]] = migrations.foldLeft[Either[String, Schema[_]]](Right(s))((acc, m) => acc.flatMap(m.apply))
-    def transform(v: DynamicValue): DynamicValue = migrations.foldLeft(v)((acc, m) => memoizedTransform(m, acc))
+    def apply(s: Schema[_]): Either[String, Schema[_]] = 
+      migrations.foldLeft[Either[String, Schema[_]]](Right(s))((acc, m) => acc.flatMap(m.apply))
+    def transform(v: DynamicValue): DynamicValue = 
+      migrations.foldLeft(v)((acc, m) => memoizedTransform(m, acc))
     def reverse: SchemaMigration = Combined(migrations.reverse.map(_.reverse))
   }
 
   def diff(from: Schema[_], to: Schema[_]): Either[String, SchemaMigration] = {
+    // Optimization: Immediate exit if schemas are structurally identical
     if (from == to) Right(Combined(Chunk.empty))
     else (from, to) match {
       case (f: Record[_], t: Record[_]) =>
@@ -107,6 +111,8 @@ object SchemaMigration {
         val updates = (fFields.keySet intersect tFields.keySet).flatMap { id =>
           val fSchema = fFields(id)._1.schema
           val tSchema = tFields(id)._1.schema
+          
+          // Skip redundant recursive calls if sub-schemas match
           if (fSchema == tSchema) None
           else diff(fSchema, tSchema).toOption match {
             case Some(Combined(c)) if c.isEmpty => None
@@ -120,8 +126,8 @@ object SchemaMigration {
         
         /**
          * Identity Recognition Heuristic:
-         * We resolve renames using structural equality and positional proximity (Index Diff < 2).
-         * This minimizes false positives during structural refactoring.
+         * We map renames based on positional proximity (Index Delta < 2) 
+         * and structural equality to minimize false positives during complex refactors.
          */
         val renames = (for {
           rId <- removedIds.toSeq
@@ -144,7 +150,7 @@ object SchemaMigration {
           }
           for {
             list <- acc
-            default <- defaultOpt.toRight(s"Missing default value for required field: $id")
+            default <- defaultOpt.toRight(s"Required field '$id' is missing a default value.")
           } yield list :+ AddField(id, f.schema, default)
         }
 
@@ -152,13 +158,13 @@ object SchemaMigration {
           Combined(Chunk.fromIterable(renames) ++ Chunk.fromIterable(removals) ++ Chunk.fromIterable(adds) ++ Chunk.fromIterable(updates))
         }
 
-      case _ => Left(s"Structural mismatch")
+      case _ => Left(s"Structural mismatch between $from and $to")
     }
   }
 
   /**
-   * Compile-time Case Class Field Selection.
-   * Validates field existence against the type symbol at compile-time using Scala 3 Macros.
+   * Compile-time Case Class Field Validation Macro.
+   * Ensures field names exist within the target type T during compilation.
    */
   inline def selectField[T](inline name: String): String = ${ selectFieldImpl[T]('name) }
 
@@ -167,7 +173,7 @@ object SchemaMigration {
     val fieldName = name.valueOrAbort
     val tpe = TypeRepr.of[T]
     if (!tpe.typeSymbol.caseFields.exists(_.name == fieldName)) {
-      report.errorAndAbort(s"Field '$fieldName' does not exist in ${tpe.show}")
+      report.errorAndAbort(s"Field '$fieldName' does not exist in type ${tpe.show}")
     }
     Expr(fieldName)
   }
