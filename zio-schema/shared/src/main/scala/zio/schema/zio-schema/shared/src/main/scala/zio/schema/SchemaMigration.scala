@@ -1,123 +1,96 @@
-package zio.schema.migration
+package zio.json.internal
 
-import zio.Chunk
-import zio.json._
-import zio.schema._
-import zio.schema.DynamicValue._
-import zio.schema.codec.JsonCodec._
 import scala.quoted._
-import java.lang.ref.WeakReference
-import java.util.IdentityHashMap
-import scala.annotation.tailrec
+import zio.json._
+import zio.json.internal._
+import scala.deriving.Mirror
 
-/**
- * FINAL MASTERPIECE: ZIO SCHEMA MIGRATION ENGINE
- * Author: @shenStudio
- * Optimized for: Thread-Safety, Memory-Efficiency (No OOM), and Bijectivity.
- * Target: Issue #519 ($5000+ Bounties)
- */
-sealed trait Migration { self =>
-  def transform(v: DynamicValue): Either[String, DynamicValue]
-  def reverse: Migration
-  
-  def ++(that: Migration): Migration = (this, that) match {
-    case (Migration.Combined(as), Migration.Combined(bs)) => Migration.Combined(as ++ bs)
-    case (Migration.Combined(as), b) => Migration.Combined(as :+ b)
-    case (a, Migration.Combined(bs)) => Migration.Combined(a +: bs)
-    case (a, b) => Migration.Combined(Chunk(a, b))
-  }
-}
+object InlinedProductDecoder {
+  inline def derived[A](using m: Mirror.ProductOf[A]): JsonDecoder[A] = ${ deriveImpl[A]('m) }
 
-object Migration {
-  
-  // Persistence bridge for zio-schema-json
-  implicit val schemaJsonCodec: JsonCodec[Schema[_]] = schemaCodec
-  implicit val codec: JsonCodec[Migration] = DeriveJsonCodec.gen
-
-  final case class AddField(at: String, schema: Schema[_], default: DynamicValue) extends Migration {
-    def transform(v: DynamicValue): Either[String, DynamicValue] = v match {
-      case Record(id, fields) => Right(Record(id, fields + (at -> default)))
-      case _ => Left(s"Structural Mismatch: Expected Record, found $v")
-    }
-    def reverse: Migration = RemoveField(at, schema, default)
-  }
-
-  final case class RemoveField(name: String, schema: Schema[_], default: DynamicValue) extends Migration {
-    def transform(v: DynamicValue): Either[String, DynamicValue] = v match {
-      case Record(id, fields) => Right(Record(id, fields - name))
-      case _ => Left(s"Failed to remove field '$name': Target is not a record")
-    }
-    def reverse: Migration = AddField(name, schema, default)
-  }
-
-  final case class Combined(actions: Chunk[Migration]) extends Migration {
-    
-    // Optimized pre-computed list for O(n) transformation performance
-    private val actionList = actions.toList
-
-    // Thread-safe Identity-based cache with WeakReferences to prevent Memory Leaks (OOM)
-    private val identityCache = new IdentityHashMap[DynamicValue, WeakReference[DynamicValue]]()
-
-    def transform(v: DynamicValue): Either[String, DynamicValue] = {
-      val cachedValue = synchronized {
-        val ref = identityCache.get(v)
-        if (ref != null) ref.get() else null
-      }
-      
-      if (cachedValue != null) Right(cachedValue)
-      else {
-        @tailrec
-        def run(current: DynamicValue, remaining: List[Migration]): Either[String, DynamicValue] =
-          remaining match {
-            case Nil => Right(current)
-            case head :: tail => head.transform(current) match {
-              case Right(next) => run(next, tail)
-              case Left(err)   => Left(err)
-            }
-          }
-
-        val result = run(v, actionList)
-        result.foreach { res => 
-          synchronized { identityCache.put(v, new WeakReference(res)) } 
-        }
-        result
-      }
-    }
-    
-    def reverse: Migration = Combined(actions.reverse.map(_.reverse))
-  }
-}
-
-object MigrationMacros {
-  /**
-   * High-Performance Compile-time Macro for automatic migration derivation.
-   * Performs structural diffing between Case Classes A and B.
-   */
-  inline def derive[A, B]: Migration = ${ deriveImpl[A, B] }
-
-  def deriveImpl[A: Type, B: Type](using Quotes): Expr[Migration] = {
+  def deriveImpl[A: Type](m: Expr[Mirror.ProductOf[A]])(using Quotes): Expr[JsonDecoder[A]] = {
     import quotes.reflect._
-    
-    val aType = TypeRepr.of[A]
-    val bType = TypeRepr.of[B]
-    
-    val aFields = aType.typeSymbol.caseFields.map(f => f.name -> f).toMap
-    val bFields = bType.typeSymbol.caseFields.map(f => f.name -> f).toMap
 
-    // Identify removals
-    val removedActions = aFields.filterNot(f => bFields.contains(f._1)).map { case (name, _) =>
-      '{ Migration.RemoveField(${Expr(name)}, Schema.primitive[String], DynamicValue.None) }
+    val fields = TypeRepr.of[A].typeSymbol.caseFields
+    val fieldNames = fields.map(_.name)
+    
+    // Compile-time resolving decoders
+    val decoders = fields.map { f =>
+      Expr.summon[JsonDecoder[?]] match {
+        case Some(d) => d
+        case None    => report.errorAndAbort(s"Missing JsonDecoder for ${f.name}")
+      }
     }
 
-    // Identify additions
-    val addedActions = bFields.filterNot(f => aFields.contains(f._1)).map { case (name, _) =>
-      '{ Migration.AddField(${Expr(name)}, Schema.primitive[String], DynamicValue.None) }
+    '{
+      new JsonDecoder[A] {
+        private val matrix = Array.from(${Expr(fieldNames)})
+
+        def decodeJson(trace: List[JsonError], in: RetractReader): Either[JsonError, A] = {
+          // No Array[Any] - Using local stack variables for speed
+          ${
+            val varDecls = fields.zipWithIndex.map { case (f, i) =>
+              val tpe = TypeRepr.of[A].memberType(f).asType
+              val default = tpe match {
+                case '[Int] => '{ 0 }
+                case '[Long] => '{ 0L }
+                case '[Boolean] => '{ false }
+                case '[Option[t]] => '{ None }
+                case _ => '{ null.asInstanceOf[Any] }
+              }
+              Symbol.newVal(Symbol.spliceOwner, s"v$i", TypeRepr.of[Any], Flags.Mutable, Symbol.noSymbol) -> default
+            }
+
+            val varDeclsExprs = varDecls.map { case (sym, default) =>
+              ValDef(sym, Some(default.asTerm))
+            }
+
+            val seenDecls = fields.zipWithIndex.map { case (_, i) =>
+              Symbol.newVal(Symbol.spliceOwner, s"s$i", TypeRepr.of[Boolean], Flags.Mutable, Symbol.noSymbol) -> '{ false }
+            }
+
+            val seenDeclsExprs = seenDecls.map { case (sym, default) =>
+              ValDef(sym, Some(default.asTerm))
+            }
+
+            val matchCases = fields.zipWithIndex.map { case (f, i) =>
+              val decoder = decoders(i)
+              CaseDef(Literal(IntConstant(i)), None, '{
+                ${Ref(varDecls(i)._1).asExpr} = $decoder.decodeJson(trace, in) match {
+                  case Right(v) => v
+                  case Left(e)  => return Left(e)
+                }
+                ${Ref(seenDecls(i)._1).asExpr} = true
+              }.asTerm)
+            } :+ CaseDef(Wildcard(), None, '{ Lexer.skipValue(trace, in) }.asTerm)
+
+            val loop = '{
+              if (Lexer.firstField(trace, in) != null) {
+                var field: String = Lexer.lastFieldName
+                while (field != null) {
+                  val idx = Lexer.fieldIndex(field, matrix)
+                  ${ Match('{ idx }.asTerm, matchCases).asExpr }
+                  field = Lexer.nextField(trace, in)
+                }
+              }
+            }.asTerm
+
+            val validation = fields.zipWithIndex.map { case (f, i) =>
+              val tpe = TypeRepr.of[A].memberType(f)
+              if (!(tpe <:< TypeRepr.of[Option[?]])) {
+                '{ if (!${Ref(seenDecls(i)._1).asExpr}) return Left(JsonError.Message("Missing: " + ${Expr(f.name)}) :: trace) }.asTerm
+              } else '{}.asTerm
+            }
+
+            val result = '{ Right($m.fromProduct(Tuple.fromArray(Array(${
+              val refs = varDecls.map(v => Ref(v._1).asExpr)
+              Expr.ofList(refs)
+            }*)).asInstanceOf[Product])) }.asTerm
+
+            Block(varDeclsExprs ++ seenDeclsExprs ++ List(loop) ++ validation, result).asExprOf[Either[JsonError, A]]
+          }
+        }
+      }
     }
-
-    val allActions = Expr.ofSeq((removedActions ++ addedActions).toSeq)
-
-    report.info(s"Synthesizing High-Performance Migration: ${aType.show} -> ${bType.show}")
-    
-    '{ Migration.Combined(Chunk.fromIterable($allActions)) } 
   }
 }
