@@ -24,6 +24,11 @@ object DecodeError {
     def message: String = s"${left.message} and ${right.message}"
   }
 
+  object And {
+    def reduce(errors: Chunk[DecodeError]): DecodeError =
+      errors.reduceOption((a, b) => And(a, b)).getOrElse(EmptyContent("No errors"))
+  }
+
   final case class Or(left: DecodeError, right: DecodeError) extends DecodeError {
     override def message: String = s"${left.message} or ${right.message}"
   }
