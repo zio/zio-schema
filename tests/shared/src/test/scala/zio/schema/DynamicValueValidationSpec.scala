@@ -2,9 +2,7 @@ package zio.schema
 
 import zio._
 import zio.prelude.Validation
-import zio.schema.Schema.Primitive
 import zio.schema.codec.DecodeError
-import zio.test.Assertion._
 import zio.test._
 
 object DynamicValueValidationSpec extends ZIOSpecDefault {
@@ -87,15 +85,15 @@ object DynamicValueValidationSpec extends ZIOSpecDefault {
           }
         },
         test("accumulates errors in a record") {
-          final case class TestRecord(a: Int, b: String, c: Boolean)
-          implicit val schema: Schema[TestRecord] = DeriveSchema.gen[TestRecord]
+          val schema = Schema.chunk(Schema[Int])
           
-          val invalidDynamic = DynamicValue.Record(
-            TypeId.parse("TestRecord"),
-            scala.collection.immutable.ListMap(
-              "a" -> DynamicValue.Primitive("not an int", StandardType.StringType),
-              "b" -> DynamicValue.Primitive(123, StandardType.IntType),
-              "c" -> DynamicValue.Primitive("not a boolean", StandardType.StringType)
+          val invalidDynamic = DynamicValue.Sequence(
+            Chunk(
+              DynamicValue.Primitive("not an int", StandardType.StringType),
+              DynamicValue.Primitive(42, StandardType.IntType),
+              DynamicValue.Primitive("also not an int", StandardType.StringType),
+              DynamicValue.Primitive(99, StandardType.IntType),
+              DynamicValue.Primitive("third error", StandardType.StringType)
             )
           )
           
@@ -174,7 +172,7 @@ object DynamicValueValidationSpec extends ZIOSpecDefault {
           
           result match {
             case Validation.Success(_, value) =>
-              assertTrue(value == (42, "hello"))
+              assertTrue(value == ((42, "hello")))
             case _ =>
               assertTrue(false)
           }

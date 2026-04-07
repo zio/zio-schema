@@ -24,7 +24,7 @@ sealed trait DynamicValue {
     toTypedValueValidation.toEitherWith(errors => errors.map(_.message).mkString(", "))
 
   def toValue[A](implicit schema: Schema[A]): Either[DecodeError, A] =
-    toTypedValueValidation.toEitherWith(errors => DecodeError.And.reduce(errors))
+    toTypedValueValidation.toEitherWith(errors => DecodeError.reduceErrors(errors))
 
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueValidation.toOption
@@ -199,19 +199,18 @@ object DynamicValue {
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
   ): Either[DecodeError, ListMap[String, _]] =
-    decodeStructureValidation(values, structure).toEither
+    decodeStructureValidation(values, structure).toEitherWith(errors => DecodeError.reduceErrors(errors))
 
   def decodeStructureValidation(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
   ): Validation[DecodeError, ListMap[String, _]] = {
-    val keys = values.keySet
     Validation.validateAll(
-      keys.map { key =>
-        (structure.find(_.name == key), values.get(key)) match {
-          case (Some(field), Some(value)) =>
+      values.map { case (key, value) =>
+        structure.find(_.name == key) match {
+          case Some(field) =>
             value.toTypedValueValidationInternal(field.schema).map(v => (key, v))
-          case _ =>
+          case None =>
             Validation.fail(DecodeError.IncompatibleShape(values, structure))
         }
       }
