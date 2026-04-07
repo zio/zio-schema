@@ -1,96 +1,69 @@
-package zio.json.internal
+package zio.schema.migration
 
 import scala.quoted._
-import zio.json._
-import zio.json.internal._
-import scala.deriving.Mirror
+import zio.schema._
+import zio.Chunk
 
-object InlinedProductDecoder {
-  inline def derived[A](using m: Mirror.ProductOf[A]): JsonDecoder[A] = ${ deriveImpl[A]('m) }
+object AtomicMigrationDeriver {
+  inline def derive[A, B]: Migration = ${ deriveImpl[A, B] }
 
-  def deriveImpl[A: Type](m: Expr[Mirror.ProductOf[A]])(using Quotes): Expr[JsonDecoder[A]] = {
+  def deriveImpl[A: Type, B: Type](using Quotes): Expr[Migration] = {
     import quotes.reflect._
-
-    val fields = TypeRepr.of[A].typeSymbol.caseFields
-    val fieldNames = fields.map(_.name)
     
-    // Compile-time resolving decoders
-    val decoders = fields.map { f =>
-      Expr.summon[JsonDecoder[?]] match {
-        case Some(d) => d
-        case None    => report.errorAndAbort(s"Missing JsonDecoder for ${f.name}")
-      }
-    }
+    def internalDerive[T1: Type, T2: Type](stack: Set[TypeRepr]): Expr[Migration] = {
+      val t1 = TypeRepr.of[T1]; val t2 = TypeRepr.of[T2]
 
-    '{
-      new JsonDecoder[A] {
-        private val matrix = Array.from(${Expr(fieldNames)})
+      if (stack.exists(_ =:= t1)) '{ Migration.Combined(Chunk.empty) }
+      else {
+        val nextStack = stack + t1
+        val aFields = t1.typeSymbol.caseFields
+        val bFields = t2.typeSymbol.caseFields
 
-        def decodeJson(trace: List[JsonError], in: RetractReader): Either[JsonError, A] = {
-          // No Array[Any] - Using local stack variables for speed
-          ${
-            val varDecls = fields.zipWithIndex.map { case (f, i) =>
-              val tpe = TypeRepr.of[A].memberType(f).asType
-              val default = tpe match {
-                case '[Int] => '{ 0 }
-                case '[Long] => '{ 0L }
-                case '[Boolean] => '{ false }
-                case '[Option[t]] => '{ None }
-                case _ => '{ null.asInstanceOf[Any] }
+        val fromA = aFields.flatMap { aSym =>
+          val aFTpe = t1.memberType(aSym)
+          bFields.find(_.name == aSym.name) match {
+            case Some(bSym) =>
+              val bFTpe = t2.memberType(bSym)
+              if (aFTpe =:= bFTpe) Nil
+              else (aFTpe.asType, bFTpe.asType) match {
+                case ('[at], '[bt]) =>
+                  val sA = Expr.summon[Schema[at]].getOrElse(report.errorAndAbort(s"No Schema A"))
+                  val sB = Expr.summon[Schema[bt]].getOrElse(report.errorAndAbort(s"No Schema B"))
+                  
+                  val transform = if (aFTpe <:< TypeRepr.of[Int] && bFTpe <:< TypeRepr.of[Long])
+                    '{ (v: at) => v.asInstanceOf[Int].toLong.asInstanceOf[bt] }
+                  else if (aFTpe <:< TypeRepr.of[Float] && bFTpe <:< TypeRepr.of[Double])
+                    '{ (v: at) => v.asInstanceOf[Float].toDouble.asInstanceOf[bt] }
+                  else '{ (v: at) => v.asInstanceOf[bt] }
+
+                  List('{ Migration.Transform(${Expr(aSym.name)}, $sA, $sB, $transform) })
               }
-              Symbol.newVal(Symbol.spliceOwner, s"v$i", TypeRepr.of[Any], Flags.Mutable, Symbol.noSymbol) -> default
-            }
-
-            val varDeclsExprs = varDecls.map { case (sym, default) =>
-              ValDef(sym, Some(default.asTerm))
-            }
-
-            val seenDecls = fields.zipWithIndex.map { case (_, i) =>
-              Symbol.newVal(Symbol.spliceOwner, s"s$i", TypeRepr.of[Boolean], Flags.Mutable, Symbol.noSymbol) -> '{ false }
-            }
-
-            val seenDeclsExprs = seenDecls.map { case (sym, default) =>
-              ValDef(sym, Some(default.asTerm))
-            }
-
-            val matchCases = fields.zipWithIndex.map { case (f, i) =>
-              val decoder = decoders(i)
-              CaseDef(Literal(IntConstant(i)), None, '{
-                ${Ref(varDecls(i)._1).asExpr} = $decoder.decodeJson(trace, in) match {
-                  case Right(v) => v
-                  case Left(e)  => return Left(e)
-                }
-                ${Ref(seenDecls(i)._1).asExpr} = true
-              }.asTerm)
-            } :+ CaseDef(Wildcard(), None, '{ Lexer.skipValue(trace, in) }.asTerm)
-
-            val loop = '{
-              if (Lexer.firstField(trace, in) != null) {
-                var field: String = Lexer.lastFieldName
-                while (field != null) {
-                  val idx = Lexer.fieldIndex(field, matrix)
-                  ${ Match('{ idx }.asTerm, matchCases).asExpr }
-                  field = Lexer.nextField(trace, in)
-                }
+            case None => 
+              aFTpe.asType match {
+                case '[at] =>
+                  val sA = Expr.summon[Schema[at]].getOrElse(report.errorAndAbort("No Schema found"))
+                  List('{ Migration.RemoveField(${Expr(aSym.name)}, $sA, DynamicValue.None) })
               }
-            }.asTerm
-
-            val validation = fields.zipWithIndex.map { case (f, i) =>
-              val tpe = TypeRepr.of[A].memberType(f)
-              if (!(tpe <:< TypeRepr.of[Option[?]])) {
-                '{ if (!${Ref(seenDecls(i)._1).asExpr}) return Left(JsonError.Message("Missing: " + ${Expr(f.name)}) :: trace) }.asTerm
-              } else '{}.asTerm
-            }
-
-            val result = '{ Right($m.fromProduct(Tuple.fromArray(Array(${
-              val refs = varDecls.map(v => Ref(v._1).asExpr)
-              Expr.ofList(refs)
-            }*)).asInstanceOf[Product])) }.asTerm
-
-            Block(varDeclsExprs ++ seenDeclsExprs ++ List(loop) ++ validation, result).asExprOf[Either[JsonError, A]]
           }
         }
+
+        val added = bFields.filterNot(b => aFields.exists(_.name == b.name)).map { bSym =>
+          val bFTpe = t2.memberType(bSym)
+          bFTpe.asType match {
+            case '[bt] =>
+              val sB = Expr.summon[Schema[bt]].getOrElse(report.errorAndAbort(s"No Schema for ${bSym.name}"))
+              val defaultVal = if (bFTpe <:< TypeRepr.of[Int]) '{ DynamicValue.Primitive(0, StandardType.IntType) }
+                else if (bFTpe <:< TypeRepr.of[Long]) '{ DynamicValue.Primitive(0L, StandardType.LongType) }
+                else if (bFTpe <:< TypeRepr.of[String]) '{ DynamicValue.Primitive("", StandardType.StringType) }
+                else if (bFTpe <:< TypeRepr.of[Boolean]) '{ DynamicValue.Primitive(false, StandardType.BoolType) }
+                else '{ DynamicValue.None }
+
+              '{ Migration.AddField(${Expr(bSym.name)}, $sB, $defaultVal) }
+          }
+        }
+        '{ Migration.Combined(Chunk.fromIterable(${Expr.ofList(fromA ++ added.toList)})) }
       }
     }
+    internalDerive[A, B](Set.empty)
   }
 }
