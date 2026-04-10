@@ -7,7 +7,7 @@ import java.util.UUID
 import scala.collection.immutable.ListMap
 
 import zio.schema.codec.DecodeError
-import zio.schema.meta.{ MetaSchema, Migration }
+import zio.schema.meta.{ AstRenderer, MetaSchema, Migration }
 import zio.{ Cause, Chunk, Unsafe }
 
 sealed trait DynamicValue {
@@ -207,35 +207,145 @@ object DynamicValue {
     }
   }
 
-  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
+  private[this] val RecordSeed      = "zio.schema.DynamicValue.Record".##
+  private[this] val EnumerationSeed = "zio.schema.DynamicValue.Enumeration".##
+  private[this] val SequenceSeed    = "zio.schema.DynamicValue.Sequence".##
+  private[this] val DictionarySeed  = "zio.schema.DynamicValue.Dictionary".##
+  private[this] val SetValueSeed    = "zio.schema.DynamicValue.SetValue".##
+  private[this] val PrimitiveSeed   = "zio.schema.DynamicValue.Primitive".##
+  private[this] val SingletonSeed   = "zio.schema.DynamicValue.Singleton".##
+  private[this] val SomeValueSeed   = "zio.schema.DynamicValue.SomeValue".##
+  private[this] val NoneValueSeed   = "zio.schema.DynamicValue.NoneValue".##
+  private[this] val TupleSeed       = "zio.schema.DynamicValue.Tuple".##
+  private[this] val LeftValueSeed   = "zio.schema.DynamicValue.LeftValue".##
+  private[this] val RightValueSeed  = "zio.schema.DynamicValue.RightValue".##
+  private[this] val BothValueSeed   = "zio.schema.DynamicValue.BothValue".##
+  private[this] val DynamicAstSeed  = "zio.schema.DynamicValue.DynamicAst".##
+  private[this] val ErrorSeed       = "zio.schema.DynamicValue.Error".##
 
-  final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue
+  private[this] def mix(acc: Int, value: Int): Int =
+    31 * acc + value
 
-  final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
+  private[this] def orderedHash(seed: Int, values: Iterable[Int]): Int =
+    values.foldLeft(seed)(mix)
 
-  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
+  // `Set` iteration order is not stable, so normalize by sorting element hashes.
+  private[this] def setHash(values: Set[DynamicValue]): Int =
+    orderedHash(mix(SetValueSeed, values.size), values.iterator.map(hash).toList.sorted)
 
-  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue
+  private[schema] def hash(value: DynamicValue): Int =
+    value match {
+      case Record(id, values) =>
+        values.foldLeft(mix(RecordSeed, id.##)) {
+          case (acc, (fieldName, fieldValue)) =>
+            mix(mix(acc, fieldName.##), hash(fieldValue))
+        }
 
-  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
+      case Enumeration(id, (caseId, enumValue)) =>
+        mix(mix(mix(EnumerationSeed, id.##), caseId.##), hash(enumValue))
 
-  sealed case class Singleton[A](instance: A) extends DynamicValue
+      case Sequence(values) =>
+        orderedHash(mix(SequenceSeed, values.size), values.map(hash))
 
-  final case class SomeValue(value: DynamicValue) extends DynamicValue
+      case Dictionary(entries) =>
+        orderedHash(
+          mix(DictionarySeed, entries.size),
+          entries.map { case (key, entryValue) => mix(hash(key), hash(entryValue)) }
+        )
 
-  case object NoneValue extends DynamicValue
+      case SetValue(values) =>
+        setHash(values)
 
-  sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue
+      case Primitive(primitiveValue, standardType) =>
+        mix(mix(PrimitiveSeed, standardType.tag.##), primitiveValue.##)
 
-  final case class LeftValue(value: DynamicValue) extends DynamicValue
+      case Singleton(instance) =>
+        mix(SingletonSeed, instance.##)
 
-  final case class RightValue(value: DynamicValue) extends DynamicValue
+      case SomeValue(innerValue) =>
+        mix(SomeValueSeed, hash(innerValue))
 
-  final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue
+      case NoneValue =>
+        NoneValueSeed
 
-  final case class DynamicAst(ast: MetaSchema) extends DynamicValue
+      case Tuple(left, right) =>
+        mix(mix(TupleSeed, hash(left)), hash(right))
 
-  final case class Error(message: String) extends DynamicValue
+      case LeftValue(innerValue) =>
+        mix(LeftValueSeed, hash(innerValue))
+
+      case RightValue(innerValue) =>
+        mix(RightValueSeed, hash(innerValue))
+
+      case BothValue(left, right) =>
+        mix(mix(BothValueSeed, hash(left)), hash(right))
+
+      case DynamicAst(ast) =>
+        mix(DynamicAstSeed, AstRenderer.render(ast).##)
+
+      case Error(message) =>
+        mix(ErrorSeed, message.##)
+    }
+
+  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  sealed case class Singleton[A](instance: A) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  final case class SomeValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  case object NoneValue extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  final case class LeftValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  final case class RightValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  final case class DynamicAst(ast: MetaSchema) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
+
+  final case class Error(message: String) extends DynamicValue {
+    override def hashCode(): Int = DynamicValue.hash(this)
+  }
 
   lazy val typeId: TypeId = TypeId.parse("zio.schema.DynamicValue")
 
