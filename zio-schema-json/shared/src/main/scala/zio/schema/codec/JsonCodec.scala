@@ -1010,13 +1010,12 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       val caseNameAliases: mutable.HashMap[String, Schema.Case[Z, Any]] =
         JsonDecoder.caseNameAliases(parentSchema, config)
 
-      if (parentSchema.cases.forall(_.schema.isInstanceOf[Schema.CaseClass0[_]])) { // if all cases are CaseClass0, decode as String
+      if (parentSchema.annotations.exists(_.isInstanceOf[simpleEnum])) { // if all cases are simple (case objects or simple nested enums), decode as String
         if (caseNameAliases.size <= 64) {
           new ZJsonDecoder[Z] {
             private[this] val stringMatrix = new StringMatrix(caseNameAliases.keys.toArray)
-            private[this] val cases = caseNameAliases.values.map { case_ =>
-              case_.schema.asInstanceOf[Schema.CaseClass0[Any]].defaultConstruct()
-            }.toArray.asInstanceOf[Array[Z]]
+            private[this] val cases =
+              caseNameAliases.values.map(constructEnumCase[Z, Any]).toVector
 
             override def unsafeDecode(trace: List[JsonError], in: RetractReader): Z = {
               val idx = Lexer.enumeration(trace, in, stringMatrix)
@@ -1030,7 +1029,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
             caseNameAliases.foreach {
               case (name, case_) =>
-                cases.put(name, case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct())
+                cases.put(name, constructEnumCase(case_))
             }
 
             override def unsafeDecode(trace: List[JsonError], in: RetractReader): Z = {
