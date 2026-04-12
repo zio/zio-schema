@@ -1,5 +1,5 @@
 import zio.prelude.Validation
-2package zio.schema
+package zio.schema
 
 import java.math.{ BigDecimal, BigInteger }
 import java.time._
@@ -48,7 +48,7 @@ def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
         s.caseOf(key) match {
           case Some(caseValue) =>
             value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
-          case None => Left(DecodeError.MissingCase(key, s)       }
+          case None => Left(DecodeError.MissingCase(key, s))       }
 
       case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
         value.toTypedValueLazyError(schema1).map(Left(_))
