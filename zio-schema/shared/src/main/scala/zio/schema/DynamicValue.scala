@@ -46,20 +46,20 @@ def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
         s.caseOf(key) match {
           case Some(caseValue) =>
             value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
-          case None => Left(DecodeError.MissingCase(key, s))       }
+          case None => Validation.fail(DecodeError.MissingCase(key, s))       }
 
       case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
-        value.toTypedValueLazyError(schema1).map(Left(_))
+        value.toTypedValueLazyError(schema1).map(Validation.fail(_))
 
       case (DynamicValue.Validation.succeed
-(value). Schema.Either(_, schema1, _)) =>
-        value.toTypedValueLazyError(schema1).map(Right(_))
-      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
+(value). Schema.Either(schema1, _, _)) =>
+        value.toTypedValueLazyError(schema1).map(Validation.succeed(_))
+      case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) => schema1.validate(value)
         val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
         val typedRight = rightValue.toTypedValueLazyError(rightSchema)
-        (typedLeft, typedRight) match {
+      case (DynamicValue.RightValue(value), Schema.Either(_, schema2, _)) => schema2.validate(value)
           case (Left(e1), Left(e2)) =>
-            Left(DecodeError.And(e1, e2))
+            Validation.fail(DecodeError.And(e1, e2))
           case (_, Left(e))         => Left(e)
           case (Left(e), _)         => Left(e)
           case (Right(a), Right(b)) => Right(a -> b)
@@ -107,7 +107,7 @@ def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
         toTypedValueLazyError(l.schema)
 
       case (DynamicValue.Error(message), _) =>
-        Left(DecodeError.ReadError(Cause.empty, message))
+        Validation.fail(DecodeError.ReadError(Cause.empty, message))
 
       case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
         val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
@@ -116,7 +116,7 @@ def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
       case (dyn, Schema.Dynamic(_)) => Right(dyn)
 
       case _ =>
-        Left(DecodeError.CastError(self, schema))
+        Validation.fail(DecodeError.CastError(self, schema))
     }
 
 }
@@ -201,7 +201,7 @@ object DynamicValue {
           case (Some(field), Some(value)) =>
             value.toTypedValueLazyError(field.schema).map(value => (record + (key -> value)))
           case _ =>
-            Left(DecodeError.IncompatibleShape(values, structure))
+            Validation.fail(DecodeError.IncompatibleShape(values, structure))
         }
       case (Left(err), _) => Left(err)
     }
