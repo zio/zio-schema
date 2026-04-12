@@ -2,7 +2,7 @@ import zio.prelude.Validation
 package zio.schema
 
 import java.math.{ BigDecimal, BigInteger }
-import java.time._
+import java.time.
 import java.util.UUID
 
 import scala.collection.immutable.ListMap
