@@ -22,6 +22,7 @@ sealed trait DynamicValue {
 def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] = 
     toTypedValueLazyError.left.map(_.message)
 
+  @scala.annotation.targetName("toTypedValueWithSchema")
   def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
     toTypedValueLazyError.mapError(_.message)
     
