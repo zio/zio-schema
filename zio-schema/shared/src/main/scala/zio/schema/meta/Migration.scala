@@ -220,18 +220,52 @@ object Migration {
         Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
     }
 
-  /**
-   * Represents a valid label transformation.
-   *
-   * Not currently implemented but we can use this type to encode
-   * unambiguous string transformations applied to field and case labels.
-   * For example, converting from snake to camel case (or vica versa)
-   */
+  // Label transformation implementation for schema migration
   sealed trait LabelTransformation {
     def apply(label: String): Either[String, String]
   }
 
-  object LabelTransformation {}
+  object LabelTransformation {
+    // 1. Kural: Olduğu gibi bırak
+    case object Identity extends LabelTransformation {
+      def apply(label: String): Either[String, String] = Right(label)
+    }
+
+    // 2. Kural: snake_case -> camelCase
+    case object SnakeToCamel extends LabelTransformation {
+      def apply(label: String): Either[String, String] = {
+        val parts = label.split("_")
+        val camel = parts.headOption.getOrElse("") + 
+                    parts.tail.map(_.capitalize).mkString("")
+        if (camel.isEmpty) Left(s"Invalid label for camelCase: $label")
+        else Right(camel)
+      }
+    }
+
+    // 3. Kural: camelCase -> snake_case
+    case object CamelToSnake extends LabelTransformation {
+      def apply(label: String): Either[String, String] = {
+        val snake = label.flatMap {
+          case c if c.isUpper => s"_${c.toLower}"
+          case c              => s"$c"
+        }
+        if (snake.isEmpty) Left(s"Invalid label for snake_case: $label")
+        else Right(snake)
+      }
+    }
+
+    // 4. Kural: Özel Eşleştirme (Map)
+    case class Explicit(mapping: Map[String, String]) extends LabelTransformation {
+      def apply(label: String): Either[String, String] = 
+        mapping.get(label).toRight(s"No mapping found for label: $label")
+    }
+
+    // Yardımcı fonksiyonlar
+    def snakeToCamel: LabelTransformation = SnakeToCamel
+    def camelToSnake: LabelTransformation = CamelToSnake
+    def identity: LabelTransformation = Identity
+    def explicit(mapping: (String, String)*): LabelTransformation = Explicit(mapping.toMap)
+  }
 
   private def matchedSubtrees(
     from: Chunk[MetaSchema.Labelled],
