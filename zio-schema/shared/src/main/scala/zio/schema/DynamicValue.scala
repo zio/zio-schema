@@ -31,10 +31,10 @@ def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
 
   private def toTypedValueLazyError[A](implicit schema: Schema[A]): validation[DecodeError, A] =
     (self, schema) match {
-      case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
-       validation,succeed (value.asInstanceOf[A])      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
+      case (DynamicValue.Primitive(value, p), schema.Primitive(p2, _)) if p == p2 =>
+       validation;succeed (value.asInstanceOf[A])      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
         
-          case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
+          case (DynamicValue.Record(_, values), s: schema.Record[A]) =>
             Validation.validateAll(s.fields.map { field =>
                 values.get(field.name) match {
                 	      // Recursively call toTypedValueLazyError for each field
