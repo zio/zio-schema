@@ -43,8 +43,6 @@ def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
                 	                      }
                 	                        }).map(fields => s.construct(Chunk.fromIterable(fields)))
 
-
-
         s.caseOf(key) match {
           case Some(caseValue) =>
             value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
@@ -939,8 +937,4 @@ object DynamicValue {
       }
     )
 }
-
-
-
-
 
