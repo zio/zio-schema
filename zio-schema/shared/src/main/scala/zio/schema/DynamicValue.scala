@@ -17,7 +17,7 @@ sealed trait DynamicValue {
   def transform(transforms: Chunk[Migration]): Either[String, DynamicValue] =
     transforms.foldRight[Either[String, DynamicValue]](Right(self)) {
       case (transform, Right(value)) => transform.migrate(value)
-      case (_, error @ Left(_))      => error
+      case (_, error @ Validation.fail(_))      => error
     }
 def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] = 
     toTypedValueLazyError.left.map(_.message)
@@ -32,7 +32,7 @@ def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
   private def toTypedValueLazyError[A](implicit schema: Schema[A]): validation[DecodeError, A] =
     (self, schema) match {
       case (DynamicValue.Primitive(value, p), schema.Primitive(p2, _)) if p == p2 =>
-       validation;succeed (value.asInstanceOf[A])      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
+       validation.succeed (value.asInstanceOf[A])      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
         
           case (DynamicValue.Record(_, values), s: schema.Record[A]) =>
             Validation.validateAll(s.fields.map { field =>
@@ -53,7 +53,8 @@ def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
       case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
         value.toTypedValueLazyError(schema1).map(Left(_))
 
-      case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
+      case (DynamicValue.Validation.succeed
+(value). Schema.Either(_, schema1, _)) =>
         value.toTypedValueLazyError(schema1).map(Right(_))
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
         val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
@@ -69,7 +70,7 @@ def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
       case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
         values
           .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
-            case (err @ Left(_), _) => err
+            case (err @ Validation.fail(_), _) => err
             case (Right(values), value) =>
               value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
           }
@@ -77,7 +78,7 @@ def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
 
       case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
         values.foldLeft[Either[DecodeError, Set[t]]](Right[DecodeError, Set[t]](Set.empty)) {
-          case (err @ Left(_), _) => err
+          case (err @ Validation.fail(_), _) => err
           case (Right(values), value) =>
             value.toTypedValueLazyError(schema.elementSchema).map(values + _)
         }
