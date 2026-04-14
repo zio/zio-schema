@@ -65,20 +65,24 @@ sealed trait DynamicValue {
           case (Right(a), Right(b)) => Right(a -> b)
         }
 
+      // Refactored to accumulate all decoding errors in the sequence instead of failing on the first one
       case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
-        values
-          .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
-            case (err @ Left(_), _) => err
-            case (Right(values), value) =>
-              value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
-          }
-          .map(schema.fromChunk)
+        val results = values.map(_.toTypedValueLazyError(schema.elementSchema))
+        val errors = results.collect { case Left(e) => e }
+        if (errors.isEmpty) {
+          Right(schema.fromChunk(results.collect { case Right(a) => a }))
+        } else {
+          Left(errors.reduce(DecodeError.And(_, _)))
+        }
 
+      // Accumulates errors across the entire Set using DecodeError.And
       case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
-        values.foldLeft[Either[DecodeError, Set[t]]](Right[DecodeError, Set[t]](Set.empty)) {
-          case (err @ Left(_), _) => err
-          case (Right(values), value) =>
-            value.toTypedValueLazyError(schema.elementSchema).map(values + _)
+        val results = values.map(_.toTypedValueLazyError(schema.elementSchema))
+        val errors = results.collect { case Left(e) => e }
+        if (errors.isEmpty) {
+          Right(results.collect { case Right(a) => a }.toSet)
+        } else {
+          Left(errors.reduce(DecodeError.And(_, _)))
         }
 
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
@@ -92,15 +96,23 @@ sealed trait DynamicValue {
           .toTypedValueLazyError(schema)
           .flatMap(value => f(value).left.map(err => DecodeError.MalformedField(schema, err)))
 
+      // Independent validation of keys and values to capture all failures in the Map
       case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
-        entries.foldLeft[Either[DecodeError, Map[k, v]]](Right[DecodeError, Map[k, v]](Map.empty)) {
-          case (err @ Left(_), _) => err
-          case (Right(map), entry) => {
-            for {
-              key   <- entry._1.toTypedValueLazyError(schema.keySchema)
-              value <- entry._2.toTypedValueLazyError(schema.valueSchema)
-            } yield map ++ Map(key -> value)
+        val results = entries.map { case (k, v) =>
+          val keyResult = k.toTypedValueLazyError(schema.keySchema)
+          val valueResult = v.toTypedValueLazyError(schema.valueSchema)
+          (keyResult, valueResult) match {
+            case (Right(k), Right(v)) => Right(k -> v)
+            case (Left(e1), Left(e2)) => Left(DecodeError.And(e1, e2))
+            case (Left(e), _)         => Left(e)
+            case (_, Left(e))         => Left(e)
           }
+        }
+        val errors = results.collect { case Left(e) => e }
+        if (errors.isEmpty) {
+          Right(results.collect { case Right(kv) => kv }.toMap)
+        } else {
+          Left(errors.reduce(DecodeError.And(_, _)))
         }
 
       case (_, l @ Schema.Lazy(_)) =>
@@ -190,20 +202,26 @@ object DynamicValue {
   def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue =
     FromSchemaAndValue.process(schema, value)
 
+  // Updated helper to collect errors from all fields in the record structure
   def decodeStructure(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
   ): Either[DecodeError, ListMap[String, _]] = {
-    val keys = values.keySet
-    keys.foldLeft[Either[DecodeError, ListMap[String, Any]]](Right(ListMap.empty)) {
-      case (Right(record), key) =>
-        (structure.find(_.name == key), values.get(key)) match {
-          case (Some(field), Some(value)) =>
-            value.toTypedValueLazyError(field.schema).map(value => (record + (key -> value)))
-          case _ =>
-            Left(DecodeError.IncompatibleShape(values, structure))
-        }
-      case (Left(err), _) => Left(err)
+    val results = values.map { case (key, value) =>
+      structure.find(_.name == key) match {
+        case Some(field) =>
+          value.toTypedValueLazyError(field.schema).map(v => (key -> v))
+        case None =>
+          Left(DecodeError.IncompatibleShape(values, structure))
+      }
+    }
+    
+    val errors = results.collect { case Left(e) => e }
+    
+    if (errors.isEmpty) {
+      Right(ListMap(results.collect { case Right(kv) => kv }.toSeq: _*))
+    } else {
+      Left(errors.reduce(DecodeError.And(_, _)))
     }
   }
 
