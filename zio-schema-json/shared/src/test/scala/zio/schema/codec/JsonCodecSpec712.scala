@@ -10,18 +10,21 @@ import zio.test._
 object JsonCodecSpec712 extends ZIOSpecDefault {
 
   private def decodeString(json: String): Either[DecodeError, String] =
-    JsonCodec.schemaBasedBinaryCodec[String](JsonCodec.Configuration.default)(Schema[String])
+    JsonCodec
+      .schemaBasedBinaryCodec[String](JsonCodec.Configuration.default)(Schema[String])
       .decode(charSequenceToByteChunk(json))
 
   private def decodeInt(json: String): Either[DecodeError, Int] =
-    JsonCodec.schemaBasedBinaryCodec[Int](JsonCodec.Configuration.default)(Schema[Int])
+    JsonCodec
+      .schemaBasedBinaryCodec[Int](JsonCodec.Configuration.default)(Schema[Int])
       .decode(charSequenceToByteChunk(json))
 
   case class Foo(x: Int)
   implicit val fooSchema: Schema[Foo] = DeriveSchema.gen[Foo]
 
   private def decodeFoo(json: String): Either[DecodeError, Foo] =
-    JsonCodec.schemaBasedBinaryCodec[Foo](JsonCodec.Configuration.default)(fooSchema)
+    JsonCodec
+      .schemaBasedBinaryCodec[Foo](JsonCodec.Configuration.default)(fooSchema)
       .decode(charSequenceToByteChunk(json))
 
   override def spec: Spec[Any, Nothing] = suite("JsonCodec Issue #712 - Trailing character rejection")(
