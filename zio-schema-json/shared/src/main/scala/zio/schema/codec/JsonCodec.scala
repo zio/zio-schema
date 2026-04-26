@@ -324,7 +324,9 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         ZPipeline.utfDecode.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage)) >>>
           (if (cfg.treatStreamsAsArrays) splitJsonArrayElements else splitOnJsonBoundary) >>>
           ZPipeline.mapZIO { (s: String) =>
-            ZIO.fromEither(JsonDecoder.decode(schema, s, cfg))
+            // Use the lenient variant: splitOnJsonBoundary may include the terminating delimiter
+            // (comma, closing bracket) in the segment; the strict `decode` would reject it.
+            ZIO.fromEither(JsonDecoder.decodeStreamSegment(schema, s, cfg))
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -820,10 +822,19 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
+    /**
+     * Decode a complete JSON document.  Trailing non-whitespace characters are
+     * rejected — this fixes issue #712 where e.g. "{{}}" or "\"foo\"\"" were
+     * silently accepted.
+     *
+     * NOTE: numeric parsers in zio-json detect end-of-number by reading one
+     * character past the last digit, then calling retract().  When the number
+     * sits at end-of-input, FastStringReader.read() returns -1 without advancing
+     * its position, so the subsequent retract() moves back to the last digit of
+     * the number.  To avoid a false "trailing character" error we append a
+     * synthetic space so that the retract lands on the space, not on a digit.
+     */
     final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] = {
-      // Append a trailing space so that numeric decoders (which read one character past the last
-      // digit to detect the end of a number, then retract) always retract to a genuine whitespace
-      // delimiter rather than to the last digit of the number itself.
       val reader = new FastStringReader(json + " ")
       try {
         val result = schemaDecoder(schema, config).unsafeDecode(Nil, reader)
@@ -843,6 +854,31 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
           c = reader.read()
         }
         Right(result)
+      } catch {
+        case e: UnsafeJson         => Left(DecodeError.ReadError(Cause.empty, JsonError.render(e.trace)))
+        case _: UnexpectedEnd      => Left(DecodeError.ReadError(Cause.empty, "Unexpected end of input"))
+        case _: StackOverflowError => Left(DecodeError.ReadError(Cause.empty, "Unexpected structure"))
+      }
+    }
+
+    /**
+     * Lenient variant used by the stream decoder.
+     *
+     * `splitOnJsonBoundary` intentionally includes the terminating delimiter
+     * (comma, closing bracket, …) in each emitted segment so that number/boolean
+     * parsers have a real character to retract from.  After `unsafeDecode` the
+     * delimiter has been retracted and would appear as "trailing input" to the
+     * strict `decode` method — so we use this variant inside `streamDecoder`
+     * to preserve the pre-existing lenient behaviour for stream segments.
+     */
+    final private[codec] def decodeStreamSegment[A](
+      schema: Schema[A],
+      json: String,
+      config: Configuration
+    ): Either[DecodeError, A] = {
+      val reader = new FastStringReader(json)
+      try {
+        Right(schemaDecoder(schema, config).unsafeDecode(Nil, reader))
       } catch {
         case e: UnsafeJson         => Left(DecodeError.ReadError(Cause.empty, JsonError.render(e.trace)))
         case _: UnexpectedEnd      => Left(DecodeError.ReadError(Cause.empty, "Unexpected end of input"))
