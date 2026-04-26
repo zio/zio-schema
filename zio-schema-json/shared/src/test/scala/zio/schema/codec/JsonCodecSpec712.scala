@@ -4,18 +4,9 @@ import zio.schema._
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.test._
 
-/**
- * Regression tests for issue #712:
- * JsonCodec decoder must reject malformed JSON with trailing characters.
- *
- * Previously, the decoder would silently accept inputs like:
- *   - `{}}` — extra `}` after a valid object
- *   - `"foo""` — extra `"` after a valid string
- *   - `null null` — second token after a valid null
- *
- * The fix validates that no non-whitespace characters remain after the root
- * JSON value is parsed.
- */
+// Regression tests for issue #712: JsonCodec decoder must reject malformed JSON with trailing characters.
+// Previously the decoder silently accepted inputs like `{}}`, `"foo""`, or `null null`.
+// The fix validates that no non-whitespace characters remain after the root JSON value is parsed.
 object JsonCodecSpec712 extends ZIOSpecDefault {
 
   private def decodeString(json: String): Either[DecodeError, String] =
@@ -44,7 +35,8 @@ object JsonCodecSpec712 extends ZIOSpecDefault {
         assertTrue(result.isLeft)
       },
       test("null followed by another token: null null") {
-        val result = JsonCodec.schemaBasedBinaryCodec[Option[String]](JsonCodec.Configuration.default)(Schema[Option[String]])
+        val result = JsonCodec
+          .schemaBasedBinaryCodec[Option[String]](JsonCodec.Configuration.default)(Schema[Option[String]])
           .decode(charSequenceToByteChunk("null null"))
         assertTrue(result.isLeft)
       },
@@ -57,7 +49,8 @@ object JsonCodecSpec712 extends ZIOSpecDefault {
         assertTrue(result.isLeft)
       },
       test("boolean with trailing content: true false") {
-        val result = JsonCodec.schemaBasedBinaryCodec[Boolean](JsonCodec.Configuration.default)(Schema[Boolean])
+        val result = JsonCodec
+          .schemaBasedBinaryCodec[Boolean](JsonCodec.Configuration.default)(Schema[Boolean])
           .decode(charSequenceToByteChunk("true false"))
         assertTrue(result.isLeft)
       }

@@ -821,11 +821,14 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
     final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] = {
-      val reader = new FastStringReader(json)
+      // Append a trailing space so that numeric decoders (which read one character past the last
+      // digit to detect the end of a number, then retract) always retract to a genuine whitespace
+      // delimiter rather than to the last digit of the number itself.
+      val reader = new FastStringReader(json + " ")
       try {
         val result = schemaDecoder(schema, config).unsafeDecode(Nil, reader)
         // Verify that no non-whitespace characters remain after the root JSON value.
-        // decodeJson() silently ignores trailing input (e.g. "{}}") — we want an error instead.
+        // The built-in decodeJson() silently ignores trailing input (e.g. "{}}") — we want an error.
         var c = reader.read()
         while (c != -1) {
           val ch = c.toChar
@@ -841,8 +844,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         }
         Right(result)
       } catch {
-        case e: UnsafeJson        => Left(DecodeError.ReadError(Cause.empty, JsonError.render(e.trace)))
-        case _: UnexpectedEnd     => Left(DecodeError.ReadError(Cause.empty, "Unexpected end of input"))
+        case e: UnsafeJson         => Left(DecodeError.ReadError(Cause.empty, JsonError.render(e.trace)))
+        case _: UnexpectedEnd      => Left(DecodeError.ReadError(Cause.empty, "Unexpected end of input"))
         case _: StackOverflowError => Left(DecodeError.ReadError(Cause.empty, "Unexpected structure"))
       }
     }
