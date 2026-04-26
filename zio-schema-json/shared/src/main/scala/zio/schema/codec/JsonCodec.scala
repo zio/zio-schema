@@ -12,7 +12,7 @@ import scala.util.control.NonFatal
 
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.ast.Json
-import zio.json.internal.{ FastStringReader, Lexer, RecordingReader, RetractReader, StringMatrix, Write }
+import zio.json.internal.{ FastStringReader, Lexer, RecordingReader, RetractReader, StringMatrix, UnexpectedEnd, Write }
 import zio.json.{
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
@@ -820,11 +820,32 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
-    final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
-      schemaDecoder(schema, config).decodeJson(json) match {
-        case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
-        case Right(value) => Right(value)
+    final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] = {
+      val reader = new FastStringReader(json)
+      try {
+        val result = schemaDecoder(schema, config).unsafeDecode(Nil, reader)
+        // Verify that no non-whitespace characters remain after the root JSON value.
+        // decodeJson() silently ignores trailing input (e.g. "{}}") — we want an error instead.
+        var c = reader.read()
+        while (c != -1) {
+          val ch = c.toChar
+          if (ch != ' ' && ch != '\n' && ch != '\r' && ch != '\t') {
+            return Left(
+              DecodeError.ReadError(
+                Cause.empty,
+                s"Unexpected trailing character '${ch}' after JSON value"
+              )
+            )
+          }
+          c = reader.read()
+        }
+        Right(result)
+      } catch {
+        case e: UnsafeJson        => Left(DecodeError.ReadError(Cause.empty, JsonError.render(e.trace)))
+        case _: UnexpectedEnd     => Left(DecodeError.ReadError(Cause.empty, "Unexpected end of input"))
+        case _: StackOverflowError => Left(DecodeError.ReadError(Cause.empty, "Unexpected structure"))
       }
+    }
 
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
       new ZJsonDecoder[Option[A]] {
