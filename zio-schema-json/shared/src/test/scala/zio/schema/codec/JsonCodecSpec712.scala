@@ -1,6 +1,5 @@
 package zio.schema.codec
 
-import zio._
 import zio.schema._
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.test._
