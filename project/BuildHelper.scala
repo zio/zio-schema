@@ -224,6 +224,10 @@ object BuildHelper {
       ),
       Test / parallelExecution := !sys.env.contains("CI"),
       incOptions ~= (_.withLogRecompileOnMacro(true)),
+      // Skip Scaladoc generation on Windows: Scala 3's scaladoc emits filenames
+      // containing operator characters (e.g. `:+:` in CaseSet), which are illegal
+      // on Windows file paths.  See https://github.com/zio/zio-schema/issues/674
+      Compile / doc / skip := scala.util.Properties.isWin,
       autoAPIMappings := true,
       testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
       mimaPreviousArtifacts := previousStableVersion.value
