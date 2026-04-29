@@ -299,14 +299,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
 
       def tuples(b: Expr[T])(using Quotes) =
         typesAndLabels.map { case (tpe, label) =>
-          val interestingField = s.find (_.name == label)
-          val fieldType = interestingField match {
-            case Some(interestingField) =>
-              val ct = tpe.memberType (interestingField)
-              ct.asType
-            case None =>
-               tpe.asType
-          }
+          val fieldType = tpe.asType
           val annotations = paramAnns.getOrElse(label, List.empty)
           val nameExpr = annotations.collectFirst {
             case ann if ann.isExprOf[fieldName] =>
@@ -477,17 +470,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     import zio.schema.validation.Validation
     import zio.schema.annotation.validate
 
-    val tpe = TypeRepr.of[T]
-    val s = tpe.typeSymbol.declaredFields
-    val interestingField = s.find (_.name == name)
-
-    val fieldType = interestingField match {
-      case Some(interestingField) =>
-        val ct = tpe.memberType (interestingField)
-        ct.asType
-      case None =>
-        repr.asType
-    }
+    val fieldType = repr.asType
     fieldType match { case '[t] =>
       val schema = deriveSchema[t](stack)
       val validations = anns.collect {
@@ -528,17 +511,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     import zio.schema.validation.Validation
     import zio.schema.annotation.validate
 
-    val tpe = TypeRepr.of[T]
-    val s = tpe.typeSymbol.declaredFields
-    val interestingField = s.find (_.name == name)
-
-    val fieldType = interestingField match {
-      case Some(interestingField) =>
-        val ct = tpe.memberType (interestingField)
-        ct.asType
-      case None =>
-        repr.asType
-    }
+    val fieldType = repr.asType
     fieldType match { case '[t] =>
       val schema = deriveSchema[t](stack)
       val validations = anns.collect {
