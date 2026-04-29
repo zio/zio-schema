@@ -267,14 +267,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
 
       def casts(m: Expr[ListMap[String, _]])(using Quotes) =
         typesAndLabels.map { case (tpe, label) =>
-          val interestingField = s.find (_.name == label)
-          val fieldType = interestingField match {
-            case Some(interestingField) =>
-              val ct = tpe.memberType (interestingField)
-              ct.asType
-            case None =>
-              tpe.asType
-          }
+          val fieldType = tpe.asType
           val annotations = paramAnns.getOrElse(label, List.empty)
           val nameExpr = annotations.collectFirst {
             case ann if ann.isExprOf[fieldName] =>
