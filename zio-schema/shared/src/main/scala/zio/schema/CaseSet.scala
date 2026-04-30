@@ -28,6 +28,8 @@ sealed trait CaseSet { self =>
 object CaseSet {
   type Aux[EnumType0] = CaseSet { type EnumType = EnumType0 }
 
+  type :+:[A, +T <: CaseSet] = Cons[A, T]
+
   final case class Empty[Z]() extends CaseSet { self =>
     type EnumType = Z
 
@@ -54,7 +56,7 @@ object CaseSet {
     type Aux[Z] = CaseSet.Empty[Z] { type EnumType = Z }
   }
 
-  sealed trait :+:[A, +T <: CaseSet] extends CaseSet {
+  sealed trait Cons[A, +T <: CaseSet] extends CaseSet {
     def head: Case[EnumType, A]
   }
 
