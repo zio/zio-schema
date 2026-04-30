@@ -86,6 +86,60 @@ object DynamicValueSpec extends ZIOSpecDefault {
           }
         }
       ),
+      suite("deterministic hashCode")(
+        test("Record hashCode is stable across multiple calls") {
+          val record = DynamicValue.Record(
+            TypeId.parse("test.Record"),
+            scala.collection.immutable.ListMap(
+              "z" -> DynamicValue.Primitive(42, StandardType.IntType),
+              "a" -> DynamicValue.Primitive("hello", StandardType.StringType),
+              "m" -> DynamicValue.Primitive(true, StandardType.BoolType)
+            )
+          )
+          val hash1 = record.hashCode()
+          val hash2 = record.hashCode()
+          val hash3 = record.hashCode()
+          assertTrue(hash1 == hash2 && hash2 == hash3)
+        },
+        test("Record hashCode is independent of insertion order") {
+          val record1 = DynamicValue.Record(
+            TypeId.parse("test.Record"),
+            scala.collection.immutable.ListMap(
+              "a" -> DynamicValue.Primitive(1, StandardType.IntType),
+              "b" -> DynamicValue.Primitive(2, StandardType.IntType)
+            )
+          )
+          val record2 = DynamicValue.Record(
+            TypeId.parse("test.Record"),
+            scala.collection.immutable.ListMap(
+              "b" -> DynamicValue.Primitive(2, StandardType.IntType),
+              "a" -> DynamicValue.Primitive(1, StandardType.IntType)
+            )
+          )
+          assertTrue(record1.hashCode() == record2.hashCode())
+        },
+        test("SetValue hashCode is stable across multiple calls") {
+          val setValue = DynamicValue.SetValue(
+            Set(
+              DynamicValue.Primitive(1, StandardType.IntType),
+              DynamicValue.Primitive(2, StandardType.IntType),
+              DynamicValue.Primitive(3, StandardType.IntType)
+            )
+          )
+          val hash1 = setValue.hashCode()
+          val hash2 = setValue.hashCode()
+          val hash3 = setValue.hashCode()
+          assertTrue(hash1 == hash2 && hash2 == hash3)
+        },
+        test("equal DynamicValues have the same hashCode") {
+          check(SchemaGen.anyRecordOfRecordsAndValue) {
+            case (schema, a) =>
+              val dyn1 = schema.toDynamic(a)
+              val dyn2 = schema.toDynamic(a)
+              assertTrue(dyn1 == dyn2 && dyn1.hashCode() == dyn2.hashCode())
+          }
+        }
+      ),
       suite("stack safety")(
         test("fromSchemaAndValue is stack safe") {
           check(Json.genDeep) { json =>

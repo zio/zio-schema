@@ -207,7 +207,16 @@ object DynamicValue {
     }
   }
 
-  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
+  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime  = 31
+      var result = 1
+      result = prime * result + id.hashCode()
+      // Sort by key to ensure deterministic ordering regardless of insertion order
+      result = prime * result + values.toList.sortBy(_._1).hashCode()
+      result
+    }
+  }
 
   final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue
 
@@ -215,7 +224,17 @@ object DynamicValue {
 
   final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
 
-  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue
+  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = {
+      // Sort by the individual element hashCodes to ensure deterministic ordering
+      // We use the element hashCode for sorting since DynamicValue elements themselves
+      // must have stable hashCodes (which this fix ensures for Record and SetValue cases)
+      val prime  = 31
+      var result = 1
+      result = prime * result + values.map(_.hashCode()).toList.sorted.hashCode()
+      result
+    }
+  }
 
   sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
 
