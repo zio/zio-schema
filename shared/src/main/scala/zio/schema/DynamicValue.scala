@@ -1,5 +1,3 @@
-
-
 package zio.schema
 
 import zio.Chunk
@@ -170,5 +168,9 @@ sealed trait DynamicValue {
 
     validateValue(self, schema)
   }
+}
+
+object DynamicValue {
+  // Existing DynamicValue case classes/objects would follow here in the full file...
 }
 
