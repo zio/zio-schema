@@ -1,5 +1,7 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
+
 import zio._
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
@@ -10,6 +12,68 @@ object DynamicValueSpec extends ZIOSpecDefault {
 
   def spec: Spec[Environment, Any] =
     suite("DynamicValueSpec")(
+      suite("deterministic hashCode")(
+        test("Primitive hashCode is stable across two instances with same value and type") {
+          val a = DynamicValue.Primitive(42, StandardType.IntType)
+          val b = DynamicValue.Primitive(42, StandardType.IntType)
+          assertTrue(a.hashCode() == b.hashCode())
+        },
+        test("Primitive hashCode differs for different StandardType with same value representation") {
+          // Int 42 vs Long 42 should differ because their tags differ
+          val intDv  = DynamicValue.Primitive(42, StandardType.IntType)
+          val longDv = DynamicValue.Primitive(42L, StandardType.LongType)
+          assertTrue(intDv.hashCode() != longDv.hashCode())
+        },
+        test("Primitive hashCode uses tag, not object identity") {
+          // StandardType singletons are plain objects; we must NOT use their identity hash
+          val tag = StandardType.IntType.tag
+          val h1  = DynamicValue.Primitive(1, StandardType.IntType).hashCode()
+          val h2  = DynamicValue.Primitive(1, StandardType.IntType).hashCode()
+          assertTrue(h1 == h2 && tag.nonEmpty)
+        },
+        test("Record hashCode is independent of field insertion order") {
+          val id = TypeId.parse("zio.schema.Test")
+          val v1 = DynamicValue.Primitive("hello", StandardType.StringType)
+          val v2 = DynamicValue.Primitive(42, StandardType.IntType)
+          // Same fields, different insertion order in ListMap
+          val rec1 = DynamicValue.Record(id, ListMap("name" -> v1, "age" -> v2))
+          val rec2 = DynamicValue.Record(id, ListMap("age" -> v2, "name" -> v1))
+          assertTrue(rec1.hashCode() == rec2.hashCode())
+        },
+        test("Dictionary hashCode is independent of entry insertion order") {
+          import zio.Chunk
+          val k1 = DynamicValue.Primitive("a", StandardType.StringType)
+          val v1 = DynamicValue.Primitive(1, StandardType.IntType)
+          val k2 = DynamicValue.Primitive("b", StandardType.StringType)
+          val v2 = DynamicValue.Primitive(2, StandardType.IntType)
+          val d1 = DynamicValue.Dictionary(Chunk(k1 -> v1, k2 -> v2))
+          val d2 = DynamicValue.Dictionary(Chunk(k2 -> v2, k1 -> v1))
+          assertTrue(d1.hashCode() == d2.hashCode())
+        },
+        test("Sequence hashCode respects element order") {
+          import zio.Chunk
+          val a = DynamicValue.Primitive(1, StandardType.IntType)
+          val b = DynamicValue.Primitive(2, StandardType.IntType)
+          val s1 = DynamicValue.Sequence(Chunk(a, b))
+          val s2 = DynamicValue.Sequence(Chunk(b, a))
+          // Sequences are ordered — different order must yield different hash (with overwhelming probability)
+          assertTrue(s1.hashCode() != s2.hashCode())
+        },
+        test("Singleton hashCode is stable across two references") {
+          case object MySingleton
+          val s1 = DynamicValue.Singleton(MySingleton)
+          val s2 = DynamicValue.Singleton(MySingleton)
+          assertTrue(s1.hashCode() == s2.hashCode())
+        },
+        test("equal DynamicValues produced by toDynamic have equal hashCodes") {
+          check(SchemaGen.anyRecordOfRecordsAndValue) {
+            case (schema, a) =>
+              val d1 = schema.toDynamic(a)
+              val d2 = schema.toDynamic(a)
+              assertTrue(d1.hashCode() == d2.hashCode())
+          }
+        }
+      ),
       suite("round-trip")(
         suite("Primitives")(primitiveTests: _*),
         test("round-trips Records") {

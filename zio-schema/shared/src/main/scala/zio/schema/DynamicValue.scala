@@ -5,6 +5,7 @@ import java.time._
 import java.util.UUID
 
 import scala.collection.immutable.ListMap
+import scala.util.hashing.MurmurHash3
 
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
@@ -207,19 +208,66 @@ object DynamicValue {
     }
   }
 
-  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
+  /** A record of named fields. hashCode is field-order-independent: fields are sorted by name before hashing. */
+  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = {
+      val seed   = MurmurHash3.mix(MurmurHash3.productSeed, id.hashCode())
+      val sorted = values.toList.sortBy(_._1)
+      val h      = sorted.foldLeft(seed) { case (acc, (k, v)) =>
+        MurmurHash3.mix(MurmurHash3.mix(acc, k.hashCode()), v.hashCode())
+      }
+      MurmurHash3.finalizeHash(h, sorted.length)
+    }
+  }
 
   final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue
 
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
 
-  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
+  /**
+   * A map encoded as a Chunk of key-value pairs. hashCode is insertion-order-independent:
+   * entry hashes are accumulated commutatively (addition) so any permutation of the same
+   * entries produces the same hash.
+   */
+  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
+    override def hashCode(): Int = {
+      // XOR of per-entry hashes — commutative, so order-independent
+      val entryHash = entries.foldLeft(0) { case (acc, (k, v)) =>
+        acc ^ MurmurHash3.finalizeHash(
+          MurmurHash3.mix(MurmurHash3.mix(MurmurHash3.productSeed, k.hashCode()), v.hashCode()),
+          2
+        )
+      }
+      MurmurHash3.finalizeHash(MurmurHash3.mix(MurmurHash3.productSeed, entryHash), entries.length)
+    }
+  }
 
   final case class SetValue(values: Set[DynamicValue]) extends DynamicValue
 
-  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
+  /**
+   * Primitive wraps a value and a StandardType. StandardType singletons are plain `object`s
+   * (not `case object`s), so the auto-generated hashCode would call `System.identityHashCode`
+   * on `standardType`, producing a different result on each JVM run. We instead use
+   * `standardType.tag` — a stable String — as the type discriminator.
+   */
+  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
+    override def hashCode(): Int = {
+      val h = MurmurHash3.mix(MurmurHash3.productSeed, standardType.tag.hashCode())
+      MurmurHash3.finalizeHash(MurmurHash3.mix(h, value.hashCode()), 2)
+    }
+  }
 
-  sealed case class Singleton[A](instance: A) extends DynamicValue
+  /**
+   * Singleton wraps an arbitrary instance. `instance.##` may call `System.identityHashCode`
+   * for non-case-class types. We use the class name instead for a stable hash.
+   */
+  sealed case class Singleton[A](instance: A) extends DynamicValue {
+    override def hashCode(): Int =
+      MurmurHash3.finalizeHash(
+        MurmurHash3.mix(MurmurHash3.productSeed, instance.getClass.getName.hashCode()),
+        1
+      )
+  }
 
   final case class SomeValue(value: DynamicValue) extends DynamicValue
 
