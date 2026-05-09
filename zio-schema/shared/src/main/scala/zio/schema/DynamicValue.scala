@@ -207,35 +207,142 @@ object DynamicValue {
     }
   }
 
-  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
+  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + id.hashCode()
+      result = prime * result + values.hashCode()
+      result
+    }
+  }
 
-  final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue
+  final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + id.hashCode()
+      result = prime * result + value.hashCode()
+      result
+    }
+  }
 
-  final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
+  final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + values.hashCode()
+      result
+    }
+  }
 
-  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
+  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + entries.hashCode()
+      result
+    }
+  }
 
-  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue
+  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + values.hashCode()
+      result
+    }
+  }
 
-  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
+  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + (if (value == null) 0 else value.hashCode())
+      result = prime * result + standardType.hashCode()
+      result
+    }
+  }
 
-  sealed case class Singleton[A](instance: A) extends DynamicValue
+  sealed case class Singleton[A](instance: A) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + (if (instance == null) 0 else instance.hashCode())
+      result
+    }
+  }
 
-  final case class SomeValue(value: DynamicValue) extends DynamicValue
+  final case class SomeValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + value.hashCode()
+      result
+    }
+  }
 
-  case object NoneValue extends DynamicValue
 
-  sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue
+  case object NoneValue extends DynamicValue {
+    override def hashCode(): Int = 0
+  }
 
-  final case class LeftValue(value: DynamicValue) extends DynamicValue
 
-  final case class RightValue(value: DynamicValue) extends DynamicValue
+  sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + left.hashCode()
+      result = prime * result + right.hashCode()
+      result
+    }
+  }
 
-  final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue
+  final case class LeftValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + value.hashCode()
+      result
+    }
+  }
 
-  final case class DynamicAst(ast: MetaSchema) extends DynamicValue
+  final case class RightValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + value.hashCode()
+      result
+    }
+  }
 
-  final case class Error(message: String) extends DynamicValue
+  final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + left.hashCode()
+      result = prime * result + right.hashCode()
+      result
+    }
+  }
+
+  final case class DynamicAst(ast: MetaSchema) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + ast.hashCode()
+      result
+    }
+  }
+
+  final case class Error(message: String) extends DynamicValue {
+    override def hashCode(): Int = {
+      val prime = 31
+      var result = 1
+      result = prime * result + (if (message == null) 0 else message.hashCode())
+      result
+    }
+  }
 
   lazy val typeId: TypeId = TypeId.parse("zio.schema.DynamicValue")
 
