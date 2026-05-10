@@ -33,17 +33,17 @@ object BuildHelper {
   val Scala213: String = versions("2.13")
   val Scala3: String   = versions("3.3")
 
-  val zioVersion                   = "2.1.24"
-  val zioJsonVersion               = "0.9.0"
-  val zioPreludeVersion            = "1.0.0-RC46"
+  val zioVersion                   = "2.1.26"
+  val zioJsonVersion               = "0.9.1"
+  val zioPreludeVersion            = "1.0.0-RC47"
   val zioOpticsVersion             = "0.2.2"
   val zioBsonVersion               = "1.0.10"
   val avroVersion                  = "1.12.1"
-  val bsonVersion                  = "5.6.4"
+  val bsonVersion                  = "5.7.0"
   val zioConstraintlessVersion     = "0.3.3"
   val scalaCollectionCompatVersion = "2.14.0"
-  val msgpackVersion               = "0.9.11"
-  val jacksonScalaVersion          = "2.21.2"
+  val msgpackVersion               = "0.9.12"
+  val jacksonScalaVersion          = "2.21.3"
   val thriftVersion                = "0.22.0"
   val javaxAnnotationApiVersion    = "3.0.0"
   val scalaJavaTimeVersion         = "2.6.0"
