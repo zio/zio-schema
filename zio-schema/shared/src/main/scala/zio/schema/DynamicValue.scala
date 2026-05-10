@@ -312,7 +312,7 @@ object DynamicValue {
           case Some(v) =>
             loop(v, field.schema, path :+ field.name)
           case None =>
-            if (field.optional || field.defaultValue.isDefined) Right(())
+            if (field.optional) Right(())
             else Left(Chunk(s"${(path :+ field.name).mkString(".")}: missing required field"))
         }
       }
