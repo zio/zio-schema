@@ -32,6 +32,41 @@ object JsonCodec {
 
   private val streamEncoderSeparator: Chunk[Byte] = Chunk.single('\n'.toByte)
 
+  final private class StrictJsonDecoder[A](val underlying: ZJsonDecoder[A]) extends ZJsonDecoder[A] {
+    override def unsafeDecode(trace: List[JsonError], in: RetractReader): A = {
+      val value = underlying.unsafeDecode(trace, in)
+      // decodeJson uses FastStringReader, while streaming decoders may read multiple JSON values.
+      if (in.isInstanceOf[FastStringReader]) ensureNoTrailingContent(trace, in)
+      value
+    }
+
+    override def unsafeDecodeMissing(trace: List[JsonError]): A =
+      underlying.unsafeDecodeMissing(trace)
+
+    final override def unsafeFromJsonAST(trace: List[JsonError], json: Json): A =
+      underlying.unsafeFromJsonAST(trace, json)
+  }
+
+  private def strictJsonDecoder[A](decoder: ZJsonDecoder[A]): ZJsonDecoder[A] =
+    decoder match {
+      case strict: StrictJsonDecoder[_] => strict.asInstanceOf[ZJsonDecoder[A]]
+      case _                            => new StrictJsonDecoder(decoder)
+    }
+
+  private def lenientJsonDecoder[A](decoder: ZJsonDecoder[A]): ZJsonDecoder[A] =
+    decoder match {
+      case strict: StrictJsonDecoder[_] => strict.underlying.asInstanceOf[ZJsonDecoder[A]]
+      case _                            => decoder
+    }
+
+  @tailrec
+  private def ensureNoTrailingContent(trace: List[JsonError], in: RetractReader): Unit =
+    in.read() match {
+      case -1                       => ()
+      case ' ' | '\n' | '\r' | '\t' => ensureNoTrailingContent(trace, in)
+      case _                        => Lexer.error("unexpected trailing content", trace)
+    }
+
   @deprecated(
     """Use JsonCodec.Configuration instead.
 JsonCodec.Configuration makes it now possible to configure en-/decoding of empty collection and nulls (Options) independently.""",
@@ -169,7 +204,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
-        jsonCodec
+        strictJsonDecoder(jsonCodec.decoder)
           .decodeJson(new String(whole.toArray, JsonEncoder.CHARSET))
           .left
           .map(failure => DecodeError.ReadError(Cause.empty, failure))
@@ -179,7 +214,10 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
           ZPipeline.utfDecode.channel.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage))
         ) >>> splitOnJsonBoundary >>>
           ZPipeline.mapEitherChunked { (s: String) =>
-            jsonCodec.decodeJson(s).left.map(failure => DecodeError.ReadError(Cause.empty, failure))
+            lenientJsonDecoder(jsonCodec.decoder)
+              .decodeJson(s)
+              .left
+              .map(failure => DecodeError.ReadError(Cause.empty, failure))
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -324,7 +362,13 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         ZPipeline.utfDecode.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage)) >>>
           (if (cfg.treatStreamsAsArrays) splitJsonArrayElements else splitOnJsonBoundary) >>>
           ZPipeline.mapZIO { (s: String) =>
-            ZIO.fromEither(JsonDecoder.decode(schema, s, cfg))
+            ZIO.fromEither(
+              JsonDecoder
+                .schemaDecoder(schema, cfg)
+                .decodeJson(s)
+                .left
+                .map(DecodeError.ReadError(Cause.empty, _))
+            )
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -355,10 +399,10 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     JsonEncoder.schemaEncoder(schema, cfg)
 
   def jsonDecoder[A](schema: Schema[A]): ZJsonDecoder[A] =
-    JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default)
+    strictJsonDecoder(JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default))
 
   def jsonDecoder[A](cfg: JsonCodec.Configuration)(schema: Schema[A]): ZJsonDecoder[A] =
-    JsonDecoder.schemaDecoder(schema, cfg)
+    strictJsonDecoder(JsonDecoder.schemaDecoder(schema, cfg))
 
   def jsonCodec[A](schema: Schema[A]): ZJsonCodec[A] =
     ZJsonCodec(jsonEncoder(schema), jsonDecoder(schema))
@@ -821,7 +865,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
     final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
-      schemaDecoder(schema, config).decodeJson(json) match {
+      strictJsonDecoder(schemaDecoder(schema, config)).decodeJson(json) match {
         case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
         case Right(value) => Right(value)
       }

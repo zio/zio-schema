@@ -845,6 +845,19 @@ object JsonCodecSpec extends ZIOSpecDefault {
       suite("string")(
         test("any") {
           check(Gen.string)(s => assertDecodes(Schema[String], s, stringify(s)))
+        },
+        test("rejects trailing characters after decoded value") {
+          val stringDecoder = JsonCodec.jsonDecoder(Schema[String])
+          val stringCodec   = JsonCodec.schemaBasedBinaryCodec[String]
+          val personDecoder = JsonCodec.jsonDecoder(personSchema)
+          val personCodec   = JsonCodec.schemaBasedBinaryCodec[Person](JsonCodec.Configuration.default)(personSchema)
+
+          assertTrue(stringDecoder.decodeJson("\"foo\"\"").isLeft) &&
+          assertTrue(stringCodec.decode(charSequenceToByteChunk("\"foo\"\"")).isLeft) &&
+          assertTrue(personDecoder.decodeJson("""{"name":"Alice","age":30}}""").isLeft) &&
+          assertTrue(personCodec.decode(charSequenceToByteChunk("""{"name":"Alice","age":30}}""")).isLeft) &&
+          assertTrue(stringDecoder.decodeJson("\"foo\" \n\t").contains("foo")) &&
+          assertTrue(stringCodec.decode(charSequenceToByteChunk("\"foo\" \n\t")).contains("foo"))
         }
       ),
       test("Currency") {
