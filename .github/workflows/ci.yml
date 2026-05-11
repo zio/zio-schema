@@ -61,6 +61,8 @@ jobs:
   windows_scala3_docs:
     runs-on: windows-latest
     timeout-minutes: 20
+    env:
+      JDK_JAVA_OPTIONS: -Xmx6G -Xss4M -XX:+UseG1GC
     steps:
       - uses: actions/checkout@v6.0.2
         with:
