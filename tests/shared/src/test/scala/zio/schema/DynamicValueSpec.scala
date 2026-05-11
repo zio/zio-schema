@@ -1,5 +1,8 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
+import scala.util.hashing.MurmurHash3
+
 import zio._
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
@@ -100,6 +103,61 @@ object DynamicValueSpec extends ZIOSpecDefault {
             assertTrue(json2 == Right(json))
           }
         } @@ TestAspect.size(250) @@ TestAspect.ignore
+      ),
+      suite("hashCode")(
+        test("Primitive uses the stable standard type tag") {
+          val value = DynamicValue.Primitive(42, StandardType.IntType)
+          val seed =
+            MurmurHash3.mix(MurmurHash3.stringHash("zio.schema.DynamicValue.Primitive"), StandardType.IntType.tag.##)
+          val expected = MurmurHash3.finalizeHash(MurmurHash3.mix(seed, 42.##), 2)
+
+          assertTrue(value.hashCode == expected)
+        },
+        test("Dictionary hashCode is independent from entry order") {
+          val key1 = DynamicValue.Primitive("one", StandardType.StringType)
+          val key2 = DynamicValue.Primitive("two", StandardType.StringType)
+          val one = DynamicValue.Dictionary(
+            Chunk(
+              key1 -> DynamicValue.Primitive(1, StandardType.IntType),
+              key2 -> DynamicValue.Primitive(2, StandardType.IntType)
+            )
+          )
+          val two = DynamicValue.Dictionary(
+            Chunk(
+              key2 -> DynamicValue.Primitive(2, StandardType.IntType),
+              key1 -> DynamicValue.Primitive(1, StandardType.IntType)
+            )
+          )
+
+          assertTrue(one.hashCode == two.hashCode)
+        },
+        test("Record hashCode is independent from field construction order") {
+          val id = TypeId.parse("zio.schema.tests.RecordHash")
+          val left = DynamicValue.Record(
+            id,
+            ListMap(
+              "a" -> DynamicValue.Primitive(1, StandardType.IntType),
+              "b" -> DynamicValue.Primitive("x", StandardType.StringType)
+            )
+          )
+          val right = DynamicValue.Record(
+            id,
+            ListMap(
+              "b" -> DynamicValue.Primitive("x", StandardType.StringType),
+              "a" -> DynamicValue.Primitive(1, StandardType.IntType)
+            )
+          )
+
+          assertTrue(left.hashCode == right.hashCode)
+        },
+        test("Singleton uses the runtime class name instead of identity") {
+          object Marker
+
+          val value    = DynamicValue.Singleton(Marker)
+          val expected = MurmurHash3.stringHash(Marker.getClass.getName)
+
+          assertTrue(value.hashCode == expected)
+        }
       )
     )
 

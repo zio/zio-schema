@@ -5,6 +5,7 @@ import java.time._
 import java.util.UUID
 
 import scala.collection.immutable.ListMap
+import scala.util.hashing.MurmurHash3
 
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
@@ -207,19 +208,49 @@ object DynamicValue {
     }
   }
 
-  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
+  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = {
+      val seed          = MurmurHash3.mix(RecordHashSeed, id.##)
+      val sortedEntries = values.iterator.toVector.sortBy(_._1)
+      val mixed = sortedEntries.foldLeft(seed) {
+        case (acc, (name, value)) =>
+          MurmurHash3.mix(acc, MurmurHash3.mix(name.##, value.hashCode()))
+      }
+      MurmurHash3.finalizeHash(mixed, sortedEntries.size + 1)
+    }
+  }
 
   final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue
 
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
 
-  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
+  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
+    override def hashCode(): Int = {
+      var acc   = DictionaryHashSeed
+      var index = 0
+      while (index < entries.length) {
+        val entry = entries(index)
+        acc += MurmurHash3.mix(entry._1.hashCode(), entry._2.hashCode())
+        index += 1
+      }
+      MurmurHash3.finalizeHash(acc, entries.length)
+    }
+  }
 
   final case class SetValue(values: Set[DynamicValue]) extends DynamicValue
 
-  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
+  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
+    override def hashCode(): Int = {
+      val seed  = MurmurHash3.mix(PrimitiveHashSeed, standardType.tag.##)
+      val mixed = MurmurHash3.mix(seed, value.##)
+      MurmurHash3.finalizeHash(mixed, 2)
+    }
+  }
 
-  sealed case class Singleton[A](instance: A) extends DynamicValue
+  sealed case class Singleton[A](instance: A) extends DynamicValue {
+    override def hashCode(): Int =
+      MurmurHash3.stringHash(instance.getClass.getName)
+  }
 
   final case class SomeValue(value: DynamicValue) extends DynamicValue
 
@@ -238,6 +269,10 @@ object DynamicValue {
   final case class Error(message: String) extends DynamicValue
 
   lazy val typeId: TypeId = TypeId.parse("zio.schema.DynamicValue")
+
+  final private val RecordHashSeed     = MurmurHash3.stringHash("zio.schema.DynamicValue.Record")
+  final private val DictionaryHashSeed = MurmurHash3.stringHash("zio.schema.DynamicValue.Dictionary")
+  final private val PrimitiveHashSeed  = MurmurHash3.stringHash("zio.schema.DynamicValue.Primitive")
 
   //TODO: Refactor case set so that adding a new type to StandardType without updating the below list will trigger a compile error
   lazy val schema: Schema[DynamicValue] =
