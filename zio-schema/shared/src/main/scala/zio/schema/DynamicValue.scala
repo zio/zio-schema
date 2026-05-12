@@ -119,6 +119,24 @@ sealed trait DynamicValue {
         Left(DecodeError.CastError(self, schema))
     }
 
+  /**
+   * Validates this `DynamicValue` against the given `Schema`, accumulating
+   * all structural errors instead of short-circuiting on the first one.
+   *
+   * Unlike `toTypedValue`, which fails fast and returns only the first error
+   * encountered, `validate` walks the entire structure and returns every
+   * mismatch it finds. This is useful for diagnostics, form validation, and
+   * any scenario where the caller needs the complete list of problems.
+   *
+   * Returns `Right(())` if the value conforms to the schema, otherwise
+   * `Left(errors)` where `errors` is a non-empty `Chunk` of human-readable
+   * messages describing every problem encountered.
+   *
+   * See issue #480.
+   */
+  def validate[A](schema: Schema[A]): Either[Chunk[String], Unit] =
+    DynamicValue.validateValue(self, schema)
+
 }
 
 object DynamicValue {
@@ -189,6 +207,128 @@ object DynamicValue {
   //scalafmt: { maxColumn = 400 }
   def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue =
     FromSchemaAndValue.process(schema, value)
+
+  /**
+   * Walks a `DynamicValue` against a `Schema` and accumulates every structural
+   * mismatch into a single `Chunk[String]`. Used by `DynamicValue#validate`.
+   *
+   * This intentionally validates only structure (shape, presence of required
+   * fields, primitive type tags, enum case names). It does not run user-defined
+   * `Schema.Transform` predicates, since those would require materialising the
+   * typed value and would shift this from validation into full decoding.
+   */
+  private[schema] def validateValue(
+    dv: DynamicValue,
+    schema: Schema[_]
+  ): Either[Chunk[String], Unit] = {
+    def loop(dv: DynamicValue, schema: Schema[_], path: Chunk[String]): Either[Chunk[String], Unit] = {
+      def err(msg: String): Either[Chunk[String], Unit] =
+        Left(Chunk(if (path.isEmpty) msg else s"${path.mkString(".")}: $msg"))
+
+      (dv, schema) match {
+        case (DynamicValue.Primitive(_, p), Schema.Primitive(p2, _)) if p == p2 =>
+          Right(())
+
+        case (DynamicValue.Primitive(_, p), Schema.Primitive(p2, _)) =>
+          err(s"primitive type mismatch: expected $p2, got $p")
+
+        case (DynamicValue.Record(_, values), s: Schema.Record[_]) =>
+          validateRecordFields(values, s.fields, path)
+
+        case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[_]) =>
+          s.caseOf(key) match {
+            case Some(c) => loop(value, c.schema, path :+ key)
+            case None    => err(s"unknown enumeration case '$key'")
+          }
+
+        case (DynamicValue.Sequence(values), s: Schema.Sequence[_, _, _]) =>
+          accumulate(values.zipWithIndex.map {
+            case (v, i) => loop(v, s.elementSchema, path :+ s"[$i]")
+          })
+
+        case (DynamicValue.SetValue(values), s: Schema.Set[_]) =>
+          accumulate(Chunk.fromIterable(values).map(v => loop(v, s.elementSchema, path :+ "{}")))
+
+        case (DynamicValue.Dictionary(entries), s: Schema.Map[_, _]) =>
+          accumulate(entries.zipWithIndex.flatMap {
+            case ((k, v), i) =>
+              Chunk(
+                loop(k, s.keySchema, path :+ s"[$i].key"),
+                loop(v, s.valueSchema, path :+ s"[$i].value")
+              )
+          })
+
+        case (DynamicValue.SomeValue(value), Schema.Optional(inner, _)) =>
+          loop(value, inner, path)
+
+        case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
+          Right(())
+
+        case (DynamicValue.Tuple(l, r), Schema.Tuple2(ls, rs, _)) =>
+          accumulate(Chunk(loop(l, ls, path :+ "_1"), loop(r, rs, path :+ "_2")))
+
+        case (DynamicValue.LeftValue(value), Schema.Either(ls, _, _)) =>
+          loop(value, ls, path :+ "left")
+
+        case (DynamicValue.RightValue(value), Schema.Either(_, rs, _)) =>
+          loop(value, rs, path :+ "right")
+
+        case (DynamicValue.LeftValue(value), Schema.Fallback(ls, _, _, _)) =>
+          loop(value, ls, path :+ "left")
+
+        case (DynamicValue.RightValue(value), Schema.Fallback(_, rs, _, _)) =>
+          loop(value, rs, path :+ "right")
+
+        case (DynamicValue.BothValue(l, r), Schema.Fallback(ls, rs, _, _)) =>
+          accumulate(Chunk(loop(l, ls, path :+ "left"), loop(r, rs, path :+ "right")))
+
+        case (value, Schema.Transform(inner, _, _, _, _)) =>
+          loop(value, inner, path)
+
+        case (_, l @ Schema.Lazy(_)) =>
+          loop(dv, l.schema, path)
+
+        case (_, Schema.Dynamic(_)) =>
+          Right(())
+
+        case (DynamicValue.Error(message), _) =>
+          err(s"DynamicValue.Error: $message")
+
+        case (DynamicValue.Tuple(_, DynamicValue.DynamicAst(_)), _) =>
+          Right(())
+
+        case _ =>
+          err(s"shape mismatch: ${dv.getClass.getSimpleName} cannot be validated against ${schema.getClass.getSimpleName}")
+      }
+    }
+
+    def validateRecordFields(
+      values: ListMap[String, DynamicValue],
+      fields: Chunk[Schema.Field[_, _]],
+      path: Chunk[String]
+    ): Either[Chunk[String], Unit] = {
+      val perField = fields.map { field =>
+        values.get(field.name) match {
+          case Some(v) =>
+            loop(v, field.schema, path :+ field.name)
+          case None =>
+            if (field.optional) Right(())
+            else Left(Chunk(s"${(path :+ field.name).mkString(".")}: missing required field"))
+        }
+      }
+      accumulate(perField)
+    }
+
+    def accumulate(results: Chunk[Either[Chunk[String], Unit]]): Either[Chunk[String], Unit] = {
+      val errors = results.flatMap {
+        case Left(es) => es
+        case Right(_) => Chunk.empty
+      }
+      if (errors.isEmpty) Right(()) else Left(errors)
+    }
+
+    loop(dv, schema, Chunk.empty)
+  }
 
   def decodeStructure(
     values: ListMap[String, DynamicValue],
