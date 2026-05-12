@@ -58,6 +58,24 @@ jobs:
     - name: Run tests
       run: sbt ++${{ matrix.scala }}! test${{ matrix.platform }}
 
+  windows_scala3_docs:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      JDK_JAVA_OPTIONS: -Xmx6G -Xss4M -XX:+UseG1GC
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: coursier/setup-action@v3
+        with:
+          jvm: temurin:17
+          apps: sbt
+      - name: Cache scala dependencies
+        uses: coursier/cache-action@v8
+      - name: Generate Scala 3 API docs on Windows
+        run: sbt "++3.3.7!" "zioSchemaJVM/Compile/doc"
+
   mima_check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -76,7 +94,7 @@ jobs:
 
   ci:
     runs-on: ubuntu-latest
-    needs: [build,lint,mima_check]
+    needs: [build,lint,mima_check,windows_scala3_docs]
     steps:
       - run: echo "All checks passed"
 
