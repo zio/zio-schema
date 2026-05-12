@@ -213,11 +213,29 @@ object DynamicValue {
 
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
 
-  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
+  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
+
+    override def hashCode(): Int =
+      entries.toSet.hashCode()
+
+    override def equals(obj: Any): Boolean = obj match {
+      case Dictionary(otherEntries) => entries.toSet == otherEntries.toSet
+      case _                        => false
+    }
+  }
 
   final case class SetValue(values: Set[DynamicValue]) extends DynamicValue
 
-  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
+  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
+
+    override def hashCode(): Int = {
+      import scala.util.hashing.MurmurHash3
+      var h = MurmurHash3.productSeed
+      h = MurmurHash3.mix(h, standardType.tag.##)
+      h = MurmurHash3.mix(h, value.##)
+      MurmurHash3.finalizeHash(h, 2)
+    }
+  }
 
   sealed case class Singleton[A](instance: A) extends DynamicValue
 

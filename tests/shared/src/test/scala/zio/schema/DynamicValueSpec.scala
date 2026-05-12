@@ -86,6 +86,51 @@ object DynamicValueSpec extends ZIOSpecDefault {
           }
         }
       ),
+      suite("hashCode")(
+        test("identical Primitive DynamicValues have the same hashCode") {
+          check(SchemaGen.anyLeafAndValue) {
+            case (schema, a) =>
+              val dv1 = schema.toDynamic(a)
+              val dv2 = schema.toDynamic(a)
+              assertTrue(dv1.hashCode() == dv2.hashCode())
+          }
+        },
+        test("Primitive hashCode is stable across separate instances") {
+          check(DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)) { prim =>
+            val copy = DynamicValue.Primitive(prim.value, prim.standardType)
+            assertTrue(prim.hashCode() == copy.hashCode())
+          }
+        },
+        test("Dictionary hashCode is order-independent") {
+          check(
+            DynamicValueGen
+              .anyPrimitiveDynamicValue(StandardType.StringType)
+              .zip(
+                DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)
+              ),
+            DynamicValueGen
+              .anyPrimitiveDynamicValue(StandardType.StringType)
+              .zip(
+                DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)
+              )
+          ) {
+            case ((k1, v1), (k2, v2)) =>
+              val d1 = DynamicValue.Dictionary(zio.Chunk((k1, v1), (k2, v2)))
+              val d2 = DynamicValue.Dictionary(zio.Chunk((k2, v2), (k1, v1)))
+              assertTrue(d1.hashCode() == d2.hashCode()) && assertTrue(d1 == d2)
+          }
+        },
+        test("equal DynamicValues always produce the same hashCode") {
+          check(
+            SchemaGen
+              .anyTree(1)
+              .flatMap(s => DynamicValueGen.anyDynamicValueOfSchema(s).zip(DynamicValueGen.anyDynamicValueOfSchema(s)))
+          ) {
+            case (dv1, dv2) =>
+              assertTrue(!(dv1 == dv2) || dv1.hashCode() == dv2.hashCode())
+          }
+        }
+      ),
       suite("stack safety")(
         test("fromSchemaAndValue is stack safe") {
           check(Json.genDeep) { json =>
