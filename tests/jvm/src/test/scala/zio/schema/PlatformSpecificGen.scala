@@ -14,8 +14,8 @@ object PlatformSpecificGen {
 
   def platformSpecificStandardTypeAndGen(standardTypeGen: StandardType[Any]): StandardTypeAndGen[Any] =
     standardTypeGen match {
-      case typ if typ.isInstanceOf[StandardType.CurrencyType.type] => typ                                                   -> Gen.currency
-      case _                                                       => StandardType.UnitType.asInstanceOf[StandardType[Any]] -> Gen.unit
+      case typ if typ.isInstanceOf[StandardType.CurrencyType.type] => typ -> Gen.currency
+      case _ => StandardType.UnitType.asInstanceOf[StandardType[Any]] -> Gen.unit
     }
 
   val platformSpecificSchemasAndGens: List[SchemaTest[Any]] = List(
