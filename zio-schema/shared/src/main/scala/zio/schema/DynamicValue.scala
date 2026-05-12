@@ -6,6 +6,7 @@ import java.util.UUID
 
 import scala.collection.immutable.ListMap
 
+import zio.prelude.Validation
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
 import zio.{ Cause, Chunk, Unsafe }
@@ -26,6 +27,110 @@ sealed trait DynamicValue {
 
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
+
+  def toTypedValueAccumulating[A](implicit schema: Schema[A]): Validation[String, A] =
+    toTypedValueAccumulatingLazyError.mapError(_.message)
+
+  private def toTypedValueAccumulatingLazyError[A](implicit schema: Schema[A]): Validation[DecodeError, A] =
+    (self, schema) match {
+      case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
+        Validation.succeed(value.asInstanceOf[A])
+
+      case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
+        DynamicValue
+          .decodeStructureAccumulating(values, structure.toChunk)
+          .asInstanceOf[Validation[DecodeError, A]]
+
+      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
+        DynamicValue
+          .decodeStructureAccumulating(values, s.fields)
+          .map(m => Chunk.fromIterable(m.values))
+          .flatMap { values =>
+            s.construct(values)(Unsafe.unsafe) match {
+              case Left(err) => Validation.fail(DecodeError.MalformedField(s, err))
+              case Right(a)  => Validation.succeed(a)
+            }
+          }
+
+      case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
+        s.caseOf(key) match {
+          case Some(caseValue) =>
+            value
+              .toTypedValueAccumulatingLazyError(caseValue.schema)
+              .asInstanceOf[Validation[DecodeError, A]]
+          case None => Validation.fail(DecodeError.MissingCase(key, s))
+        }
+
+      case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
+        value.toTypedValueAccumulatingLazyError(schema1).map(Left(_))
+
+      case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
+        value.toTypedValueAccumulatingLazyError(schema1).map(Right(_))
+
+      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
+        val typedLeft  = leftValue.toTypedValueAccumulatingLazyError(leftSchema)
+        val typedRight = rightValue.toTypedValueAccumulatingLazyError(rightSchema)
+        typedLeft.zipWithPar(typedRight)((a, b) => (a -> b).asInstanceOf[A])
+
+      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
+        values
+          .foldLeft[Validation[DecodeError, List[t]]](Validation.succeed(List.empty[t])) { (acc, value) =>
+            acc.zipWithPar(
+              value.toTypedValueAccumulatingLazyError(schema.elementSchema)
+            )((decoded, value) => value :: decoded)
+          }
+          .map(values => schema.fromChunk(Chunk.fromIterable(values.reverse)))
+
+      case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
+        values.foldLeft[Validation[DecodeError, Set[t]]](Validation.succeed(Set.empty[t])) { (acc, value) =>
+          acc.zipWithPar(
+            value.toTypedValueAccumulatingLazyError(schema.elementSchema)
+          )(_ + _)
+        }
+
+      case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
+        value.toTypedValueAccumulatingLazyError(schema).map(Some(_))
+
+      case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
+        Validation.succeed(None)
+
+      case (value, Schema.Transform(schema, f, _, _, _)) =>
+        value
+          .toTypedValueAccumulatingLazyError(schema)
+          .flatMap { value =>
+            f(value) match {
+              case Left(err) => Validation.fail(DecodeError.MalformedField(schema, err))
+              case Right(a)  => Validation.succeed(a)
+            }
+          }
+
+      case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
+        entries.foldLeft[Validation[DecodeError, Map[k, v]]](Validation.succeed(Map.empty[k, v])) { (acc, entry) =>
+          val typedKey   = entry._1.toTypedValueAccumulatingLazyError(schema.keySchema)
+          val typedValue = entry._2.toTypedValueAccumulatingLazyError(schema.valueSchema)
+          acc.zipWithPar(
+            typedKey.zipWithPar(typedValue)(_ -> _)
+          )(_ + _)
+        }
+
+      case (_, l @ Schema.Lazy(_)) =>
+        toTypedValueAccumulatingLazyError(l.schema)
+
+      case (DynamicValue.Error(message), _) =>
+        Validation.fail(DecodeError.ReadError(Cause.empty, message))
+
+      case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
+        val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
+        dyn
+          .toTypedValueAccumulatingLazyError(valueSchema)
+          .map(a => (a -> valueSchema).asInstanceOf[A])
+
+      case (dyn, Schema.Dynamic(_)) =>
+        Validation.succeed(dyn.asInstanceOf[A])
+
+      case _ =>
+        Validation.fail(DecodeError.CastError(self, schema))
+    }
 
   private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DecodeError, A] =
     (self, schema) match {
@@ -204,6 +309,36 @@ object DynamicValue {
             Left(DecodeError.IncompatibleShape(values, structure))
         }
       case (Left(err), _) => Left(err)
+    }
+  }
+
+  def decodeStructureAccumulating(
+    values: ListMap[String, DynamicValue],
+    structure: Chunk[Schema.Field[_, _]]
+  ): Validation[DecodeError, ListMap[String, _]] = {
+    val fieldNames: Set[String] = structure.map(field => field.name: String).toSet
+
+    val decodedFields =
+      structure.foldLeft[Validation[DecodeError, ListMap[String, Any]]](Validation.succeed(ListMap.empty)) {
+        case (acc, field) =>
+          val decodedField =
+            values.get(field.name) match {
+              case Some(value) =>
+                value.toTypedValueAccumulatingLazyError(field.schema).map(field.name -> _)
+              case None =>
+                Validation.fail(DecodeError.IncompatibleShape(values, structure))
+            }
+
+          acc.zipWithPar(decodedField) {
+            case (record, (name, value)) =>
+              record + (name -> value)
+          }
+      }
+
+    values.keySet.diff(fieldNames).foldLeft(decodedFields) { (acc, _) =>
+      acc.zipWithPar(
+        Validation.fail(DecodeError.IncompatibleShape(values, structure))
+      )((record, _) => record)
     }
   }
 
