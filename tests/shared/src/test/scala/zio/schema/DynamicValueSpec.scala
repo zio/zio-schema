@@ -1,5 +1,7 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
+
 import zio._
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
@@ -7,6 +9,13 @@ import zio.test.Assertion._
 import zio.test.{ Sized, TestConfig, _ }
 
 object DynamicValueSpec extends ZIOSpecDefault {
+
+  final case class User511(name: String, age: Int)
+
+  object User511 {
+    implicit val schema: Schema.Record[User511] =
+      DeriveSchema.gen[User511].asInstanceOf[Schema.Record[User511]]
+  }
 
   def spec: Spec[Environment, Any] =
     suite("DynamicValueSpec")(
@@ -84,6 +93,17 @@ object DynamicValueSpec extends ZIOSpecDefault {
           check(SchemaGen.anyMapAndValue) {
             case (schema, a) => assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
           }
+        },
+        test("round-trips typed records through ast schemas with a registry (#511)") {
+          val user          = User511("John", 30)
+          val dynamic       = User511.schema.toDynamic(user)
+          val schemaFromAst = User511.schema.ast.toSchema.asInstanceOf[Schema[Any]]
+          val registry      = Map[TypeId, Schema[_]](User511.schema.id -> User511.schema)
+
+          assertTrue(
+            dynamic.toValue(schemaFromAst) == Right(ListMap("name" -> "John", "age" -> 30)),
+            dynamic.toValue(schemaFromAst, registry) == Right(user)
+          )
         }
       ),
       suite("stack safety")(
