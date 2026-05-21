@@ -102,8 +102,9 @@ sealed trait DynamicValue {
           .asInstanceOf[Validation[String, A]]
 
       case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
-        all(entries.map { case (kDyn, vDyn) =>
-          par(kDyn.validate(schema.keySchema), vDyn.validate(schema.valueSchema))
+        all(entries.map {
+          case (kDyn, vDyn) =>
+            par(kDyn.validate(schema.keySchema), vDyn.validate(schema.valueSchema))
         }).map(_.toMap)
           .asInstanceOf[Validation[String, A]]
 
@@ -349,7 +350,7 @@ object DynamicValue {
         (structure.find(_.name == key), values.get(key)) match {
           case (Some(field), Some(value)) =>
             value.validate(field.schema).map(v => Tuple2(key, v))
-          case _                          =>
+          case _ =>
             Validation.fail(s"Field '$key' is incompatible with the target structure")
         }
       }
@@ -358,7 +359,6 @@ object DynamicValue {
       chunk.foldLeft(ListMap.empty[String, Any]) { case (m, (k, v)) => m.updated(k, v) }
     }
   }
-
 
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
 
