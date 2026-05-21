@@ -6,8 +6,7 @@ import java.util.UUID
 
 import scala.collection.immutable.ListMap
 
-import zio.prelude.Validation
-import zio.prelude.ZValidation
+import zio.prelude.{ Validation, ZValidation }
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
 import zio.{ Cause, Chunk, Unsafe }
