@@ -6,10 +6,11 @@ import java.util.UUID
 
 import scala.collection.immutable.ListMap
 
+import zio.prelude.Validation
+import zio.prelude.ZValidation
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
 import zio.{ Cause, Chunk, Unsafe }
-import zio.prelude.Validation
 
 sealed trait DynamicValue {
   self =>
@@ -28,27 +29,39 @@ sealed trait DynamicValue {
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
 
-  /**
-   * Validates this `DynamicValue` against a `Schema[A]`, accumulating ALL
-   * type-mismatch / missing-field errors rather than short-circuiting on the
-   * first failure.
-   *
-   * This is the error-accumulating counterpart of `toTypedValue`. Use it
-   * when you want a complete picture of every problem in a dynamic value.
-   *
-   * @return `Validation.succeed(a)` when the value is fully valid, or
-   *         `Validation.fail` with every error found in the structure.
-   */
-  def validate[A](implicit schema: Schema[A]): Validation[String, A] =
+  /** Validates this [[DynamicValue]] against a [[Schema]], accumulating ALL type-mismatch and
+    * missing-field errors rather than short-circuiting on the first failure.
+    *
+    * This is the error-accumulating counterpart of [[toTypedValue]]. Use it when you want a
+    * complete picture of every problem in a dynamic value (for example, to surface all
+    * form-validation errors to a user at once).
+    *
+    * @return
+    *   `Validation.succeed(a)` when the value is fully valid, or `Validation.fail` carrying every
+    *   error found in the structure.
+    */
+  def validate[A](implicit schema: Schema[A]): Validation[String, A] = {
+
+    def par[X, Y](vx: Validation[String, X], vy: Validation[String, Y]): Validation[String, (X, Y)] =
+      (vx, vy) match {
+        case (ZValidation.Success(_, x), ZValidation.Success(_, y))   => Validation.succeed(Tuple2(x, y))
+        case (ZValidation.Failure(_, e1), ZValidation.Failure(_, e2)) => ZValidation.Failure(Chunk.empty, e1 ++ e2)
+        case (f @ ZValidation.Failure(_, _), _)                       => f.asInstanceOf[Validation[String, (X, Y)]]
+        case (_, f @ ZValidation.Failure(_, _))                       => f.asInstanceOf[Validation[String, (X, Y)]]
+      }
+
+    def all[X](chunk: Chunk[Validation[String, X]]): Validation[String, Chunk[X]] =
+      chunk.foldLeft[Validation[String, Chunk[X]]](Validation.succeed(Chunk.empty)) { (acc, v) =>
+        par(acc, v).map { case (xs, x) => xs :+ x }
+      }
+
     (self, schema) match {
 
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
         Validation.succeed(value.asInstanceOf[A])
 
       case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
-        DynamicValue
-          .validateStructure(values, structure.toChunk)
-          .asInstanceOf[Validation[String, A]]
+        DynamicValue.validateStructure(values, structure.toChunk).asInstanceOf[Validation[String, A]]
 
       case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
         DynamicValue
@@ -63,10 +76,8 @@ sealed trait DynamicValue {
 
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
         s.caseOf(key) match {
-          case Some(caseValue) =>
-            value.validate(caseValue.schema).asInstanceOf[Validation[String, A]]
-          case None =>
-            Validation.fail(s"Missing case '$key' in enum '${s.id}'")
+          case Some(caseValue) => value.validate(caseValue.schema).asInstanceOf[Validation[String, A]]
+          case None            => Validation.fail(s"Missing case '$key' in enum '${s.id}'")
         }
 
       case (DynamicValue.LeftValue(value), Schema.Either(leftSchema, _, _)) =>
@@ -76,31 +87,23 @@ sealed trait DynamicValue {
         value.validate(rightSchema).map(Right(_)).asInstanceOf[Validation[String, A]]
 
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
-        leftValue
-          .validate(leftSchema)
-          .zipWith(rightValue.validate(rightSchema))(_ -> _)
+        par(leftValue.validate(leftSchema), rightValue.validate(rightSchema))
           .asInstanceOf[Validation[String, A]]
 
       case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
-        Validation
-          .validateAll(values.map(_.validate(schema.elementSchema)))
+        all(values.map(_.validate(schema.elementSchema)))
           .map(schema.fromChunk)
           .asInstanceOf[Validation[String, A]]
 
       case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
-        Validation
-          .validateAll(Chunk.fromIterable(values).map(_.validate(schema.elementSchema)))
+        all(Chunk.fromIterable(values).map(_.validate(schema.elementSchema)))
           .map(_.toSet)
           .asInstanceOf[Validation[String, A]]
 
       case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
-        Validation
-          .validateAll(entries.map { case (kDyn, vDyn) =>
-            kDyn
-              .validate(schema.keySchema)
-              .zipWith(vDyn.validate(schema.valueSchema))(_ -> _)
-          })
-          .map(_.toMap)
+        all(entries.map { case (kDyn, vDyn) =>
+          par(kDyn.validate(schema.keySchema), vDyn.validate(schema.valueSchema))
+        }).map(_.toMap)
           .asInstanceOf[Validation[String, A]]
 
       case (DynamicValue.SomeValue(value), Schema.Optional(inner: Schema[_], _)) =>
@@ -110,12 +113,15 @@ sealed trait DynamicValue {
         Validation.succeed(None.asInstanceOf[A])
 
       case (value, Schema.Transform(inner, f, _, _, _)) =>
-        value.validate(inner).flatMap { v =>
-          f(v) match {
-            case Right(b)    => Validation.succeed(b)
-            case Left(error) => Validation.fail(error)
+        value
+          .validate(inner)
+          .flatMap { v =>
+            f(v) match {
+              case Right(b)    => Validation.succeed(b)
+              case Left(error) => Validation.fail(error)
+            }
           }
-        }.asInstanceOf[Validation[String, A]]
+          .asInstanceOf[Validation[String, A]]
 
       case (_, l @ Schema.Lazy(_)) =>
         validate(l.schema)
@@ -128,11 +134,12 @@ sealed trait DynamicValue {
 
       case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
         val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
-        dyn.validate(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
+        dyn.validate(valueSchema).map(a => Tuple2(a, valueSchema).asInstanceOf[A])
 
       case _ =>
         Validation.fail(s"Cannot convert dynamic value '$self' to type described by schema '$schema'")
     }
+  }
 
   private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DecodeError, A] =
     (self, schema) match {
@@ -314,28 +321,42 @@ object DynamicValue {
     }
   }
 
-  /**
-   * Like [[decodeStructure]], but accumulates ALL field errors instead of
-   * stopping at the first failure.
-   */
+  /** Like [[decodeStructure]], but accumulates ALL field-level errors instead of stopping at the
+    * first failure.
+    */
   def validateStructure(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
   ): Validation[String, ListMap[String, Any]] = {
+
+    def par[X, Y](vx: Validation[String, X], vy: Validation[String, Y]): Validation[String, (X, Y)] =
+      (vx, vy) match {
+        case (ZValidation.Success(_, x), ZValidation.Success(_, y))   => Validation.succeed(Tuple2(x, y))
+        case (ZValidation.Failure(_, e1), ZValidation.Failure(_, e2)) => ZValidation.Failure(Chunk.empty, e1 ++ e2)
+        case (f @ ZValidation.Failure(_, _), _)                       => f.asInstanceOf[Validation[String, (X, Y)]]
+        case (_, f @ ZValidation.Failure(_, _))                       => f.asInstanceOf[Validation[String, (X, Y)]]
+      }
+
+    def all[X](chunk: Chunk[Validation[String, X]]): Validation[String, Chunk[X]] =
+      chunk.foldLeft[Validation[String, Chunk[X]]](Validation.succeed(Chunk.empty)) { (acc, v) =>
+        par(acc, v).map { case (xs, x) => xs :+ x }
+      }
+
     val fieldValidations: Chunk[Validation[String, (String, Any)]] =
       Chunk.fromIterable(values.keys).map { key =>
         (structure.find(_.name == key), values.get(key)) match {
           case (Some(field), Some(value)) =>
-            value.validate(field.schema).map(v => key -> v)
+            value.validate(field.schema).map(v => Tuple2(key, v))
           case _ =>
             Validation.fail(s"Field '$key' is incompatible with the target structure")
         }
       }
 
-    Validation
-      .validateAll(fieldValidations)
-      .map(_.foldLeft(ListMap.empty[String, Any])(_ + _))
+    all(fieldValidations).map { chunk =>
+      chunk.foldLeft(ListMap.empty[String, Any]) { case (m, (k, v)) => m.updated(k, v) }
+    }
   }
+
 
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
 
