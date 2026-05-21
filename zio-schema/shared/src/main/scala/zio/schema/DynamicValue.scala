@@ -29,17 +29,18 @@ sealed trait DynamicValue {
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
 
-  /** Validates this [[DynamicValue]] against a [[Schema]], accumulating ALL type-mismatch and
-    * missing-field errors rather than short-circuiting on the first failure.
-    *
-    * This is the error-accumulating counterpart of [[toTypedValue]]. Use it when you want a
-    * complete picture of every problem in a dynamic value (for example, to surface all
-    * form-validation errors to a user at once).
-    *
-    * @return
-    *   `Validation.succeed(a)` when the value is fully valid, or `Validation.fail` carrying every
-    *   error found in the structure.
-    */
+  /**
+   * Validates this [[DynamicValue]] against a [[Schema]], accumulating ALL type-mismatch and
+   * missing-field errors rather than short-circuiting on the first failure.
+   *
+   * This is the error-accumulating counterpart of [[toTypedValue]]. Use it when you want a
+   * complete picture of every problem in a dynamic value (for example, to surface all
+   * form-validation errors to a user at once).
+   *
+   * @return
+   *   `Validation.succeed(a)` when the value is fully valid, or `Validation.fail` carrying every
+   *   error found in the structure.
+   */
   def validate[A](implicit schema: Schema[A]): Validation[String, A] = {
 
     def par[X, Y](vx: Validation[String, X], vy: Validation[String, Y]): Validation[String, (X, Y)] =
@@ -321,9 +322,10 @@ object DynamicValue {
     }
   }
 
-  /** Like [[decodeStructure]], but accumulates ALL field-level errors instead of stopping at the
-    * first failure.
-    */
+  /**
+   * Like [[decodeStructure]], but accumulates ALL field-level errors instead of stopping at the
+   * first failure.
+   */
   def validateStructure(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
@@ -347,7 +349,7 @@ object DynamicValue {
         (structure.find(_.name == key), values.get(key)) match {
           case (Some(field), Some(value)) =>
             value.validate(field.schema).map(v => Tuple2(key, v))
-          case _ =>
+          case _                          =>
             Validation.fail(s"Field '$key' is incompatible with the target structure")
         }
       }
