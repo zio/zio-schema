@@ -8,3 +8,6 @@ externalPort = 80
 
 [agent]
 expertMode = true
+
+[nix]
+packages = ["sbt-with-scala-native"]
