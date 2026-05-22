@@ -672,7 +672,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
             !cfg.noDiscriminator
         if (doJsonObjectWrapping) {
           new ZJsonEncoder[Z] {
-            private[this] val cases = schema.nonTransientCases.toArray
+            private[this] val cases = schema.nonTransientCases.toVector
             private[this] val decoders =
               cases.map(case_ => schemaEncoder(case_.schema.asInstanceOf[Schema[Any]], cfg, None))
             private[this] val encodedKeys =
@@ -702,7 +702,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
           }
         } else {
           new ZJsonEncoder[Z] {
-            private[this] val cases = schema.nonTransientCases.toArray
+            private[this] val cases = schema.nonTransientCases.toVector
             private[this] val decoders = cases.map { case_ =>
               val discriminatorTuple =
                 if (discriminatorName eq None) None
@@ -755,7 +755,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       cfg: Configuration,
       discriminatorTuple: DiscriminatorTuple
     ): ZJsonEncoder[ListMap[String, _]] = {
-      val nonTransientFields = schema.nonTransientFields.toArray
+      val nonTransientFields = schema.nonTransientFields.toVector
       if (nonTransientFields.isEmpty) { (_: ListMap[String, _], _: Option[Int], out: Write) =>
         out.write("{}")
       } else {
@@ -1063,7 +1063,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
               val caseMatrix = new StringMatrix(caseNameAliases.keys.toArray)
               val cases = caseNameAliases.values.map { case_ =>
                 (JsonError.ObjectAccess(format(case_.caseName, config)), schemaDecoder(case_.schema, config))
-              }.toArray
+              }.toVector
               (trace: List[JsonError], in: RetractReader) => {
                 val lexer = Lexer
                 lexer.char(trace, in, '{')
@@ -1110,7 +1110,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
                   JsonError.ObjectAccess(format(case_.caseName, config)),
                   schemaDecoder(case_.schema, config, discriminator)
                 )
-              }.toArray
+              }.toVector
               (trace: List[JsonError], in: RetractReader) => {
                 val lexer = Lexer
                 lexer.char(trace, in, '{')
@@ -1191,7 +1191,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         (trace: List[JsonError], in: RetractReader) => ccjd.unsafeDecodeListMap(trace, in)
       } else {
         new ZJsonDecoder[ListMap[String, Any]] {
-          private[this] val fields = schema.fields.toArray
+          private[this] val fields = schema.fields.toVector
           private[this] val spansWithDecoders =
             new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](fields.length << 1) {
               fields.foreach { field =>
@@ -1351,7 +1351,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       })
 
     private[codec] def caseClassEncoder[Z](schema: Schema.Record[Z], cfg: Configuration, discriminatorTuple: DiscriminatorTuple): ZJsonEncoder[Z] = {
-      val nonTransientFields = schema.nonTransientFields.toArray.asInstanceOf[Array[Schema.Field[Z, Any]]]
+      val nonTransientFields = schema.nonTransientFields.toVector.asInstanceOf[Vector[Schema.Field[Z, Any]]]
       val encoders           = nonTransientFields.map(s => JsonEncoder.schemaEncoder(s.schema, cfg))
       def name(field: Schema.Field[_, _]): String =
         if (cfg.fieldNameFormat == NameFormat.Identity) field.fieldName
