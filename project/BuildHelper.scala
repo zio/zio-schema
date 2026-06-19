@@ -43,10 +43,10 @@ object BuildHelper {
   val zioConstraintlessVersion     = "0.3.3"
   val scalaCollectionCompatVersion = "2.14.0"
   val msgpackVersion               = "0.9.12"
-  val jacksonScalaVersion          = "2.21.4"
+  val jacksonScalaVersion          = "2.22.0"
   val thriftVersion                = "0.23.0"
   val javaxAnnotationApiVersion    = "3.0.0"
-  val scalaJavaTimeVersion         = "2.6.0"
+  val scalaJavaTimeVersion         = "2.7.0"
 
   def macroDefinitionSettings = Seq(
     scalacOptions += "-language:experimental.macros",
