@@ -5,6 +5,7 @@ import java.time._
 import java.util.UUID
 
 import scala.collection.immutable.ListMap
+import scala.util.control.TailCalls._
 
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
@@ -28,96 +29,7 @@ sealed trait DynamicValue {
     toTypedValueLazyError.toOption
 
   private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DecodeError, A] =
-    (self, schema) match {
-      case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
-        Right(value.asInstanceOf[A])
-
-      case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
-        DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[DecodeError, A]]
-
-      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
-        DynamicValue
-          .decodeStructure(values, s.fields)
-          .map(m => Chunk.fromIterable(m.values))
-          .flatMap(values => s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
-
-      case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
-        s.caseOf(key) match {
-          case Some(caseValue) =>
-            value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
-          case None => Left(DecodeError.MissingCase(key, s))
-        }
-
-      case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
-        value.toTypedValueLazyError(schema1).map(Left(_))
-
-      case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
-        value.toTypedValueLazyError(schema1).map(Right(_))
-
-      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
-        val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
-        val typedRight = rightValue.toTypedValueLazyError(rightSchema)
-        (typedLeft, typedRight) match {
-          case (Left(e1), Left(e2)) =>
-            Left(DecodeError.And(e1, e2))
-          case (_, Left(e))         => Left(e)
-          case (Left(e), _)         => Left(e)
-          case (Right(a), Right(b)) => Right(a -> b)
-        }
-
-      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
-        values
-          .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
-            case (err @ Left(_), _) => err
-            case (Right(values), value) =>
-              value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
-          }
-          .map(schema.fromChunk)
-
-      case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
-        values.foldLeft[Either[DecodeError, Set[t]]](Right[DecodeError, Set[t]](Set.empty)) {
-          case (err @ Left(_), _) => err
-          case (Right(values), value) =>
-            value.toTypedValueLazyError(schema.elementSchema).map(values + _)
-        }
-
-      case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
-        value.toTypedValueLazyError(schema).map(Some(_))
-
-      case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
-        Right(None)
-
-      case (value, Schema.Transform(schema, f, _, _, _)) =>
-        value
-          .toTypedValueLazyError(schema)
-          .flatMap(value => f(value).left.map(err => DecodeError.MalformedField(schema, err)))
-
-      case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
-        entries.foldLeft[Either[DecodeError, Map[k, v]]](Right[DecodeError, Map[k, v]](Map.empty)) {
-          case (err @ Left(_), _) => err
-          case (Right(map), entry) => {
-            for {
-              key   <- entry._1.toTypedValueLazyError(schema.keySchema)
-              value <- entry._2.toTypedValueLazyError(schema.valueSchema)
-            } yield map ++ Map(key -> value)
-          }
-        }
-
-      case (_, l @ Schema.Lazy(_)) =>
-        toTypedValueLazyError(l.schema)
-
-      case (DynamicValue.Error(message), _) =>
-        Left(DecodeError.ReadError(Cause.empty, message))
-
-      case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
-        val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
-        dyn.toTypedValueLazyError(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
-
-      case (dyn, Schema.Dynamic(_)) => Right(dyn)
-
-      case _ =>
-        Left(DecodeError.CastError(self, schema))
-    }
+    DynamicValue.toTypedValueTrampoline(self, schema).result
 
 }
 
@@ -193,19 +105,141 @@ object DynamicValue {
   def decodeStructure(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
-  ): Either[DecodeError, ListMap[String, _]] = {
-    val keys = values.keySet
-    keys.foldLeft[Either[DecodeError, ListMap[String, Any]]](Right(ListMap.empty)) {
-      case (Right(record), key) =>
-        (structure.find(_.name == key), values.get(key)) match {
-          case (Some(field), Some(value)) =>
-            value.toTypedValueLazyError(field.schema).map(value => (record + (key -> value)))
-          case _ =>
-            Left(DecodeError.IncompatibleShape(values, structure))
-        }
-      case (Left(err), _) => Left(err)
-    }
+  ): Either[DecodeError, ListMap[String, _]] =
+    decodeStructureTrampoline(values, structure).result
+
+  private def decodeStructureTrampoline(
+    values: ListMap[String, DynamicValue],
+    structure: Chunk[Schema.Field[_, _]]
+  ): TailRec[Either[DecodeError, ListMap[String, _]]] = {
+    val structureMap: Map[String, Schema.Field[_, _]] = structure.map(f => f.name -> f).toMap
+    val keys                                          = values.keySet.toList
+    def loop(remaining: List[String], acc: ListMap[String, Any]): TailRec[Either[DecodeError, ListMap[String, Any]]] =
+      remaining match {
+        case Nil => done(Right(acc))
+        case key :: rest =>
+          (structureMap.get(key), values.get(key)) match {
+            case (Some(field), Some(value)) =>
+              tailcall(toTypedValueTrampoline(value, field.schema)).flatMap {
+                case Left(err)    => done(Left(err))
+                case Right(typed) => loop(rest, acc + (key -> typed))
+              }
+            case _ =>
+              done(Left(DecodeError.IncompatibleShape(values, structure)))
+          }
+      }
+    loop(keys, ListMap.empty)
   }
+
+  //scalafmt: { maxColumn = 400 }
+  private def toTypedValueTrampoline[A](self: DynamicValue, schema: Schema[A]): TailRec[Either[DecodeError, A]] =
+    (self, schema) match {
+      case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
+        done(Right(value.asInstanceOf[A]))
+
+      case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
+        tailcall(decodeStructureTrampoline(values, structure.toChunk)).map(_.asInstanceOf[Either[DecodeError, A]])
+
+      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
+        tailcall(decodeStructureTrampoline(values, s.fields)).flatMap {
+          case Left(err) => done(Left(err))
+          case Right(m) =>
+            val fieldValues = s.fields.map(field => m(field.name))
+            val constructed = s.construct(Chunk.fromIterable(fieldValues))(Unsafe.unsafe)
+            done(constructed.left.map(err => DecodeError.MalformedField(s, err)))
+        }
+
+      case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
+        s.caseOf(key) match {
+          case Some(caseValue) =>
+            tailcall(toTypedValueTrampoline(value, caseValue.schema)).map(_.asInstanceOf[Either[DecodeError, A]])
+          case None => done(Left(DecodeError.MissingCase(key, s)))
+        }
+
+      case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
+        tailcall(toTypedValueTrampoline(value, schema1)).map(_.map(Left(_)))
+
+      case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
+        tailcall(toTypedValueTrampoline(value, schema1)).map(_.map(Right(_)))
+
+      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
+        tailcall(toTypedValueTrampoline(leftValue, leftSchema)).flatMap { typedLeft =>
+          tailcall(toTypedValueTrampoline(rightValue, rightSchema)).map { typedRight =>
+            (typedLeft, typedRight) match {
+              case (Left(e1), Left(e2)) => Left(DecodeError.And(e1, e2))
+              case (_, Left(e))         => Left(e)
+              case (Left(e), _)         => Left(e)
+              case (Right(a), Right(b)) => Right(a -> b)
+            }
+          }
+        }
+
+      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
+        def loopSeq(remaining: List[DynamicValue], acc: Chunk[t]): TailRec[Either[DecodeError, Chunk[t]]] =
+          remaining match {
+            case Nil => done(Right(acc))
+            case head :: tail =>
+              tailcall(toTypedValueTrampoline[t](head, schema.elementSchema)).flatMap {
+                case Left(err)    => done(Left(err))
+                case Right(typed) => loopSeq(tail, acc :+ typed)
+              }
+          }
+        loopSeq(values.toList, Chunk.empty).map(_.map(schema.fromChunk))
+
+      case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
+        def loopSet(remaining: List[DynamicValue], acc: Set[t]): TailRec[Either[DecodeError, Set[t]]] =
+          remaining match {
+            case Nil => done(Right(acc))
+            case head :: tail =>
+              tailcall(toTypedValueTrampoline[t](head, schema.elementSchema)).flatMap {
+                case Left(err)    => done(Left(err))
+                case Right(typed) => loopSet(tail, acc + typed)
+              }
+          }
+        loopSet(values.toList, Set.empty)
+
+      case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
+        tailcall(toTypedValueTrampoline(value, schema)).map(_.map(Some(_)))
+
+      case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
+        done(Right(None))
+
+      case (value, Schema.Transform(schema, f, _, _, _)) =>
+        tailcall(toTypedValueTrampoline(value, schema)).map {
+          _.flatMap(value => f(value).left.map(err => DecodeError.MalformedField(schema, err)))
+        }
+
+      case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
+        def loopDict(remaining: List[(DynamicValue, DynamicValue)], acc: Map[k, v]): TailRec[Either[DecodeError, Map[k, v]]] =
+          remaining match {
+            case Nil => done(Right(acc))
+            case (dk, dv) :: tail =>
+              tailcall(toTypedValueTrampoline[k](dk, schema.keySchema)).flatMap {
+                case Left(err) => done(Left(err))
+                case Right(key) =>
+                  tailcall(toTypedValueTrampoline[v](dv, schema.valueSchema)).flatMap {
+                    case Left(err)    => done(Left(err))
+                    case Right(value) => loopDict(tail, acc + (key -> value))
+                  }
+              }
+          }
+        loopDict(entries.toList, Map.empty)
+
+      case (_, l @ Schema.Lazy(_)) =>
+        tailcall(toTypedValueTrampoline(self, l.schema))
+
+      case (DynamicValue.Error(message), _) =>
+        done(Left(DecodeError.ReadError(Cause.empty, message)))
+
+      case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
+        val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
+        tailcall(toTypedValueTrampoline(dyn, valueSchema)).map(_.map(a => (a -> valueSchema).asInstanceOf[A]))
+
+      case (dyn, Schema.Dynamic(_)) => done(Right(dyn))
+
+      case _ =>
+        done(Left(DecodeError.CastError(self, schema)))
+    }
 
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
 
