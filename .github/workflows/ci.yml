@@ -26,8 +26,8 @@ jobs:
           fetch-depth: 0
       - name: Setup Scala and Java
         uses: coursier/setup-action@v3
-        with:
-          apps: sbt
+      - name: Setup sbt
+        uses: sbt/setup-sbt@v1
       - name: Cache scala dependencies
         uses: coursier/cache-action@v8
       - name: Lint code
@@ -49,7 +49,7 @@ jobs:
     - uses: coursier/setup-action@v3
       with:
         jvm: ${{ matrix.java }}
-        apps: sbt
+    - uses: sbt/setup-sbt@v1
     - name: Cache scala dependencies
       uses: coursier/cache-action@v8
     - name: Install Bohem GC
@@ -71,7 +71,7 @@ jobs:
       - uses: coursier/setup-action@v3
         with:
           jvm: temurin:21
-          apps: sbt
+      - uses: sbt/setup-sbt@v1
       - run: sbt +mimaReportBinaryIssues
 
   ci:
@@ -90,8 +90,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: coursier/setup-action@v3
-        with:
-          apps: sbt
+      - uses: sbt/setup-sbt@v1
       - run: sbt ci-release
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
