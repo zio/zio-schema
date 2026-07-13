@@ -30,10 +30,21 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   val personSchema: Schema[Person] = DeriveSchema.gen[Person]
 
+  case object Foo {
+    implicit val schema: Schema[Foo.type] = DeriveSchema.gen[Foo.type]
+  }
+
+  final case class Bar(a: Int)
+
+  object Bar {
+    implicit val schema: Schema[Bar] = DeriveSchema.gen[Bar]
+  }
+
   def spec: Spec[TestEnvironment, Any] =
     suite("JsonCodec Spec")(
       encoderSuite,
       decoderSuite,
+      trailingCharactersSuite,
       encoderDecoderSuite
     ) @@ timeout(180.seconds)
 
@@ -1604,6 +1615,103 @@ object JsonCodecSpec extends ZIOSpecDefault {
         val decoder = JsonCodec.schemaBasedBinaryCodec(schema).streamDecoder
         val result  = ZStream.fromChunk(charSequenceToByteChunk("[]")).via(decoder).runCollect.either
         assertZIO(result)(isLeft)
+      }
+    )
+  )
+
+  private val trailingCharactersSuite = suite("trailing characters after a valid JSON value")(
+    suite("are rejected by jsonDecoder")(
+      test("extra } after empty object") {
+        assertTrue(
+          JsonCodec.jsonDecoder(Schema[Foo.type]).decodeJson("""{}}""").isLeft
+        )
+      },
+      test("extra } after object") {
+        assertTrue(
+          JsonCodec.jsonDecoder(Schema[Bar]).decodeJson("""{"a":1}}""").isLeft
+        )
+      },
+      test("extra \" after string") {
+        assertTrue(
+          JsonCodec.jsonDecoder(Schema[String]).decodeJson("\"foo\"\"").isLeft
+        )
+      },
+      test("extra ] after array") {
+        assertTrue(
+          JsonCodec.jsonDecoder(Schema[List[Int]]).decodeJson("[1,2]]").isLeft
+        )
+      },
+      test("garbage after number") {
+        assertTrue(
+          JsonCodec.jsonDecoder(Schema[Int]).decodeJson("42 x").isLeft,
+          JsonCodec.jsonDecoder(Schema[Int]).decodeJson("42x").isLeft,
+          JsonCodec.jsonDecoder(Schema[Int]).decodeJson("4 5").isLeft,
+          JsonCodec.jsonDecoder(Schema[Int]).decodeJson("42}").isLeft
+        )
+      },
+      test("top level numbers are accepted") {
+        assertTrue(
+          JsonCodec.jsonDecoder(Schema[Int]).decodeJson("42") == Right(42),
+          JsonCodec.jsonDecoder(Schema[Int]).decodeJson("-1") == Right(-1),
+          JsonCodec.jsonDecoder(Schema[Long]).decodeJson("4612798522382848789") == Right(4612798522382848789L),
+          JsonCodec.jsonDecoder(Schema[Double]).decodeJson("-2620.5") == Right(-2620.5),
+          JsonCodec.jsonDecoder(Schema[BigDecimal]).decodeJson("1.5") == Right(BigDecimal("1.5"))
+        )
+      },
+      test("extra characters after boolean") {
+        assertTrue(
+          JsonCodec.jsonDecoder(Schema[Boolean]).decodeJson("true}}").isLeft
+        )
+      },
+      test("trailing whitespace is accepted") {
+        assertTrue(
+          JsonCodec.jsonDecoder(Schema[Bar]).decodeJson("""{"a":1} """) == Right(Bar(1)),
+          JsonCodec.jsonDecoder(Schema[String]).decodeJson("\"foo\"  ") == Right("foo"),
+          JsonCodec.jsonDecoder(Schema[Int]).decodeJson("42\n\t ") == Right(42)
+        )
+      },
+      test("leading and trailing whitespace is accepted") {
+        assertTrue(
+          JsonCodec.jsonDecoder(Schema[Bar]).decodeJson("""  {"a":1}  """) == Right(Bar(1))
+        )
+      }
+    ),
+    suite("are rejected by schemaBasedBinaryCodec")(
+      test("decode rejects extra } after object") {
+        val codec = JsonCodec.schemaBasedBinaryCodec(Schema[Bar])
+        assertTrue(
+          codec.decode(charSequenceToByteChunk("""{"a":1}}""")).isLeft
+        )
+      },
+      test("decode rejects extra \" after string") {
+        val codec = JsonCodec.schemaBasedBinaryCodec(Schema[String])
+        assertTrue(
+          codec.decode(charSequenceToByteChunk("\"foo\"\"")).isLeft
+        )
+      },
+      test("decode accepts trailing whitespace") {
+        val codec = JsonCodec.schemaBasedBinaryCodec(Schema[Bar])
+        assertTrue(
+          codec.decode(charSequenceToByteChunk("""{"a":1}  """)) == Right(Bar(1))
+        )
+      },
+      test("streamDecoder keeps decoding multiple newline separated values") {
+        assertDecodesMany(
+          Schema[Bar],
+          Chunk(Bar(1), Bar(2)),
+          charSequenceToByteChunk("""{"a":1}
+{"a":2}""")
+        )
+      }
+    ),
+    suite("are rejected by zioJsonBinaryCodec")(
+      test("decode rejects extra \" after string") {
+        implicit val jsonCodec: zio.json.JsonCodec[String] = JsonCodec.jsonCodec(Schema[String])
+        val codec                                          = JsonCodec.zioJsonBinaryCodec[String]
+        assertTrue(
+          codec.decode(charSequenceToByteChunk("\"foo\"\"")).isLeft,
+          codec.decode(charSequenceToByteChunk("\"foo\"")) == Right("foo")
+        )
       }
     )
   )

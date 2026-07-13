@@ -12,7 +12,7 @@ import scala.util.control.NonFatal
 
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.ast.Json
-import zio.json.internal.{ FastStringReader, Lexer, RecordingReader, RetractReader, StringMatrix, Write }
+import zio.json.internal.{ FastStringReader, Lexer, RecordingReader, RetractReader, StringMatrix, UnexpectedEnd, Write }
 import zio.json.{
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
@@ -31,6 +31,67 @@ import zio.{ Cause, Chunk, ChunkBuilder, ZIO, ZNothing }
 object JsonCodec {
 
   private val streamEncoderSeparator: Chunk[Byte] = Chunk.single('\n'.toByte)
+
+  /**
+   * Wraps a decoder so that decoding a complete input fails when anything but whitespace remains after the JSON
+   * value.
+   *
+   * zio-json's `decodeJson` is `final` and delegates to `unsafeDecode` with a `FastStringReader`, while the streaming
+   * entry points (`decodeJsonPipeline`, `decodeJsonStream`, ...) use other `RetractReader` implementations.
+   * Restricting the trailing check to `FastStringReader` therefore makes single-value decoding strict without
+   * changing streaming behavior, where a value may legitimately be followed by more input.
+   */
+  final private[codec] class StrictJsonDecoder[A](private[codec] val underlying: ZJsonDecoder[A])
+      extends ZJsonDecoder[A] {
+
+    def unsafeDecode(trace: List[JsonError], in: RetractReader): A = {
+      val result = underlying.unsafeDecode(trace, in)
+      in match {
+        case reader: FastStringReader =>
+          val offset = reader.offset()
+          try {
+            val c = reader.nextNonWhitespace()
+            // zio-json's number parsers always retract one character after a number. When the number ends
+            // exactly at the end of the input that retract steps back into the number itself, leaving its
+            // last digit unread. That single digit must be accepted, anything else rejected.
+            val isLastDigitOfNumber =
+              c >= '0' && c <= '9' &&
+                reader.history(offset) == c && // no whitespace was skipped to reach c
+                startsWithNumber(reader) &&
+                atEnd(reader)
+            if (!isLastDigitOfNumber)
+              Lexer.error("Unexpected character after end of JSON value", trace)
+            result
+          } catch {
+            case _: UnexpectedEnd => result
+          }
+        case _ => result
+      }
+    }
+
+    override def unsafeDecodeMissing(trace: List[JsonError]): A = underlying.unsafeDecodeMissing(trace)
+
+    override def unsafeFromJsonAST(trace: List[JsonError], json: Json): A = underlying.unsafeFromJsonAST(trace, json)
+
+    // a successful decode implies that a value started at the first non-whitespace character
+    private def startsWithNumber(reader: FastStringReader): Boolean = {
+      var i = 0
+      var c = reader.history(i)
+      while (c == ' ' || c == '\n' || c == '\r' || c == '\t') {
+        i += 1
+        c = reader.history(i)
+      }
+      c == '-' || (c >= '0' && c <= '9')
+    }
+
+    private def atEnd(reader: FastStringReader): Boolean =
+      try {
+        reader.nextNonWhitespace()
+        false
+      } catch {
+        case _: UnexpectedEnd => true
+      }
+  }
 
   @deprecated(
     """Use JsonCodec.Configuration instead.
@@ -169,7 +230,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
-        jsonCodec
+        new StrictJsonDecoder(jsonCodec.decoder)
           .decodeJson(new String(whole.toArray, JsonEncoder.CHARSET))
           .left
           .map(failure => DecodeError.ReadError(Cause.empty, failure))
@@ -179,7 +240,13 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
           ZPipeline.utfDecode.channel.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage))
         ) >>> splitOnJsonBoundary >>>
           ZPipeline.mapEitherChunked { (s: String) =>
-            jsonCodec.decodeJson(s).left.map(failure => DecodeError.ReadError(Cause.empty, failure))
+            // streaming has to stay lenient: a value may be followed by more input, e.g. separator
+            // characters after numbers, and is decoded through a FastStringReader here
+            val decoder = jsonCodec.decoder match {
+              case strict: StrictJsonDecoder[_] => strict.underlying.asInstanceOf[ZJsonDecoder[A]]
+              case other                        => other
+            }
+            decoder.decodeJson(s).left.map(failure => DecodeError.ReadError(Cause.empty, failure))
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -324,7 +391,9 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         ZPipeline.utfDecode.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage)) >>>
           (if (cfg.treatStreamsAsArrays) splitJsonArrayElements else splitOnJsonBoundary) >>>
           ZPipeline.mapZIO { (s: String) =>
-            ZIO.fromEither(JsonDecoder.decode(schema, s, cfg))
+            // streaming has to stay lenient: a value may be followed by more input, e.g. separator
+            // characters after numbers, and is decoded through a FastStringReader here
+            ZIO.fromEither(JsonDecoder.decodeLenient(schema, s, cfg))
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -355,10 +424,10 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     JsonEncoder.schemaEncoder(schema, cfg)
 
   def jsonDecoder[A](schema: Schema[A]): ZJsonDecoder[A] =
-    JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default)
+    new StrictJsonDecoder(JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default))
 
   def jsonDecoder[A](cfg: JsonCodec.Configuration)(schema: Schema[A]): ZJsonDecoder[A] =
-    JsonDecoder.schemaDecoder(schema, cfg)
+    new StrictJsonDecoder(JsonDecoder.schemaDecoder(schema, cfg))
 
   def jsonCodec[A](schema: Schema[A]): ZJsonCodec[A] =
     ZJsonCodec(jsonEncoder(schema), jsonDecoder(schema))
@@ -821,6 +890,16 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
     final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
+      new StrictJsonDecoder(schemaDecoder(schema, config)).decodeJson(json) match {
+        case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
+        case Right(value) => Right(value)
+      }
+
+    final private[codec] def decodeLenient[A](
+      schema: Schema[A],
+      json: String,
+      config: Configuration
+    ): Either[DecodeError, A] =
       schemaDecoder(schema, config).decodeJson(json) match {
         case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
         case Right(value) => Right(value)
