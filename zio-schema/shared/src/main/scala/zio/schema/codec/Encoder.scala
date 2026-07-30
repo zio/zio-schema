@@ -24,4 +24,16 @@ trait Encoder[Whole, Element, -A] {
 
   def streamEncoder: ZPipeline[Any, Nothing, A, Element]
 
+  def contramap[B](ba: B => A): Encoder[Whole, Element, B] = Encoder.Contramapped(this, ba)
+
+}
+
+object Encoder {
+
+  final case class Contramapped[Whole, Element, A, B](inner: Encoder[Whole, Element, A], ba: B => A)
+      extends Encoder[Whole, Element, B] {
+    override def encode(value: B): Whole                            = inner.encode(ba(value))
+    override def streamEncoder: ZPipeline[Any, Nothing, B, Element] = inner.streamEncoder.contramap(ba)
+  }
+
 }
