@@ -13,4 +13,4 @@ addSbtPlugin("dev.zio"            % "zio-sbt-website"               % "0.6.3")
 addSbtPlugin("com.typesafe"       % "sbt-mima-plugin"               % "1.1.6")
 addSbtPlugin("org.scoverage"      % "sbt-scoverage"                 % "2.4.4")
 
-libraryDependencies += "org.snakeyaml" % "snakeyaml-engine" % "3.1"
+libraryDependencies += "org.snakeyaml" % "snakeyaml-engine" % "3.1.1"
