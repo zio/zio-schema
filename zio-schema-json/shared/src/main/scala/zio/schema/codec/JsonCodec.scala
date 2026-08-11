@@ -1253,11 +1253,9 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
                       schema match {
                         case _: Schema.Optional[_] if !explicitNulls => None
                         case collection: Schema.Collection[_, _] if !explicitEmptyCollections =>
-                          try collection.empty
-                          catch {
-                            case _: IllegalArgumentException =>
-                              lexer.error("missing", spansWithDecoders.get(fieldName)._1 :: trace)
-                          }
+                          collection.defaultValue.getOrElse(
+                            lexer.error("missing", spansWithDecoders.get(fieldName)._1 :: trace)
+                          )
                         case _ => lexer.error("missing", spansWithDecoders.get(fieldName)._1 :: trace)
                       }
                     }
@@ -1851,8 +1849,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
             buffer(idx) = schema match {
               case _: Schema.Optional[_] if !explicitNulls => None
               case collection: Schema.Collection[_, _] if !explicitEmptyCollections =>
-                try collection.empty
-                catch { case _: IllegalArgumentException => lexer.error("missing", spans(idx) :: trace) }
+                collection.defaultValue.getOrElse(lexer.error("missing", spans(idx) :: trace))
               case _ => lexer.error("missing", spans(idx) :: trace)
             }
           }
