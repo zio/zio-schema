@@ -30,6 +30,10 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   val personSchema: Schema[Person] = DeriveSchema.gen[Person]
 
+  case class WithNonEmptyChunk(items: NonEmptyChunk[String])
+
+  val withNonEmptyChunkSchema: Schema[WithNonEmptyChunk] = DeriveSchema.gen[WithNonEmptyChunk]
+
   def spec: Spec[TestEnvironment, Any] =
     suite("JsonCodec Spec")(
       encoderSuite,
@@ -1603,6 +1607,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
         val schema  = Schema[NonEmptyChunk[String]]
         val decoder = JsonCodec.schemaBasedBinaryCodec(schema).streamDecoder
         val result  = ZStream.fromChunk(charSequenceToByteChunk("[]")).via(decoder).runCollect.either
+        assertZIO(result)(isLeft)
+      },
+      test("NonEmptyChunk field decoder returns Left, not a thrown exception, when the field is missing") {
+        val decoder = JsonCodec.schemaBasedBinaryCodec(withNonEmptyChunkSchema).streamDecoder
+        val result  = ZStream.fromChunk(charSequenceToByteChunk("{}")).via(decoder).runCollect.either
         assertZIO(result)(isLeft)
       }
     )
