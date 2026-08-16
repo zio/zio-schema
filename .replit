@@ -1,0 +1,13 @@
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 80
+
+[agent]
+expertMode = true
+
+[nix]
+packages = ["sbt-with-scala-native"]
