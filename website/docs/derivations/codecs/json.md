@@ -13,7 +13,7 @@ JSON (JavaScript Object Notation) is a widely used data interchange format for t
 To derive JSON codecs from a ZIO Schema, we need to add the following dependency to our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-json" % 1.8.5
+libraryDependencies += "dev.zio" %% "zio-schema-json" % 1.8.6
 ```
 
 ## JsonCodec
