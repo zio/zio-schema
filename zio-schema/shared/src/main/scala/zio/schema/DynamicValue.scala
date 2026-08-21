@@ -44,7 +44,16 @@ sealed trait DynamicValue {
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
         s.caseOf(key) match {
           case Some(caseValue) =>
-            value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
+            value.toTypedValueLazyError(caseValue.schema).flatMap { decodedValue =>
+              scala.util.Try {
+                caseValue.asInstanceOf[Schema.Case[A, Any]].construct(decodedValue.asInstanceOf[Any]).asInstanceOf[A]
+              } match {
+                case scala.util.Success(value) =>
+                  Right(value)
+                case scala.util.Failure(err) =>
+                  Left(DecodeError.MalformedField(s, s"Enum case construction failed for '$key': ${err.getMessage}"))
+              }
+            }
           case None => Left(DecodeError.MissingCase(key, s))
         }
 
