@@ -13,7 +13,7 @@ Protocol Buffers (protobuf) is a binary serialization format developed by Google
 To start using Protobuf codecs in ZIO, you need to add the following dependency to your build.sbt file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "1.8.5"
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "1.8.6"
 ```
 
 ## BinaryCodec

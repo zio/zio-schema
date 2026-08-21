@@ -13,7 +13,7 @@ BSON (Binary JSON) is a binary serialization format used to store and exchange d
 To use BSON codecs, you need to add the following dependency to your Scala project:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-bson" % 1.8.5
+libraryDependencies += "dev.zio" %% "zio-schema-bson" % 1.8.6
 ```
 
 ## BsonSchemaCodec
