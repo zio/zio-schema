@@ -160,7 +160,7 @@ Now that we have written all the required schemas, we can proceed to create enco
 Let's start with writing protobuf codecs. We need to add the following line to our `build.sbt`:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % 1.8.5
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % 1.8.6
 ```
 
 Here's an example that demonstrates a roundtrip test for protobuf codecs:

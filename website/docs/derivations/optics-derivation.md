@@ -111,7 +111,7 @@ Let's take a look at how we can derive optics using ZIO Schema Optics.
 To be able to derive optics from a ZIO Schema, we need to add the following line to our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-optics" % 1.8.5
+libraryDependencies += "dev.zio" %% "zio-schema-optics" % 1.8.6
 ```
 
 This package contains a `ZioOpticsBuilder` which is an implementation of the `AccessorBuilder` interface based on ZIO Optics library.

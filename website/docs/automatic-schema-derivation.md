@@ -12,7 +12,7 @@ By leveraging reflection and type introspection using macros, automatic schema d
 ZIO streamlines schema derivation through its `zio-schema-derivation` package, which utilizes the capabilities of Scala macros to automatically derive schemas. In order to use automatic schema derivation, we neeed to add the following line to our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-derivation" % 1.8.5
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % 1.8.6
 ```
 
 Once again, let's revisit our domain models:
