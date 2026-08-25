@@ -13,7 +13,7 @@ MessagePack is a binary serialization format designed for efficient data exchang
 To use MessagePack codecs, you need to add the following dependency to your build.sbt file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "1.8.5"
+libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "1.8.6"
 ```
 
 ## BinaryCodec
