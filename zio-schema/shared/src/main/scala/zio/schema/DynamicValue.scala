@@ -1,5 +1,4 @@
 package zio.schema
-
 import java.math.{ BigDecimal, BigInteger }
 import java.time._
 import java.util.UUID
@@ -9,7 +8,6 @@ import scala.collection.immutable.ListMap
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
 import zio.{ Cause, Chunk, Unsafe }
-
 sealed trait DynamicValue {
   self =>
 
@@ -21,39 +19,31 @@ sealed trait DynamicValue {
 
   def toTypedValue[A](implicit schema: Schema[A]): Either[String, A] =
     toTypedValueLazyError.left.map(_.message)
-
   def toValue[A](implicit schema: Schema[A]): Either[DecodeError, A] = toTypedValueLazyError
 
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
-
   private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DecodeError, A] =
     (self, schema) match {
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
         Right(value.asInstanceOf[A])
-
       case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
         DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[DecodeError, A]]
-
       case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
         DynamicValue
           .decodeStructure(values, s.fields)
           .map(m => Chunk.fromIterable(m.values))
           .flatMap(values => s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
-
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
         s.caseOf(key) match {
           case Some(caseValue) =>
             value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
           case None => Left(DecodeError.MissingCase(key, s))
         }
-
       case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
         value.toTypedValueLazyError(schema1).map(Left(_))
-
       case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
         value.toTypedValueLazyError(schema1).map(Right(_))
-
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
         val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
         val typedRight = rightValue.toTypedValueLazyError(rightSchema)
@@ -64,7 +54,6 @@ sealed trait DynamicValue {
           case (Left(e), _)         => Left(e)
           case (Right(a), Right(b)) => Right(a -> b)
         }
-
       case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
         values
           .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
@@ -73,25 +62,20 @@ sealed trait DynamicValue {
               value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
           }
           .map(schema.fromChunk)
-
       case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
         values.foldLeft[Either[DecodeError, Set[t]]](Right[DecodeError, Set[t]](Set.empty)) {
           case (err @ Left(_), _) => err
           case (Right(values), value) =>
             value.toTypedValueLazyError(schema.elementSchema).map(values + _)
         }
-
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
         value.toTypedValueLazyError(schema).map(Some(_))
-
       case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
         Right(None)
-
       case (value, Schema.Transform(schema, f, _, _, _)) =>
         value
           .toTypedValueLazyError(schema)
           .flatMap(value => f(value).left.map(err => DecodeError.MalformedField(schema, err)))
-
       case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
         entries.foldLeft[Either[DecodeError, Map[k, v]]](Right[DecodeError, Map[k, v]](Map.empty)) {
           case (err @ Left(_), _) => err
@@ -102,49 +86,36 @@ sealed trait DynamicValue {
             } yield map ++ Map(key -> value)
           }
         }
-
       case (_, l @ Schema.Lazy(_)) =>
         toTypedValueLazyError(l.schema)
-
       case (DynamicValue.Error(message), _) =>
         Left(DecodeError.ReadError(Cause.empty, message))
-
       case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
         val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
         dyn.toTypedValueLazyError(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
-
       case (dyn, Schema.Dynamic(_)) => Right(dyn)
-
       case _ =>
         Left(DecodeError.CastError(self, schema))
     }
-
 }
 
 object DynamicValue {
-
   private object FromSchemaAndValue extends SimpleMutableSchemaBasedValueProcessor[DynamicValue] {
     override protected def processPrimitive(value: Any, typ: StandardType[Any]): DynamicValue =
       DynamicValue.Primitive(value, typ)
-
     override protected def processRecord(schema: Schema.Record[_], value: ListMap[String, DynamicValue]): DynamicValue =
       DynamicValue.Record(schema.id, value)
-
     override protected def processEnum(schema: Schema.Enum[_], tuple: (String, DynamicValue)): DynamicValue =
       DynamicValue.Enumeration(schema.id, tuple)
-
     override protected def processSequence(schema: Schema.Sequence[_, _, _], value: Chunk[DynamicValue]): DynamicValue =
       DynamicValue.Sequence(value)
-
     override protected def processDictionary(
       schema: Schema.Map[_, _],
       value: Chunk[(DynamicValue, DynamicValue)]
     ): DynamicValue =
       DynamicValue.Dictionary(value)
-
     override protected def processSet(schema: Schema.Set[_], value: Set[DynamicValue]): DynamicValue =
       DynamicValue.SetValue(value)
-
     override protected def processEither(
       schema: Schema.Either[_, _],
       value: Either[DynamicValue, DynamicValue]
@@ -153,7 +124,6 @@ object DynamicValue {
         case Left(value)  => DynamicValue.LeftValue(value)
         case Right(value) => DynamicValue.RightValue(value)
       }
-
     override protected def processFallback(
       schema: Schema.Fallback[_, _],
       value: Fallback[DynamicValue, DynamicValue]
@@ -163,27 +133,22 @@ object DynamicValue {
         case Fallback.Right(value)      => DynamicValue.RightValue(value)
         case Fallback.Both(left, right) => DynamicValue.BothValue(left, right)
       }
-
     override protected def processOption(schema: Schema.Optional[_], value: Option[DynamicValue]): DynamicValue =
       value match {
         case Some(value) => DynamicValue.SomeValue(value)
         case None        => DynamicValue.NoneValue
       }
-
     override protected def processTuple(
       schema: Schema.Tuple2[_, _],
       left: DynamicValue,
       right: DynamicValue
     ): DynamicValue =
       DynamicValue.Tuple(left, right)
-
     override protected def processDynamic(value: DynamicValue): Option[DynamicValue] =
       Some(value)
-
     override protected def fail(message: String): DynamicValue =
       DynamicValue.Error(message)
   }
-
   def apply[A](a: A)(implicit ev: Schema[A]): DynamicValue = ev.toDynamic(a)
 
   //scalafmt: { maxColumn = 400 }
@@ -207,38 +172,151 @@ object DynamicValue {
     }
   }
 
-  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
+  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = ("Record", id, values).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: Record => id == that.id && values == that.values
+        case _            => false
+      }
+  }
 
-  final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue
+  final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue {
+    override def hashCode(): Int = ("Enumeration", id, value).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: Enumeration => id == that.id && value == that.value
+        case _                 => false
+      }
+  }
 
-  final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
+  final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = ("Sequence", values).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: Sequence => values == that.values
+        case _              => false
+      }
+  }
 
-  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
+  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
+    override def hashCode(): Int = ("Dictionary", entries).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: Dictionary => entries == that.entries
+        case _                => false
+      }
+  }
 
-  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue
+  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue {
+    override def hashCode(): Int = values.hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: SetValue => values == that.values
+        case _              => false
+      }
+  }
 
-  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
+  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
+    override def hashCode(): Int = {
+      val v =
+        value match {
+          case bd: java.math.BigDecimal => bd.stripTrailingZeros()
+          case _                        => value
+        }
+      ("Primitive", v, standardType).hashCode()
+    }
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: Primitive[_] =>
+          if (standardType != that.standardType) false
+          else
+            (value, that.value) match {
+              case (bd1: java.math.BigDecimal, bd2: java.math.BigDecimal) =>
+                bd1.compareTo(bd2) == 0
+              case _ => value == that.value
+            }
+        case _ => false
+      }
+  }
 
-  sealed case class Singleton[A](instance: A) extends DynamicValue
+  sealed case class Singleton[A](instance: A) extends DynamicValue {
+    override def hashCode(): Int = ("Singleton", instance).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: Singleton[_] => instance == that.instance
+        case _                  => false
+      }
+  }
 
-  final case class SomeValue(value: DynamicValue) extends DynamicValue
+  final case class SomeValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = ("SomeValue", value).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: SomeValue => value == that.value
+        case _               => false
+      }
+  }
 
-  case object NoneValue extends DynamicValue
+  case object NoneValue extends DynamicValue {
+    override def hashCode(): Int             = "NoneValue".hashCode()
+    override def equals(other: Any): Boolean = other.isInstanceOf[NoneValue.type]
+  }
 
-  sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue
+  sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = ("Tuple", left, right).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: Tuple => left == that.left && right == that.right
+        case _           => false
+      }
+  }
 
-  final case class LeftValue(value: DynamicValue) extends DynamicValue
+  final case class LeftValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = ("LeftValue", value).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: LeftValue => value == that.value
+        case _               => false
+      }
+  }
 
-  final case class RightValue(value: DynamicValue) extends DynamicValue
+  final case class RightValue(value: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = ("RightValue", value).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: RightValue => value == that.value
+        case _                => false
+      }
+  }
 
-  final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue
+  final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue {
+    override def hashCode(): Int = ("BothValue", left, right).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: BothValue => left == that.left && right == that.right
+        case _               => false
+      }
+  }
 
-  final case class DynamicAst(ast: MetaSchema) extends DynamicValue
+  final case class DynamicAst(ast: MetaSchema) extends DynamicValue {
+    override def hashCode(): Int = ("DynamicAst", ast).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: DynamicAst => ast == that.ast
+        case _                => false
+      }
+  }
 
-  final case class Error(message: String) extends DynamicValue
-
+  final case class Error(message: String) extends DynamicValue {
+    override def hashCode(): Int = ("Error", message).hashCode()
+    override def equals(other: Any): Boolean =
+      other match {
+        case that: Error => message == that.message
+        case _           => false
+      }
+  }
   lazy val typeId: TypeId = TypeId.parse("zio.schema.DynamicValue")
-
   //TODO: Refactor case set so that adding a new type to StandardType without updating the below list will trigger a compile error
   lazy val schema: Schema[DynamicValue] =
     Schema.EnumN(
@@ -288,28 +366,20 @@ object DynamicValue {
         .:+:(primitiveCurrencyCase)
         .:+:(singletonCase)
     )
-
   implicit val instantStandardType: StandardType[Instant] =
     StandardType.InstantType
-
   implicit val localDateStandardType: StandardType[LocalDate] =
     StandardType.LocalDateType
-
   implicit val localTimeStandardType: StandardType[LocalTime] =
     StandardType.LocalTimeType
-
   implicit val localDateTimeStandardType: StandardType[LocalDateTime] =
     StandardType.LocalDateTimeType
-
   implicit val offsetTimeStandardType: StandardType[OffsetTime] =
     StandardType.OffsetTimeType
-
   implicit val offsetDateTimeStandardType: StandardType[OffsetDateTime] =
     StandardType.OffsetDateTimeType
-
   implicit val zonedDateTimeStandardType: StandardType[ZonedDateTime] =
     StandardType.ZonedDateTimeType
-
   private val errorCase: Schema.Case[DynamicValue, DynamicValue.Error] =
     Schema.Case(
       "Error",
@@ -327,7 +397,6 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       _.isInstanceOf[DynamicValue.Error]
     )
-
   private val noneValueCase: Schema.Case[DynamicValue, DynamicValue.NoneValue.type] =
     Schema.Case(
       "NoneValue",
@@ -337,7 +406,6 @@ object DynamicValue {
       _.isInstanceOf[DynamicValue.NoneValue.type],
       Chunk("case")
     )
-
   private val rightValueCase: Schema.Case[DynamicValue, DynamicValue.RightValue] =
     Schema.Case(
       "RightValue",
@@ -355,7 +423,6 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       _.isInstanceOf[DynamicValue.RightValue]
     )
-
   private val leftValueCase: Schema.Case[DynamicValue, DynamicValue.LeftValue] =
     Schema.Case(
       "LeftValue",
@@ -373,7 +440,6 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       _.isInstanceOf[DynamicValue.LeftValue]
     )
-
   private val tupleCase: Schema.Case[DynamicValue, DynamicValue.Tuple] =
     Schema.Case(
       "Tuple",
@@ -397,7 +463,6 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       _.isInstanceOf[DynamicValue.Tuple]
     )
-
   private val someValueCase: Schema.Case[DynamicValue, DynamicValue.SomeValue] =
     Schema.Case(
       "SomeValue",
@@ -416,7 +481,6 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       _.isInstanceOf[DynamicValue.SomeValue]
     )
-
   private val dictionaryCase: Schema.Case[DynamicValue, DynamicValue.Dictionary] =
     Schema.Case(
       "Dictionary",
@@ -434,7 +498,6 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       _.isInstanceOf[DynamicValue.Dictionary]
     )
-
   private val sequenceCase: Schema.Case[DynamicValue, DynamicValue.Sequence] =
     Schema.Case(
       "Sequence",
@@ -452,7 +515,6 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       _.isInstanceOf[DynamicValue.Sequence]
     )
-
   private val setCase: Schema.Case[DynamicValue, DynamicValue.SetValue] =
     Schema.Case(
       "SetValue",
@@ -470,7 +532,6 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       _.isInstanceOf[DynamicValue.SetValue]
     )
-
   private val enumerationCase: Schema.Case[DynamicValue, DynamicValue.Enumeration] =
     Schema.Case(
       "Enumeration",
@@ -494,7 +555,6 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       _.isInstanceOf[DynamicValue.Enumeration]
     )
-
   private val recordCase: Schema.Case[DynamicValue, DynamicValue.Record] =
     Schema.Case(
       "Record",
@@ -514,7 +574,6 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       _.isInstanceOf[DynamicValue.Record]
     )
-
   private val dynamicAstCase: Schema.Case[DynamicValue, DynamicValue.DynamicAst] =
     Schema.Case(
       "DynamicAst",
@@ -532,7 +591,6 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       _.isInstanceOf[DynamicValue.DynamicAst]
     )
-
   private val singletonCase: Schema.Case[DynamicValue, DynamicValue.Singleton[Any]] =
     Schema.Case(
       "Singleton",
@@ -541,13 +599,11 @@ object DynamicValue {
       _.asInstanceOf[DynamicValue],
       (d: DynamicValue) => d.isInstanceOf[DynamicValue.Singleton[_]]
     )
-
   private def hasStandardType(value: DynamicValue, standardType: StandardType[_]): Boolean =
     value match {
       case DynamicValue.Primitive(_, tpe) => tpe == standardType
       case _                              => false
     }
-
   private val primitiveUnitCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Unit]] =
     Schema.Case(
       "Unit",
@@ -560,7 +616,6 @@ object DynamicValue {
         case _                             => false
       }
     )
-
   private val primitiveStringCase: Schema.Case[DynamicValue, DynamicValue.Primitive[String]] =
     Schema.Case(
       "String",
@@ -573,7 +628,6 @@ object DynamicValue {
         case _                                    => false
       }
     )
-
   private val primitiveBooleanCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Boolean]] =
     Schema.Case(
       "Boolean",
@@ -586,7 +640,6 @@ object DynamicValue {
         case _                                     => false
       }
     )
-
   private val primitiveShortCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Short]] =
     Schema.Case(
       "Short",
@@ -599,7 +652,6 @@ object DynamicValue {
         case _                                   => false
       }
     )
-
   private val primitiveIntCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Int]] =
     Schema.Case(
       "Int",
@@ -610,7 +662,6 @@ object DynamicValue {
       (dv: DynamicValue.Primitive[Int]) => dv.asInstanceOf[DynamicValue],
       hasStandardType(_, StandardType.IntType)
     )
-
   private val primitiveLongCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Long]] =
     Schema.Case(
       "Long",
@@ -621,7 +672,6 @@ object DynamicValue {
       (dv: DynamicValue.Primitive[Long]) => dv.asInstanceOf[DynamicValue],
       hasStandardType(_, StandardType.LongType)
     )
-
   private val primitiveFloatCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Float]] =
     Schema.Case(
       "Float",
@@ -632,7 +682,6 @@ object DynamicValue {
       (dv: DynamicValue.Primitive[Float]) => dv.asInstanceOf[DynamicValue],
       hasStandardType(_, StandardType.FloatType)
     )
-
   private val primitiveDoubleCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Double]] =
     Schema.Case(
       "Double",
@@ -643,7 +692,6 @@ object DynamicValue {
       (dv: DynamicValue.Primitive[Double]) => dv.asInstanceOf[DynamicValue],
       hasStandardType(_, StandardType.DoubleType)
     )
-
   private val primitiveBinaryCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Chunk[Byte]]] =
     Schema.Case(
       "Binary",
@@ -656,7 +704,6 @@ object DynamicValue {
         case _                                      => false
       }
     )
-
   private val primitiveCharCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Char]] =
     Schema.Case(
       "Char",
@@ -669,7 +716,6 @@ object DynamicValue {
         case _                                  => false
       }
     )
-
   private val primitiveBigDecimalCase: Schema.Case[DynamicValue, DynamicValue.Primitive[BigDecimal]] =
     Schema.Case(
       "BigDecimal",
@@ -682,7 +728,6 @@ object DynamicValue {
         case _                                        => false
       }
     )
-
   private val primitiveBigIntegerCase: Schema.Case[DynamicValue, DynamicValue.Primitive[BigInteger]] =
     Schema.Case(
       "BigInteger",
@@ -695,7 +740,6 @@ object DynamicValue {
         case _                                        => false
       }
     )
-
   private val primitiveDayOfWeekCase: Schema.Case[DynamicValue, DynamicValue.Primitive[DayOfWeek]] =
     Schema.Case(
       "DayOfWeek",
@@ -708,7 +752,6 @@ object DynamicValue {
         case _                                       => false
       }
     )
-
   private val primitiveMonthCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Month]] =
     Schema.Case(
       "Month",
@@ -721,7 +764,6 @@ object DynamicValue {
         case _                                   => false
       }
     )
-
   private val primitiveMonthDayCase: Schema.Case[DynamicValue, DynamicValue.Primitive[MonthDay]] =
     Schema.Case(
       "MonthDay",
@@ -734,7 +776,6 @@ object DynamicValue {
         case _                                      => false
       }
     )
-
   private val primitivePeriodCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Period]] =
     Schema.Case(
       "Period",
@@ -747,7 +788,6 @@ object DynamicValue {
         case _                                    => false
       }
     )
-
   private val primitiveYearCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Year]] =
     Schema.Case(
       "Year",
@@ -760,7 +800,6 @@ object DynamicValue {
         case _                                  => false
       }
     )
-
   private val primitiveYearMonthCase: Schema.Case[DynamicValue, DynamicValue.Primitive[YearMonth]] =
     Schema.Case(
       "YearMonth",
@@ -773,7 +812,6 @@ object DynamicValue {
         case _                                       => false
       }
     )
-
   private val primitiveZoneIdCase: Schema.Case[DynamicValue, DynamicValue.Primitive[ZoneId]] =
     Schema.Case(
       "ZoneId",
@@ -786,7 +824,6 @@ object DynamicValue {
         case _                                    => false
       }
     )
-
   private val primitiveZoneOffsetCase: Schema.Case[DynamicValue, DynamicValue.Primitive[ZoneOffset]] =
     Schema.Case(
       "ZoneOffset",
@@ -799,7 +836,6 @@ object DynamicValue {
         case _                                        => false
       }
     )
-
   private val primitiveInstantCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Instant]] =
     Schema.Case(
       "Instant",
@@ -812,7 +848,6 @@ object DynamicValue {
         case _                                     => false
       }
     )
-
   private val primitiveDurationCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Duration]] =
     Schema.Case(
       "Duration",
@@ -825,7 +860,6 @@ object DynamicValue {
         case _                                      => false
       }
     )
-
   private val primitiveLocalDateCase: Schema.Case[DynamicValue, DynamicValue.Primitive[LocalDate]] =
     Schema.Case(
       "LocalDate",
@@ -838,7 +872,6 @@ object DynamicValue {
         case _                                       => false
       }
     )
-
   private val primitiveLocalTimeCase: Schema.Case[DynamicValue, DynamicValue.Primitive[LocalTime]] =
     Schema.Case(
       "LocalTime",
@@ -851,7 +884,6 @@ object DynamicValue {
         case _                                       => false
       }
     )
-
   private val primitiveLocalDateTimeCase: Schema.Case[DynamicValue, DynamicValue.Primitive[LocalDateTime]] =
     Schema.Case(
       "LocalDateTime",
@@ -866,7 +898,6 @@ object DynamicValue {
         case _                                           => false
       }
     )
-
   private val primitiveOffsetTimeCase: Schema.Case[DynamicValue, DynamicValue.Primitive[OffsetTime]] =
     Schema.Case(
       "OffsetTime",
@@ -879,7 +910,6 @@ object DynamicValue {
         case _                                        => false
       }
     )
-
   private val primitiveOffsetDateTimeCase: Schema.Case[DynamicValue, DynamicValue.Primitive[OffsetDateTime]] =
     Schema.Case(
       "OffsetDateTime",
@@ -895,7 +925,6 @@ object DynamicValue {
         case _                                            => false
       }
     )
-
   private val primitiveZonedDateTimeCase: Schema.Case[DynamicValue, DynamicValue.Primitive[ZonedDateTime]] =
     Schema.Case(
       "ZonedDateTime",
@@ -910,7 +939,6 @@ object DynamicValue {
         case _                                           => false
       }
     )
-
   private val primitiveUUIDCase: Schema.Case[DynamicValue, DynamicValue.Primitive[UUID]] =
     Schema.Case(
       "UUID",
@@ -923,7 +951,6 @@ object DynamicValue {
         case _                                  => false
       }
     )
-
   private val primitiveCurrencyCase: Schema.Case[DynamicValue, DynamicValue.Primitive[java.util.Currency]] =
     Schema.Case(
       "Currency",
