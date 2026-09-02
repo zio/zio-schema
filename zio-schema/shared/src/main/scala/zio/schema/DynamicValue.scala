@@ -1,11 +1,11 @@
 package zio.schema
 
+import zio.schema.DynamicValue.Constructor
+
 import java.math.{ BigDecimal, BigInteger }
 import java.time._
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
-
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
 import zio.{ Cause, Chunk, Unsafe }
@@ -21,6 +21,31 @@ sealed trait DynamicValue {
 
   def toTypedValue[A](implicit schema: Schema[A]): Either[String, A] =
     toTypedValueLazyError.left.map(_.message)
+
+  def toTypedValue[A](
+    registry: PartialFunction[TypeId, Constructor[_]]
+  )(implicit schema: Schema[_]): Either[DecodeError, A] =
+    (self, schema) match {
+      case (DynamicValue.Record(typeId, values), Schema.GenericRecord(schemaTypeId, structure, _))
+          if typeId == schemaTypeId =>
+        registry.lift.apply(typeId) match {
+          case None => Left(DecodeError.UnsupportedSchema(schema, "dec"))
+          case Some(constructor) =>
+            DynamicValue
+              .decodeStructure(values, structure.toChunk)
+              .map(m => Chunk.fromIterable(m.values))
+              .flatMap { values =>
+                constructor
+                  .fromFieldValues(values)(Unsafe.unsafe)
+                  .map(_.asInstanceOf[A])
+                  .left
+                  .map(err => DecodeError.MalformedField(schema, err))
+              }
+        }
+
+      case _ =>
+        Left(DecodeError.CastError(self, schema))
+    }
 
   def toValue[A](implicit schema: Schema[A]): Either[DecodeError, A] = toTypedValueLazyError
 
@@ -122,6 +147,20 @@ sealed trait DynamicValue {
 }
 
 object DynamicValue {
+
+  sealed trait Constructor[A] {
+    def fromFieldValues(fields: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, A]
+  }
+
+  object Constructor {
+
+    def apply[A](f: (Chunk[Any], Unsafe) => Either[String, A]): Constructor[A] =
+      new Constructor[A] {
+
+        def fromFieldValues(fields: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, A] =
+          f(fields, unsafe)
+      }
+  }
 
   private object FromSchemaAndValue extends SimpleMutableSchemaBasedValueProcessor[DynamicValue] {
     override protected def processPrimitive(value: Any, typ: StandardType[Any]): DynamicValue =
