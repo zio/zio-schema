@@ -22,7 +22,7 @@
     </dependency>
   </dependencies>
   <properties>
-    <scala.version>2.13.18</scala.version>
+    <scala.version>3.9.0</scala.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 </project>
