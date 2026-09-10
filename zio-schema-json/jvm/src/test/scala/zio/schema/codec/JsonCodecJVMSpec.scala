@@ -6,11 +6,11 @@ import zio.json.JsonStreamDelimiter
 import zio.schema.Schema
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.schema.codec.JsonCodecSpec.AllOptionalFields
-import zio.stream.{ ZPipeline, ZStream }
-import zio.test.Assertion.{ equalTo, isRight }
+import zio.stream.{ZPipeline, ZStream}
+import zio.test.Assertion.{equalTo, isRight}
 import zio.test.TestAspect.timeout
-import zio.test.{ Gen, Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertZIO, check }
-import zio.{ Chunk, durationInt }
+import zio.test.{Gen, Spec, TestAspect, TestEnvironment, ZIOSpecDefault, assertZIO, check}
+import zio.{Chunk, durationInt}
 
 object JsonCodecJVMSpec extends ZIOSpecDefault {
 
@@ -40,23 +40,22 @@ object JsonCodecJVMSpec extends ZIOSpecDefault {
         val delimiter = Gen.elements(JsonStreamDelimiter.Array, JsonStreamDelimiter.Newline)
         val codec     = JsonCodec.jsonEncoder(AllOptionalFields.schema)
 
-        check(Gen.chunkOfBounded(0, 3)(person), delimiter) {
-          (people, delim) =>
-            val indent        = if (delim == JsonStreamDelimiter.Array) Some(1) else None
-            val encodedPeople = people.map(p => codec.encodeJson(p, indent))
-            val encoded = delim match {
-              case JsonStreamDelimiter.Array =>
-                encodedPeople.mkString("[", ",", "]")
-              case JsonStreamDelimiter.Newline =>
-                encodedPeople.mkString("", "\n", "\n")
-            }
+        check(Gen.chunkOfBounded(0, 3)(person), delimiter) { (people, delim) =>
+          val indent        = if (delim == JsonStreamDelimiter.Array) Some(1) else None
+          val encodedPeople = people.map(p => codec.encodeJson(p, indent))
+          val encoded       = delim match {
+            case JsonStreamDelimiter.Array =>
+              encodedPeople.mkString("[", ",", "]")
+            case JsonStreamDelimiter.Newline =>
+              encodedPeople.mkString("", "\n", "\n")
+          }
 
-            assertDecodesJsonStream(
-              AllOptionalFields.schema,
-              people,
-              charSequenceToByteChunk(encoded),
-              delim
-            )
+          assertDecodesJsonStream(
+            AllOptionalFields.schema,
+            people,
+            charSequenceToByteChunk(encoded),
+            delim
+          )
         }
       }
     )

@@ -82,7 +82,7 @@ object XmlReader {
       for {
         name  <- parseName()
         attrs <- parseAttributes()
-        elem <- {
+        elem  <- {
           skipWhitespace()
           if (startsWith("/>")) {
             advance(); advance()
@@ -120,15 +120,15 @@ object XmlReader {
         if (count >= config.maxAttributes)
           return Left(error(s"Maximum attributes ${config.maxAttributes} exceeded"))
         parseName() match {
-          case Left(e) => return Left(e)
+          case Left(e)         => return Left(e)
           case Right(attrName) =>
             skipWhitespace()
             consume("=") match {
-              case Left(e) => return Left(e)
+              case Left(e)  => return Left(e)
               case Right(_) =>
                 skipWhitespace()
                 parseAttributeValue() match {
-                  case Left(e) => return Left(e)
+                  case Left(e)  => return Left(e)
                   case Right(v) =>
                     builder += ((attrName, v))
                     count += 1
@@ -151,7 +151,8 @@ object XmlReader {
           parseEntityReference() match {
             case Left(e)  => return Left(e)
             case Right(c) => sb.append(c)
-          } else
+          }
+        else
           sb.append(advance())
       }
       if (isEof) return Left(error("Unterminated attribute value"))
@@ -167,22 +168,25 @@ object XmlReader {
             parseCData() match {
               case Left(e)  => return Left(e)
               case Right(n) => builder += n
-            } else if (startsWith("<!--"))
+            }
+          else if (startsWith("<!--"))
             parseComment() match {
               case Left(e)  => return Left(e)
               case Right(n) => builder += n
-            } else if (startsWith("<?"))
+            }
+          else if (startsWith("<?"))
             parseProcessingInstruction() match {
               case Left(e)  => return Left(e)
               case Right(n) => builder += n
-            } else
+            }
+          else
             parseElement(depth + 1) match {
               case Left(e)  => return Left(e)
               case Right(n) => builder += n
             }
         } else {
           parseText() match {
-            case Left(e) => return Left(e)
+            case Left(e)  => return Left(e)
             case Right(t) =>
               t match {
                 case Xml.Text(v) if !config.preserveWhitespace && v.trim.isEmpty => ()
@@ -193,10 +197,10 @@ object XmlReader {
       }
       if (isEof) return Left(error(s"Unterminated element '${parentName.qualifiedName}'"))
       consume("</") match {
-        case Left(e) => return Left(e)
+        case Left(e)  => return Left(e)
         case Right(_) =>
           parseName() match {
-            case Left(e) => return Left(e)
+            case Left(e)          => return Left(e)
             case Right(closeName) =>
               if (closeName.qualifiedName != parentName.qualifiedName)
                 return Left(
@@ -223,7 +227,8 @@ object XmlReader {
           parseEntityReference() match {
             case Left(e)  => return Left(e)
             case Right(c) => sb.append(c)
-          } else
+          }
+        else
           sb.append(advance())
       }
       Right(Xml.Text(sb.toString))

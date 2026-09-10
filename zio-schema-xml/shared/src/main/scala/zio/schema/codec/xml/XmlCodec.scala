@@ -2,7 +2,7 @@ package zio.schema.codec.xml
 
 import java.nio.charset.StandardCharsets
 import java.time._
-import java.util.{ Base64, UUID }
+import java.util.{Base64, UUID}
 
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
@@ -11,7 +11,7 @@ import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec._
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk }
+import zio.{Cause, Chunk}
 
 object XmlCodec {
 
@@ -95,16 +95,16 @@ object XmlCodec {
           }
 
         case Schema.Either(leftSchema, rightSchema, _) =>
-          val either = value.asInstanceOf[scala.util.Either[Any, Any]]
+          val either  = value.asInstanceOf[scala.util.Either[Any, Any]]
           val wrapped = either match {
-            case scala.util.Left(l) => wrapElement("Left", encodeSchema(leftSchema.asInstanceOf[Schema[Any]], l, None))
+            case scala.util.Left(l)  => wrapElement("Left", encodeSchema(leftSchema.asInstanceOf[Schema[Any]], l, None))
             case scala.util.Right(r) =>
               wrapElement("Right", encodeSchema(rightSchema.asInstanceOf[Schema[Any]], r, None))
           }
           fieldName.fold(wrapped)(n => wrapElement(n, wrapped))
 
         case Schema.Tuple2(leftSchema, rightSchema, _) =>
-          val (a, b) = value.asInstanceOf[(Any, Any)]
+          val (a, b)   = value.asInstanceOf[(Any, Any)]
           val children = Chunk(
             wrapElement("_1", encodeSchema(leftSchema.asInstanceOf[Schema[Any]], a, None)),
             wrapElement("_2", encodeSchema(rightSchema.asInstanceOf[Schema[Any]], b, None))
@@ -112,7 +112,7 @@ object XmlCodec {
           Xml.Element(XmlName(fieldName.getOrElse("tuple")), Chunk.empty, children)
 
         case Schema.Fallback(leftSchema, rightSchema, _, _) =>
-          val fb = value.asInstanceOf[Fallback[Any, Any]]
+          val fb    = value.asInstanceOf[Fallback[Any, Any]]
           val inner = fb match {
             case Fallback.Left(l) =>
               wrapElement("Left", encodeSchema(leftSchema.asInstanceOf[Schema[Any]], l, None))
@@ -144,14 +144,14 @@ object XmlCodec {
       }
 
     private def encodeRecord[A](record: Schema.Record[A], value: A, fieldName: Option[String]): Xml = {
-      val recordNs = record.annotations.collectFirst { case ns: xmlNamespace => ns }
-      val baseName = fieldName.getOrElse(recordName(record))
+      val recordNs    = record.annotations.collectFirst { case ns: xmlNamespace => ns }
+      val baseName    = fieldName.getOrElse(recordName(record))
       val elementName = recordNs match {
         case Some(ns) => XmlName(baseName, ns.prefix, Some(ns.uri))
         case None     => XmlName(baseName)
       }
       var attributes = Chunk.empty[(XmlName, String)]
-      val children = record.nonTransientFields.flatMap { field =>
+      val children   = record.nonTransientFields.flatMap { field =>
         val fName       = field.fieldName
         val fValue      = field.get(value)
         val isAttribute = field.annotations.collectFirst { case _: xmlAttribute => () }.isDefined
@@ -233,11 +233,10 @@ object XmlCodec {
       entries: Chunk[(K, V)],
       fieldName: Option[String]
     ): Xml = {
-      val children = entries.map {
-        case (k, v) =>
-          val keyXml   = encodeSchema(keySchema, k, Some("key"))
-          val valueXml = encodeSchema(valueSchema, v, Some("value"))
-          Xml.Element(XmlName("entry"), Chunk.empty, Chunk(keyXml, valueXml))
+      val children = entries.map { case (k, v) =>
+        val keyXml   = encodeSchema(keySchema, k, Some("key"))
+        val valueXml = encodeSchema(valueSchema, v, Some("value"))
+        Xml.Element(XmlName("entry"), Chunk.empty, Chunk(keyXml, valueXml))
       }
       Xml.Element(XmlName(fieldName.getOrElse("map")), Chunk.empty, children)
     }
@@ -248,9 +247,8 @@ object XmlCodec {
           val text = encodePrimitive(st.asInstanceOf[StandardType[Any]], v)
           Xml.Text(text)
         case DynamicValue.Record(_, values) =>
-          val children = values.toList.map {
-            case (k, v) =>
-              wrapElement(k, encodeDynamic(v, None))
+          val children = values.toList.map { case (k, v) =>
+            wrapElement(k, encodeDynamic(v, None))
           }
           Xml.Element(XmlName("record"), Chunk.empty, Chunk.fromIterable(children))
         case DynamicValue.Enumeration(_, (caseName0, v)) =>
@@ -259,13 +257,12 @@ object XmlCodec {
           val children = values.map(v => wrapElement("item", encodeDynamic(v, None)))
           Xml.Element(XmlName("sequence"), Chunk.empty, children)
         case DynamicValue.Dictionary(entries) =>
-          val children = entries.map {
-            case (k, v) =>
-              Xml.Element(
-                XmlName("entry"),
-                Chunk.empty,
-                Chunk(wrapElement("key", encodeDynamic(k, None)), wrapElement("value", encodeDynamic(v, None)))
-              )
+          val children = entries.map { case (k, v) =>
+            Xml.Element(
+              XmlName("entry"),
+              Chunk.empty,
+              Chunk(wrapElement("key", encodeDynamic(k, None)), wrapElement("value", encodeDynamic(v, None)))
+            )
           }
           Xml.Element(XmlName("dictionary"), Chunk.empty, children)
         case DynamicValue.SetValue(values) =>
@@ -434,7 +431,7 @@ object XmlCodec {
         case Schema.Transform(innerSchema, f, _, _, _) =>
           decodeSchema(innerSchema, xml).flatMap { a =>
             f(a) match {
-              case scala.util.Right(b) => Right(b.asInstanceOf[A])
+              case scala.util.Right(b)  => Right(b.asInstanceOf[A])
               case scala.util.Left(err) =>
                 Left(DecodeError.ReadError(Cause.empty, s"Transform failed: $err"))
             }
@@ -465,7 +462,7 @@ object XmlCodec {
         if (field.transient) {
           field.defaultValue match {
             case Some(dv) => fieldValues(i) = dv
-            case None =>
+            case None     =>
               field.schema.defaultValue match {
                 case scala.util.Right(dv) => fieldValues(i) = dv
                 case scala.util.Left(err) =>
@@ -488,13 +485,13 @@ object XmlCodec {
                 if (field.optional) {
                   field.defaultValue match {
                     case Some(dv) => fieldValues(i) = dv
-                    case None =>
+                    case None     =>
                       field.schema match {
                         case _: Schema.Optional[_] => fieldValues(i) = None
-                        case _ =>
+                        case _                     =>
                           field.schema.defaultValue match {
                             case scala.util.Right(dv) => fieldValues(i) = dv
-                            case scala.util.Left(_) =>
+                            case scala.util.Left(_)   =>
                               return Left(DecodeError.MissingField(field.schema, s"Missing attribute: '$fName'"))
                           }
                       }
@@ -502,7 +499,7 @@ object XmlCodec {
                 } else {
                   field.schema match {
                     case _: Schema.Optional[_] => fieldValues(i) = None
-                    case _ =>
+                    case _                     =>
                       return Left(DecodeError.MissingField(field.schema, s"Missing required attribute: '$fName'"))
                   }
                 }
@@ -526,13 +523,13 @@ object XmlCodec {
                 if (field.optional) {
                   field.defaultValue match {
                     case Some(dv) => fieldValues(i) = dv
-                    case None =>
+                    case None     =>
                       field.schema match {
                         case _: Schema.Optional[_] => fieldValues(i) = None
-                        case _ =>
+                        case _                     =>
                           field.schema.defaultValue match {
                             case scala.util.Right(dv) => fieldValues(i) = dv
-                            case scala.util.Left(_) =>
+                            case scala.util.Left(_)   =>
                               return Left(DecodeError.MissingField(field.schema, s"Missing field: '$fName'"))
                           }
                       }
@@ -540,7 +537,7 @@ object XmlCodec {
                 } else {
                   field.schema match {
                     case _: Schema.Optional[_] => fieldValues(i) = None
-                    case _ =>
+                    case _                     =>
                       return Left(DecodeError.MissingField(field.schema, s"Missing required field: '$fName'"))
                   }
                 }
@@ -567,7 +564,7 @@ object XmlCodec {
         findCaseByName(enumSchema, text) match {
           case Some(c) =>
             constructCaseDefault(c) match {
-              case Right(v) => Right(v)
+              case Right(v)  => Right(v)
               case Left(err) =>
                 Left(DecodeError.ReadError(Cause.empty, s"Cannot construct simple enum case '$text': ${err.message}"))
             }
@@ -662,8 +659,8 @@ object XmlCodec {
           var acc     = Chunk.empty[(K, V)]
           val it      = entries.iterator
           while (it.hasNext) {
-            val entry    = it.next()
-            val childMap = groupChildrenByName(entry.children)
+            val entry     = it.next()
+            val childMap  = groupChildrenByName(entry.children)
             val keyResult = childMap.get("key") match {
               case Some(k) => decodeSchema(keySchema, k)
               case None    => Left(DecodeError.MissingField(keySchema, "Missing 'key' in map entry"))
@@ -718,13 +715,13 @@ object XmlCodec {
           val childMap = groupChildrenByName(element.children)
           for {
             a <- childMap.get("_1") match {
-                  case Some(x) => decodeSchema(leftSchema, x)
-                  case None    => Left(DecodeError.MissingField(leftSchema, "Missing '_1' in tuple"))
-                }
+                   case Some(x) => decodeSchema(leftSchema, x)
+                   case None    => Left(DecodeError.MissingField(leftSchema, "Missing '_1' in tuple"))
+                 }
             b <- childMap.get("_2") match {
-                  case Some(x) => decodeSchema(rightSchema, x)
-                  case None    => Left(DecodeError.MissingField(rightSchema, "Missing '_2' in tuple"))
-                }
+                   case Some(x) => decodeSchema(rightSchema, x)
+                   case None    => Left(DecodeError.MissingField(rightSchema, "Missing '_2' in tuple"))
+                 }
           } yield (a, b)
         case _ =>
           Left(DecodeError.ReadError(Cause.empty, "Expected element for Tuple"))
@@ -746,13 +743,13 @@ object XmlCodec {
                   val bothChildren = groupChildrenByName(child.children)
                   for {
                     l <- bothChildren.get("Left") match {
-                          case Some(x) => decodeSchema(leftSchema, x)
-                          case None    => Left(DecodeError.MissingField(leftSchema, "Missing 'Left' in Both"))
-                        }
+                           case Some(x) => decodeSchema(leftSchema, x)
+                           case None    => Left(DecodeError.MissingField(leftSchema, "Missing 'Left' in Both"))
+                         }
                     r <- bothChildren.get("Right") match {
-                          case Some(x) => decodeSchema(rightSchema, x)
-                          case None    => Left(DecodeError.MissingField(rightSchema, "Missing 'Right' in Both"))
-                        }
+                           case Some(x) => decodeSchema(rightSchema, x)
+                           case None    => Left(DecodeError.MissingField(rightSchema, "Missing 'Right' in Both"))
+                         }
                   } yield Fallback.Both(l, r)
                 case "Left" =>
                   decodeSchema(leftSchema, child).map(Fallback.Left(_))
@@ -762,7 +759,7 @@ object XmlCodec {
                   val bothChildren = groupChildrenByName(child.children)
                   bothChildren.get("Left") match {
                     case Some(x) => decodeSchema(leftSchema, x).map(Fallback.Left(_))
-                    case None =>
+                    case None    =>
                       bothChildren.get("Right") match {
                         case Some(x) => decodeSchema(rightSchema, x).map(Fallback.Right(_))
                         case None    => Left(DecodeError.ReadError(Cause.empty, "Both element has no Left or Right child"))
@@ -791,9 +788,8 @@ object XmlCodec {
           else if (children.size == 1 && children.head.isInstanceOf[Xml.Text])
             Right(DynamicValue.Primitive(children.head.asInstanceOf[Xml.Text].value, StandardType.StringType))
           else {
-            val pairs = children.collect {
-              case e: Xml.Element =>
-                decodeDynamic(e).map(v => e.name.localName -> v)
+            val pairs = children.collect { case e: Xml.Element =>
+              decodeDynamic(e).map(v => e.name.localName -> v)
             }
             var result = ListMap.empty[String, DynamicValue]
             val it     = pairs.iterator
@@ -895,8 +891,8 @@ object XmlCodec {
 
     private def extractText(xml: Xml): String =
       xml match {
-        case Xml.Text(v)  => v
-        case Xml.CData(v) => v
+        case Xml.Text(v)                 => v
+        case Xml.CData(v)                => v
         case Xml.Element(_, _, children) =>
           children.collect {
             case Xml.Text(v)  => v
@@ -943,7 +939,7 @@ object XmlCodec {
         case Schema.Transform(innerSchema, f, _, _, _) =>
           decodePrimitiveField(innerSchema, text).flatMap { a =>
             f(a) match {
-              case scala.util.Right(b) => Right(b.asInstanceOf[A])
+              case scala.util.Right(b)  => Right(b.asInstanceOf[A])
               case scala.util.Left(err) =>
                 Left(DecodeError.ReadError(Cause.empty, s"Transform failed: $err"))
             }

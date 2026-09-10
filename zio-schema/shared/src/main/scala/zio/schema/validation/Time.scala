@@ -6,36 +6,21 @@ import scala.collection.mutable
 trait Time {
 
   /**
-   * Format is almost the same as the one used by the java.time.format.DateTimeFormatter class.
+   * Format is almost the same as the one used by the
+   * java.time.format.DateTimeFormatter class.
    *
-   *  a           AM/PM always 2 letters
-   *  h           1-12 hour 1 or 2 digits
-   *  hh          01-12 hour always 2 digits
-   *  H           0-23 hour 1 or 2 digits
-   *  HH          00-23 hour always 2 digits
-   *  m           0-59 minute 1 or 2 digits
-   *  mm          00-59 minute always 2 digits
-   *  s           0-59 second 1 or 2 digits
-   *  ss          00-59 second always 2 digits
+   * a AM/PM always 2 letters h 1-12 hour 1 or 2 digits hh 01-12 hour always 2
+   * digits H 0-23 hour 1 or 2 digits HH 00-23 hour always 2 digits m 0-59
+   * minute 1 or 2 digits mm 00-59 minute always 2 digits s 0-59 second 1 or 2
+   * digits ss 00-59 second always 2 digits
    *
-   *  S           0-9 fraction of seconds 1 digits
-   *  ..
-   *  SSSSSSSSS   000000000-999999999 maximum number of digits is 9
+   * S 0-9 fraction of seconds 1 digits .. SSSSSSSSS 000000000-999999999 maximum
+   * number of digits is 9
    *
    * All other letters are reserved.
    *
-   * Examples:
-   * HH:mm
-   * 01:10
-   * HH:mm:ss
-   * 11:10:30
-   * HH:mm:ss.SSSSSSSSS
-   * 21:10:30.123456789
-   * HH:mm a
-   * 01:10 AM
-   * h:mm:ss
-   * 1:10:30
-   *
+   * Examples: HH:mm 01:10 HH:mm:ss 11:10:30 HH:mm:ss.SSSSSSSSS
+   * 21:10:30.123456789 HH:mm a 01:10 AM h:mm:ss 1:10:30
    */
   def time(format: String): Validation[String] = {
     val regex = parseFormat(format)
@@ -84,7 +69,7 @@ trait Time {
       val cur = format.charAt(pos)
 
       field match {
-        case None => setField(cur)
+        case None                                                 => setField(cur)
         case Some(f @ TimeField(letter, _, _)) if (letter != cur) =>
           result += f
           setField(cur)
@@ -142,7 +127,7 @@ trait Time {
     case TimeField('m', 2, _) | TimeField('s', 2, _) => from00to59
     case TimeField('S', length, _)                   => Regex.digit.between(length, length)
     case TimeField('a', _, _)                        => Regex.oneOf('A', 'P').between(1, 1) ~ Regex.oneOf('M').between(1, 1)
-    case TimeField(_, _, _) =>
+    case TimeField(_, _, _)                          =>
       throw new IllegalArgumentException(s"Something went terribly wrong. This is a bug. Please report it.")
     case Literal(l) => l.map(c => Regex.oneOf(c)).reduce(_ ~ _)
   }

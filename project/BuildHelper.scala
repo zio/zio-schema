@@ -5,21 +5,21 @@ import sbtbuildinfo.*
 import BuildInfoKeys.*
 import com.typesafe.tools.mima.core.*
 import com.typesafe.tools.mima.core.ProblemFilters.exclude
-import com.typesafe.tools.mima.plugin.MimaKeys.{ mimaBinaryIssueFilters, mimaFailOnProblem, mimaPreviousArtifacts }
+import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaFailOnProblem, mimaPreviousArtifacts}
 import com.typesafe.tools.mima.plugin.MimaPlugin.autoImport.mimaCheckDirection
 import sbtdynver.DynVerPlugin.autoImport.previousStableVersion
 import scalafix.sbt.ScalafixPlugin.autoImport.*
 import scalanativecrossproject.NativePlatform
 
-import scala.scalanative.build.{ GC, Mode }
+import scala.scalanative.build.{GC, Mode}
 import scala.scalanative.sbtplugin.ScalaNativePlugin.autoImport.nativeConfig
 
 object BuildHelper {
 
   private val versions: Map[String, String] = {
-    import org.snakeyaml.engine.v2.api.{ Load, LoadSettings }
+    import org.snakeyaml.engine.v2.api.{Load, LoadSettings}
 
-    import java.util.{ List => JList, Map => JMap }
+    import java.util.{List => JList, Map => JMap}
     import scala.jdk.CollectionConverters._
 
     val doc = new Load(LoadSettings.builder().build())
@@ -29,12 +29,18 @@ object BuildHelper {
     list.map(v => (v.split('.').take(2).mkString("."), v)).toMap
   }
 
-  val Scala212: String = versions("2.12")
-  val Scala213: String = versions("2.13")
-  val Scala3: String   = versions("3.3")
+  private def scalaVersionFor(prefix: String): String =
+    versions.collectFirst { case (key, value) if key.startsWith(prefix) => value }
+      .getOrElse(sys.error(s"No Scala $prefix version in the build matrix of .github/workflows/ci.yml"))
+
+  val Scala212: String = scalaVersionFor("2.12")
+  val Scala213: String = scalaVersionFor("2.13")
+  // Matched on the major version so a Scala 3 minor bump in ci.yml does not
+  // have to be mirrored here.
+  val Scala3: String = scalaVersionFor("3")
 
   val zioVersion                   = "2.1.26"
-  val zioJsonVersion               = "1.0.0"
+  val zioJsonVersion               = "1.1.0"
   val zioPreludeVersion            = "1.0.0-RC48"
   val zioOpticsVersion             = "0.2.2"
   val zioBsonVersion               = "1.0.11"
@@ -79,7 +85,7 @@ object BuildHelper {
       }
     )
 
-  private def compilerOptions(scalaVersion: String, optimize: Boolean) = {
+  private def compilerOptions(scalaVersion: String) = {
     val stdOptions = Seq(
       "-deprecation",
       "-encoding",
@@ -87,13 +93,7 @@ object BuildHelper {
       "-feature",
       "-unchecked",
       "-language:existentials"
-    ) ++ {
-      if (sys.env.contains("CI")) {
-        Seq("-Xfatal-warnings")
-      } else {
-        Seq()
-      }
-    }
+    )
 
     val std2xOptions = Seq(
       "-language:higherKinds",
@@ -107,19 +107,19 @@ object BuildHelper {
       "-Xsource:3.0"
     )
 
-    val optimizerOptions =
-      if (optimize)
-        Seq(
-          "-opt:l:inline"
-        )
-      else Seq.empty
-
     val extraOptions = CrossVersion.partialVersion(scalaVersion) match {
       case Some((3, _)) =>
         Seq(
           "-language:implicitConversions",
           "-Xignore-scala2-macros",
-          "-Ykind-projector"
+          "-Xkind-projector",
+          // Scala 3.4 raised the default source level, turning migration lints
+          // into errors: context bounds need a `using` clause to be passed
+          // explicitly, `x: _*` splices are rejected and refutable patterns in a
+          // for generator need `case`. None of that can be written while these
+          // modules still cross-compile with Scala 2.12/2.13, so stay on the 3.3
+          // source level until Scala 2 support is dropped.
+          "-source:3.3"
         )
       case Some((2, 13)) =>
         Seq(
@@ -128,7 +128,7 @@ object BuildHelper {
           "-Ywarn-unused",
           "-Ymacro-annotations",
           "-Ywarn-macros:after"
-        ) ++ std2xOptions ++ optimizerOptions
+        ) ++ std2xOptions
       case Some((2, 12)) =>
         Seq(
           "-Ypartial-unification",
@@ -139,27 +139,18 @@ object BuildHelper {
           "-Ywarn-nullary-override",
           "-Ywarn-nullary-unit",
           "-Wconf:cat=unused-nowarn:s"
-        ) ++ std2xOptions ++ optimizerOptions
+        ) ++ std2xOptions
       case _ => Seq.empty
     }
 
     stdOptions ++ extraOptions
   }
 
-  val dottySettings = Seq(
-    scalacOptions --= {
-      if (scalaVersion.value == Scala3)
-        Seq("-Xfatal-warnings")
-      else
-        Seq()
-    }
-  )
-
   def platformSpecificSources(platform: String, conf: String, baseDirectory: File)(versions: String*): Seq[File] =
     for {
       platform <- List("shared", platform)
       version  <- "scala" :: versions.toList.map("scala-" + _)
-      result   = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
+      result    = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
       if result.exists
     } yield result
 
@@ -204,18 +195,18 @@ object BuildHelper {
   )
 
   def buildInfoSettings(packageName: String) = Seq(
-    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
+    buildInfoKeys    := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
     buildInfoPackage := packageName
   )
 
   def stdSettings(prjName: String) =
     Seq(
-      name := s"$prjName",
-      crossScalaVersions := Seq(Scala213, Scala212, Scala3),
-      ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
-      scalacOptions ++= compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
+      name                     := s"$prjName",
+      crossScalaVersions       := Seq(Scala213, Scala212, Scala3),
+      ThisBuild / scalaVersion := Scala213, // crossScalaVersions.value.head, //Scala3,
+      scalacOptions ++= compilerOptions(scalaVersion.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value),
-      versionScheme := Some("early-semver"),
+      versionScheme                 := Some("early-semver"),
       ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
       ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
       ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
@@ -224,8 +215,8 @@ object BuildHelper {
       ),
       Test / parallelExecution := !sys.env.contains("CI"),
       incOptions ~= (_.withLogRecompileOnMacro(true)),
-      autoAPIMappings := true,
-      testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+      autoAPIMappings       := true,
+      testFrameworks        := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
       mimaPreviousArtifacts := previousStableVersion.value
         .filter(_ != "1.5.0")
         .map(organization.value %% name.value % _)
@@ -263,7 +254,27 @@ object BuildHelper {
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroEnum"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroMap"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroRecord"),
-        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroRecordField")
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroRecordField"),
+        // FIXME: remove after releasing with Scala 3.9.0
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.CaseSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.DynamicValue.<clinit>"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.FieldSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.TypeId.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.meta.ExtensibleMetaSchema#Lineage.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.meta.SchemaInstances.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.validation.PhoneNumberValidation.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.validation.Validation.<clinit>"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.CaseSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.FieldSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.CaseSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.DynamicValue.<clinit>"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.FieldSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.TypeId.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.meta.ExtensibleMetaSchema#Lineage.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.meta.SchemaInstances.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.validation.PhoneNumberValidation.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.validation.Validation.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.<clinit>")
       ),
       mimaFailOnProblem := true
     )

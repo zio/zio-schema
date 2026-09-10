@@ -73,7 +73,7 @@ object Derive {
       }
 
     def knownSubclassesOf(appliedTypeArgs: Map[String, Type], tpe: Type): List[Type] = {
-      val parent = tpe.typeSymbol.asClass
+      val parent                = tpe.typeSymbol.asClass
       val sortedKnownSubclasses =
         parent.knownDirectSubclasses.toList.sortBy(subclass => (subclass.pos.line, subclass.pos.column))
 
@@ -146,16 +146,15 @@ object Derive {
               }
             }
 
-            val instances = tpes.zip(schemas).map {
-              case (t, schema) =>
-                recurse(concreteType(tpe, t), schema, stack, top = false)
+            val instances = tpes.zip(schemas).map { case (t, schema) =>
+              recurse(concreteType(tpe, t), schema, stack, top = false)
             }
 
             val flatTupleType   = tpe
             val nestedTupleType = tpes.tail.foldLeft(q"${tpes.head}") { case (xs, x) => tq"($xs, $x)" }
 
-            val pairs = schemas.zip(instances).map {
-              case (schema, instance) => q"($schema, _root_.zio.schema.Deriver.wrap($instance))"
+            val pairs = schemas.zip(instances).map { case (schema, instance) =>
+              q"($schema, _root_.zio.schema.Deriver.wrap($instance))"
             }
 
             q"""{
@@ -184,9 +183,9 @@ object Derive {
             val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack, top = false)
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Sequence[${appliedType(
-              listTpe,
-              innerTpe
-            )}, $innerTpe, _]]
+                listTpe,
+                innerTpe
+              )}, $innerTpe, _]]
               lazy val $selfRefWithType = $deriver.deriveSequence[_root_.scala.collection.immutable.List, $innerTpe]($schemaRef, $innerInstance, $summoned)
               $selfRef
             }"""
@@ -196,9 +195,9 @@ object Derive {
             val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack, top = false)
             q"""{
                lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Sequence[${appliedType(
-              vectorTpe,
-              innerTpe
-            )}, $innerTpe, _]]
+                vectorTpe,
+                innerTpe
+              )}, $innerTpe, _]]
                lazy val $selfRefWithType = $deriver.deriveSequence[_root_.scala.collection.immutable.Vector, $innerTpe]($schemaRef, $innerInstance, $summoned)
                $selfRef
              }"""
@@ -208,9 +207,9 @@ object Derive {
             val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack, top = false)
             q"""{
                    lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Sequence[${appliedType(
-              chunkTpe,
-              innerTpe
-            )}, $innerTpe, _]]
+                chunkTpe,
+                innerTpe
+              )}, $innerTpe, _]]
                    lazy val $selfRefWithType = $deriver.deriveSequence[_root_.zio.Chunk, $innerTpe]($schemaRef, $innerInstance, $summoned)
                    $selfRef
                  }"""
@@ -302,16 +301,15 @@ object Derive {
 
             if (fields.size > 22) {
               val recordSchemaRef = q"$schemaRef.schema.asInstanceOf[Schema.GenericRecord]"
-              val fieldInstances = fields.zipWithIndex.map {
-                case (termSymbol, idx) =>
-                  val fieldSchema = q"$recordSchemaRef.fields($idx).schema"
-                  val f = recurse(
-                    concreteType(tpe, termSymbol.typeSignature),
-                    fieldSchema,
-                    currentFrame +: stack,
-                    top = false
-                  )
-                  q"_root_.zio.schema.Deriver.wrap($f)"
+              val fieldInstances  = fields.zipWithIndex.map { case (termSymbol, idx) =>
+                val fieldSchema = q"$recordSchemaRef.fields($idx).schema"
+                val f           = recurse(
+                  concreteType(tpe, termSymbol.typeSignature),
+                  fieldSchema,
+                  currentFrame +: stack,
+                  top = false
+                )
+                q"_root_.zio.schema.Deriver.wrap($f)"
               }
 
               q"""{
@@ -320,16 +318,15 @@ object Derive {
                 $selfRef
               }"""
             } else {
-              val fieldInstances = fields.zipWithIndex.map {
-                case (termSymbol, idx) =>
-                  val fieldSchema = q"$schemaRef.fields($idx).schema"
-                  val f = recurse(
-                    concreteType(tpe, termSymbol.typeSignature),
-                    fieldSchema,
-                    currentFrame +: stack,
-                    top = false
-                  )
-                  q"_root_.zio.schema.Deriver.wrap($f)"
+              val fieldInstances = fields.zipWithIndex.map { case (termSymbol, idx) =>
+                val fieldSchema = q"$schemaRef.fields($idx).schema"
+                val f           = recurse(
+                  concreteType(tpe, termSymbol.typeSignature),
+                  fieldSchema,
+                  currentFrame +: stack,
+                  top = false
+                )
+                q"_root_.zio.schema.Deriver.wrap($f)"
               }
 
               q"""{
@@ -341,12 +338,11 @@ object Derive {
           } else if (isSealedTrait(tpe)) {
             val appliedTypeArgs: Map[String, Type] =
               tpe.typeConstructor.typeParams.map(_.name.toString).zip(tpe.typeArgs).toMap
-            val subtypes = knownSubclassesOf(appliedTypeArgs, tpe).map(concreteType(tpe, _))
-            val subtypeInstances = subtypes.zipWithIndex.map {
-              case (subtype, idx) =>
-                val subtypeSchema = q"$schemaRef.cases($idx).schema"
-                val f             = recurse(subtype, subtypeSchema, currentFrame +: stack, top = false)
-                q"_root_.zio.schema.Deriver.wrap($f)"
+            val subtypes         = knownSubclassesOf(appliedTypeArgs, tpe).map(concreteType(tpe, _))
+            val subtypeInstances = subtypes.zipWithIndex.map { case (subtype, idx) =>
+              val subtypeSchema = q"$schemaRef.cases($idx).schema"
+              val f             = recurse(subtype, subtypeSchema, currentFrame +: stack, top = false)
+              q"_root_.zio.schema.Deriver.wrap($f)"
             }
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Enum[$tpe]]

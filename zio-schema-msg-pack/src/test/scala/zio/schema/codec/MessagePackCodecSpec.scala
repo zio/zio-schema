@@ -8,15 +8,15 @@ import scala.util.Try
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.msgpack.core.{ MessagePack, MessagePacker }
+import org.msgpack.core.{MessagePack, MessagePacker}
 import org.msgpack.jackson.dataformat.MessagePackFactory
 
 import zio.schema.CaseSet.caseOf
 import zio.schema._
-import zio.stream.{ ZSink, ZStream }
+import zio.stream.{ZSink, ZStream}
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Console, Scope, Task, ZIO }
+import zio.{Chunk, Console, Scope, Task, ZIO}
 
 object MessagePackCodecSpec extends ZIOSpecDefault {
 
@@ -322,11 +322,11 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       test("local date times") {
         val value = LocalDateTime.now()
         for {
-          ed <- encodeAndDecode(Primitive(StandardType.LocalDateTimeType), value)
+          ed  <- encodeAndDecode(Primitive(StandardType.LocalDateTimeType), value)
           ed2 <- encodeAndDecodeNS(
-                  Primitive(StandardType.LocalDateTimeType),
-                  value
-                )
+                   Primitive(StandardType.LocalDateTimeType),
+                   value
+                 )
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("offset times") {
@@ -657,12 +657,11 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
       test("recursive data types") {
-        check(SchemaGen.anyRecursiveTypeAndValue) {
-          case (schema, value) =>
-            for {
-              ed  <- encodeAndDecode(schema, value)
-              ed2 <- encodeAndDecodeNS(schema, value)
-            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        check(SchemaGen.anyRecursiveTypeAndValue) { case (schema, value) =>
+          for {
+            ed  <- encodeAndDecode(schema, value)
+            ed2 <- encodeAndDecodeNS(schema, value)
+          } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
       },
       suite("dynamic")(
@@ -786,18 +785,18 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       test("missing value") {
         for {
           bytes <- writeManually { p =>
-                    p.packMapHeader(2)
-                    p.packString("name")
-                    p.packString("Dan")
-                    p.packString("value")
-                  }
-          d <- decode(Record.schemaRecord, bytes).exit
-          bytes2 <- writeManually { p =>
                      p.packMapHeader(2)
                      p.packString("name")
+                     p.packString("Dan")
                      p.packString("value")
-                     p.packInt(123)
                    }
+          d      <- decode(Record.schemaRecord, bytes).exit
+          bytes2 <- writeManually { p =>
+                      p.packMapHeader(2)
+                      p.packString("name")
+                      p.packString("value")
+                      p.packInt(123)
+                    }
           d2 <- decode(Record.schemaRecord, bytes2).exit
         } yield assert(d)(
           failsWithA[DecodeError]
@@ -809,12 +808,12 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       test("unable to decode") {
         for {
           bytes <- writeManually { p =>
-                    p.packMapHeader(2)
-                    p.packString("name")
-                    p.packString("Dan")
-                    p.packString("value")
-                    p.packString("no an Int")
-                  }
+                     p.packMapHeader(2)
+                     p.packString("name")
+                     p.packString("Dan")
+                     p.packString("value")
+                     p.packString("no an Int")
+                   }
           d <- decode(Record.schemaRecord, bytes).exit
         } yield assert(d)(
           failsWithA[DecodeError]
@@ -823,9 +822,9 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       test("unknown type") {
         for {
           bytes <- writeManually { p =>
-                    p.packMapHeader(2)
-                    p.packString("This is number one bullshit")
-                  }
+                     p.packMapHeader(2)
+                     p.packString("This is number one bullshit")
+                   }
           d <- decode(Record.schemaRecord, bytes).exit
         } yield assert(d)(
           failsWithA[DecodeError]
@@ -1085,7 +1084,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       .via(MessagePackCodec.messagePackCodec(schema).streamEncoder)
       .run(ZSink.collectAll)
 
-  //NS == non streaming variant of encode
+  // NS == non streaming variant of encode
   def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZIO.succeed(MessagePackCodec.messagePackCodec(schema).encode(input))
 
@@ -1095,7 +1094,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       .via(MessagePackCodec.messagePackCodec(schema).streamDecoder)
       .run(ZSink.collectAll)
 
-  //NS == non streaming variant of decode
+  // NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
     ZIO.succeed(MessagePackCodec.messagePackCodec(schema).decode(fromHex(hex))).absolve[DecodeError, A]
 
@@ -1113,7 +1112,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       .via(MessagePackCodec.messagePackCodec(decodeSchema).streamDecoder)
       .run(ZSink.collectAll)
 
-  //NS == non streaming variant of encodeAndDecode
+  // NS == non streaming variant of encodeAndDecode
   def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)

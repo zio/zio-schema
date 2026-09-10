@@ -4,11 +4,11 @@ import java.time._
 import java.util.UUID
 
 import zio.Chunk
-import zio.test.{ Gen, Sized }
+import zio.test.{Gen, Sized}
 
 object types {
 
-  //scalafmt: { maxColumn = 400 }
+  // scalafmt: { maxColumn = 400 }
   sealed trait Arities
 
   object Arities {
@@ -141,7 +141,7 @@ object types {
 
     implicit val genBytes: Gen[Sized, Chunk[Byte]] = Gen.chunkOf(Gen.byte)
   }
-  //scalafmt: { maxColumn = 120 }
+  // scalafmt: { maxColumn = 120 }
 
   sealed trait Recursive
 

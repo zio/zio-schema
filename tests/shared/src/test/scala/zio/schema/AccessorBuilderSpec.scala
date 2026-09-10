@@ -54,8 +54,8 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
         assert(
           accessor match {
             case (
-                Prism(e1, Case("Some", c1, _, _, _, _)),
-                Prism(e2, Case("None", _, _, _, _, _))
+                  Prism(e1, Case("Some", c1, _, _, _, _)),
+                  Prism(e2, Case("None", _, _, _, _, _))
                 ) =>
               e1 == e2 && e2 == enumSchema && c1 == optionalSchema.someCodec
             case _ => false
@@ -64,40 +64,38 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
       }
     },
     test("tuple") {
-      check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
-        case (leftSchema, rightSchema) =>
-          val tupleSchema: Schema.Tuple2[_, _] = (leftSchema <*> rightSchema).asInstanceOf[Schema.Tuple2[_, _]]
+      check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) { case (leftSchema, rightSchema) =>
+        val tupleSchema: Schema.Tuple2[_, _] = (leftSchema <*> rightSchema).asInstanceOf[Schema.Tuple2[_, _]]
 
-          val accessor = tupleSchema.makeAccessors(builder)
+        val accessor = tupleSchema.makeAccessors(builder)
 
-          assertTrue(accessor match {
-            case (Lens(r1, f1), Lens(r2, f2)) =>
-              r1 == r2 && r2 == tupleSchema.toRecord &&
-                f1.name == "_1" && f1.schema == leftSchema &&
-                f2.name == "_2" && f2.schema == rightSchema
-          })
+        assertTrue(accessor match {
+          case (Lens(r1, f1), Lens(r2, f2)) =>
+            r1 == r2 && r2 == tupleSchema.toRecord &&
+            f1.name == "_1" && f1.schema == leftSchema &&
+            f2.name == "_2" && f2.schema == rightSchema
+        })
       }
     },
     test("either") {
-      check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
-        case (leftSchema, rightSchema) =>
-          val eitherSchema: Schema.Either[_, _] =
-            (rightSchema <+> leftSchema).asInstanceOf[Schema.Either[_, _]]
-          val accessor = eitherSchema.makeAccessors(builder)
+      check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) { case (leftSchema, rightSchema) =>
+        val eitherSchema: Schema.Either[_, _] =
+          (rightSchema <+> leftSchema).asInstanceOf[Schema.Either[_, _]]
+        val accessor = eitherSchema.makeAccessors(builder)
 
-          assert(
-            accessor match {
-              case (
+        assert(
+          accessor match {
+            case (
                   Prism(e1, Case("Right", c1, _, _, _, _)),
                   Prism(e2, Case("Left", c2, _, _, _, _))
-                  ) =>
-                e1 == e2 && e2 == eitherSchema.toEnum &&
-                  c1 == eitherSchema.rightSchema && c2 == eitherSchema.leftSchema
-              case a =>
-                println(s"fallthrough $a")
-                false
-            }
-          )(isTrue)
+                ) =>
+              e1 == e2 && e2 == eitherSchema.toEnum &&
+              c1 == eitherSchema.rightSchema && c2 == eitherSchema.leftSchema
+            case a =>
+              println(s"fallthrough $a")
+              false
+          }
+        )(isTrue)
       }
     },
     test("lazy") {

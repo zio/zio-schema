@@ -2,7 +2,7 @@ package zio.schema.codec
 
 import org.bson.types.ObjectId
 
-import zio.schema.{ Schema, TypeId }
+import zio.schema.{Schema, TypeId}
 
 package object bson {
   val ObjectIdTag = "$oid"

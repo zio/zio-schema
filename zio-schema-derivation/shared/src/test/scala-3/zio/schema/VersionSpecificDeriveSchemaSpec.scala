@@ -5,6 +5,7 @@ import zio.test.*
 import zio.schema.annotation.*
 
 trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
+
   /** ObjectWithDoc doc */
   object ObjectWithDoc
 
@@ -17,8 +18,8 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
   inline def verifyFieldName[F]: FieldNameVerifier[F] = new FieldNameVerifier[F]
 
   class FieldNameVerifier[F] {
-     inline def apply[S <: String & scala.Singleton](name: S): Boolean =
-       VerifyFieldNameMacro.verifyFieldName[F, S]
+    inline def apply[S <: String & scala.Singleton](name: S): Boolean =
+      VerifyFieldNameMacro.verifyFieldName[F, S]
   }
 
   import SchemaAssertions._
@@ -29,31 +30,31 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
   final case class AutoDerivesWithDoc(i: Int) derives Schema
 
   enum Colour(val rgb: Int) {
-    case Red extends Colour(0xff0000)
+    case Red   extends Colour(0xff0000)
     case Green extends Colour(0x00ff00)
-    case Blue extends Colour(0x0000ff)
+    case Blue  extends Colour(0x0000ff)
   }
 
   /** Colour scaladoc */
   enum ColourWithDoc(val rgb: Int) {
+
     /** Red scaladoc */
-    case Red extends ColourWithDoc(0xff0000)
+    case Red   extends ColourWithDoc(0xff0000)
     case Green extends ColourWithDoc(0x00ff00)
-    case Blue extends ColourWithDoc(0x0000ff)
+    case Blue  extends ColourWithDoc(0x0000ff)
   }
 
   @description("Colour Enum")
   enum ColourAnnotations:
-    @caseName("red") case Red extends ColourAnnotations
+    @caseName("red") case Red     extends ColourAnnotations
     @caseName("green") case Green extends ColourAnnotations
-    @caseName("blue") case Blue extends ColourAnnotations
+    @caseName("blue") case Blue   extends ColourAnnotations
 
   enum NonSimpleEnum1:
     case A(a: Int)
 
   enum NonSimpleEnum2(a: Int):
     case A(b: Int) extends NonSimpleEnum2(0)
-
 
   enum NonSimpleEnum3(a: Int):
     case A(b: Int) extends NonSimpleEnum3(b)
@@ -62,7 +63,7 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
     case A(override val a: Int) extends NonSimpleEnum4(a)
 
   enum NonSimpleEnum5(a: Int, b: String):
-    case A extends NonSimpleEnum5(0, "")
+    case A         extends NonSimpleEnum5(0, "")
     case B(n: Int) extends NonSimpleEnum5(n, "")
 
   trait ExtraTrait
@@ -70,19 +71,57 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
     case MixedCase extends EnumWithTraitMixin("Name") with ExtraTrait
 
   case class CaseClass23WithOverloadedApply(
-    f1: String, f2: String, f3: String, f4: String, f5: String,
-    f6: String, f7: String, f8: String, f9: String, f10: String,
-    f11: String, f12: String, f13: String, f14: String, f15: String,
-    f16: String, f17: String, f18: String, f19: String, f20: String,
-    f21: String, f22: String, f23: String
+    f1: String,
+    f2: String,
+    f3: String,
+    f4: String,
+    f5: String,
+    f6: String,
+    f7: String,
+    f8: String,
+    f9: String,
+    f10: String,
+    f11: String,
+    f12: String,
+    f13: String,
+    f14: String,
+    f15: String,
+    f16: String,
+    f17: String,
+    f18: String,
+    f19: String,
+    f20: String,
+    f21: String,
+    f22: String,
+    f23: String
   )
 
   object CaseClass23WithOverloadedApply {
     def apply(i: Int): CaseClass23WithOverloadedApply =
       CaseClass23WithOverloadedApply(
-        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
-        "k", "l", "m", "n", "o", "p", "q", "r", "s", "t",
-        "u", "v", "w"
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j",
+        "k",
+        "l",
+        "m",
+        "n",
+        "o",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
+        "u",
+        "v",
+        "w"
       )
   }
 
@@ -132,7 +171,7 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
       },
       test("derive different annotations for enum") {
         val enumeration = DeriveSchema.gen[ColourAnnotations]
-        val cases = enumeration.asInstanceOf[Schema.Enum[ColourAnnotations]].cases
+        val cases       = enumeration.asInstanceOf[Schema.Enum[ColourAnnotations]].cases
         assertTrue(enumeration.annotations == Chunk(simpleEnum(true), description("Colour Enum"))) &&
         assertTrue(cases(0).annotations == Chunk(caseName("red"))) &&
         assertTrue(cases(1).annotations == Chunk(caseName("green"))) &&
@@ -146,17 +185,26 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
         assertTrue(case2.annotations == Chunk(caseName("green"))) &&
         assertTrue(case3.annotations == Chunk(caseName("blue")))
       },
-      test("correctly adds scaladoc as description"){
-        val colourWithDoc: Schema[ColourWithDoc] = DeriveSchema.gen[ColourWithDoc]
+      test("correctly adds scaladoc as description") {
+        val colourWithDoc: Schema[ColourWithDoc]           = DeriveSchema.gen[ColourWithDoc]
         val autoDerivesWithDoc: Schema[AutoDerivesWithDoc] = Schema[AutoDerivesWithDoc]
-        val objectWithDoc: Schema[ObjectWithDoc.type] = DeriveSchema.gen[ObjectWithDoc.type]
-        val redAnnotations = colourWithDoc.asInstanceOf[Schema.Enum[ColourWithDoc]].cases.find(_.id == "Red").get.schema.annotations.find(_.isInstanceOf[description])
+        val objectWithDoc: Schema[ObjectWithDoc.type]      = DeriveSchema.gen[ObjectWithDoc.type]
+        val redAnnotations                                 = colourWithDoc
+          .asInstanceOf[Schema.Enum[ColourWithDoc]]
+          .cases
+          .find(_.id == "Red")
+          .get
+          .schema
+          .annotations
+          .find(_.isInstanceOf[description])
         assertTrue(
           colourWithDoc.annotations.find(_.isInstanceOf[description]) == Some(description("/** Colour scaladoc */")),
           redAnnotations == Some(description("/** Red scaladoc */")),
-          autoDerivesWithDoc.annotations.find(_.isInstanceOf[description]) == Some(description("/** AutoDerives scaladoc */")),
-          objectWithDoc.annotations.find(_.isInstanceOf[description]) == Some(description("/** ObjectWithDoc doc */")),
-          )
+          autoDerivesWithDoc.annotations.find(_.isInstanceOf[description]) == Some(
+            description("/** AutoDerives scaladoc */")
+          ),
+          objectWithDoc.annotations.find(_.isInstanceOf[description]) == Some(description("/** ObjectWithDoc doc */"))
+        )
       },
       test("correctly derives enum case extending additional trait") {
         val schema = DeriveSchema.gen[EnumWithTraitMixin]

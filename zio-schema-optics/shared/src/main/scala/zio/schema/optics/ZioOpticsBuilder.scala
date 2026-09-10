@@ -5,14 +5,14 @@ import scala.collection.immutable.ListMap
 import zio.optics._
 import zio.prelude.NonEmptyMap
 import zio.schema._
-import zio.{ Chunk, ChunkBuilder }
+import zio.{Chunk, ChunkBuilder}
 
 /**
- * This is an example implementation demonstrating how to derive zio-optics using
- * a zio-schema AccessorBuilder.
+ * This is an example implementation demonstrating how to derive zio-optics
+ * using a zio-schema AccessorBuilder.
  *
- * Because we go through DynamicValues, this implementation is not at all performant
- * so shouldn't be used where performance is potentially an issue.
+ * Because we go through DynamicValues, this implementation is not at all
+ * performant so shouldn't be used where performance is potentially an issue.
  */
 object ZioOpticsBuilder extends AccessorBuilder {
 

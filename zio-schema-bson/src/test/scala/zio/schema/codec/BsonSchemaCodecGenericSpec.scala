@@ -4,7 +4,7 @@ import zio.Scope
 import zio.bson.BsonBuilder._
 import zio.bson._
 import zio.schema.codec.BsonSchemaCodecSpec.roundTripTest
-import zio.schema.{ DeriveGen, DeriveSchema, Schema }
+import zio.schema.{DeriveGen, DeriveSchema, Schema}
 import zio.test._
 
 object BsonSchemaCodecGenericSpec extends ZIOSpecDefault {

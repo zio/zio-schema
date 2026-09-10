@@ -5,12 +5,13 @@ import zio.schema.Schema._
 import zio.schema._
 
 /**
- * Example3:
- * In this example we'll take a look on how to use ZIO-Schema to
- * transform a PersonDTO (e.g. from a REST API) into a Person (e.g. for a database) in a single step.
+ * Example3: In this example we'll take a look on how to use ZIO-Schema to
+ * transform a PersonDTO (e.g. from a REST API) into a Person (e.g. for a
+ * database) in a single step.
  *
- * To do this, we'll transform the Schema of the PersonDTO into a Schema of the Person.
- **/
+ * To do this, we'll transform the Schema of the PersonDTO into a Schema of the
+ * Person.
+ */
 private[example3] object Domain {
   final case class Person(name: String, age: Int)
 
@@ -67,28 +68,28 @@ object Example3 extends ZIOAppDefault {
   )
 
   override val run: ZIO[Environment with ZIOAppArgs, Any, Any] = for {
-    _      <- ZIO.unit
+    _     <- ZIO.unit
     json   = """{"firstname":"John","lastname":"Doe","years":42}"""
     chunks = Chunk.fromArray(json.getBytes)
-    _      <- ZIO.debug("input JSON    : " + json)
+    _     <- ZIO.debug("input JSON    : " + json)
 
     // get objects from JSON
     personDTO <- ZIO.fromEither(
-                  JsonCodec.schemaBasedBinaryCodec[PersonDTO](PersonDTO.schema).decode(chunks)
-                )
+                   JsonCodec.schemaBasedBinaryCodec[PersonDTO](PersonDTO.schema).decode(chunks)
+                 )
     person <- ZIO.fromEither(
-               JsonCodec.schemaBasedBinaryCodec[Person](personTransformation).decode(chunks)
-             )
+                JsonCodec.schemaBasedBinaryCodec[Person](personTransformation).decode(chunks)
+              )
     _ <- ZIO.debug("PersonDTO     : " + personDTO)
     _ <- ZIO.debug("Person        : " + person)
 
     // get JSON from Objects
     personJson = new String(
-      JsonCodec.schemaBasedBinaryCodec[Person](Person.schema).encode(person).toArray
-    )
+                   JsonCodec.schemaBasedBinaryCodec[Person](Person.schema).encode(person).toArray
+                 )
     personDTOJson = new String(
-      JsonCodec.schemaBasedBinaryCodec[Person](personTransformation).encode(person).toArray
-    )
+                      JsonCodec.schemaBasedBinaryCodec[Person](personTransformation).encode(person).toArray
+                    )
     _ <- ZIO.debug("Person    JSON: " + personJson)
     _ <- ZIO.debug("PersonDTO JSON: " + personDTOJson)
 

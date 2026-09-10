@@ -1,6 +1,6 @@
 package dev.zio.schema.example.example8
 
-import zio.schema.{ DynamicValue, Schema, StandardType }
+import zio.schema.{DynamicValue, Schema, StandardType}
 
 trait Encoder[A] {
   def encode(in: A): Json
@@ -19,8 +19,16 @@ object Encoder {
           case StandardType.StringType =>
             Json.JStr(p.value)
 
-          case StandardType.DoubleType | StandardType.IntType | StandardType.LongType =>
+          // Kept as separate cases: an alternation cannot narrow the primitive's
+          // type parameter to a single type, so `p.value` stays abstract.
+          case StandardType.DoubleType =>
             Json.JNum(p.value)
+
+          case StandardType.IntType =>
+            Json.JNum(p.value.toDouble)
+
+          case StandardType.LongType =>
+            Json.JNum(p.value.toDouble)
 
           case StandardType.BoolType =>
             Json.JBool(p.value)

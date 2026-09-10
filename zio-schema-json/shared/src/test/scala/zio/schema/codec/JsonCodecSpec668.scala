@@ -4,12 +4,13 @@ import zio.schema._
 import zio.test._
 
 /**
- * Regression test for issue #668:
- * JSON codec built from auto-derived schema fails for enumeration with intermediate type
+ * Regression test for issue #668: JSON codec built from auto-derived schema
+ * fails for enumeration with intermediate type
  *
- * The bug occurred when encoding hierarchical sealed trait enums where intermediate
- * types exist (e.g., Animal > Mammal > Bison). The JsonCodec was incorrectly assuming
- * all enum cases have CaseClass0 schemas, but intermediate sealed traits have Enum schemas.
+ * The bug occurred when encoding hierarchical sealed trait enums where
+ * intermediate types exist (e.g., Animal > Mammal > Bison). The JsonCodec was
+ * incorrectly assuming all enum cases have CaseClass0 schemas, but intermediate
+ * sealed traits have Enum schemas.
  */
 object JsonCodecSpec668 extends ZIOSpecDefault {
 
@@ -122,7 +123,7 @@ object JsonCodecSpec668 extends ZIOSpecDefault {
         assertTrue(decoded == Right(value))
       },
       test("should round-trip level-2 leaf: Polygon") {
-        val codec = JsonCodec.jsonCodec(GeoJSON.schema)
+        val codec          = JsonCodec.jsonCodec(GeoJSON.schema)
         val value: GeoJSON = GeoJSON.Geometry.Polygon(
           List(List((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0)))
         )
@@ -133,7 +134,7 @@ object JsonCodecSpec668 extends ZIOSpecDefault {
         assertTrue(decoded == Right(value))
       },
       test("should round-trip level-1 leaf: Feature with geometry") {
-        val codec = JsonCodec.jsonCodec(GeoJSON.schema)
+        val codec          = JsonCodec.jsonCodec(GeoJSON.schema)
         val value: GeoJSON = GeoJSON.Feature(
           Some(GeoJSON.Geometry.Point((102.0, 0.5))),
           Map("name" -> "test")
@@ -154,7 +155,7 @@ object JsonCodecSpec668 extends ZIOSpecDefault {
         assertTrue(decoded == Right(value))
       },
       test("should round-trip level-1 leaf: FeatureCollection") {
-        val codec = JsonCodec.jsonCodec(GeoJSON.schema)
+        val codec          = JsonCodec.jsonCodec(GeoJSON.schema)
         val value: GeoJSON = GeoJSON.FeatureCollection(
           List(
             GeoJSON.Feature(Some(GeoJSON.Geometry.Point((1.0, 2.0))), Map("a" -> "b")),
