@@ -1,12 +1,15 @@
 package zio.schema
 
 /**
- * `Fallback` represents an enriched `Either` type that can contain both a left and a right value. The left value represents the default value, that fallbacks to the right value when it is not found.
+ * `Fallback` represents an enriched `Either` type that can contain both a left
+ * and a right value. The left value represents the default value, that
+ * fallbacks to the right value when it is not found.
  */
 sealed trait Fallback[+A, +B] { self =>
 
   /**
-   * Tranform a `Fallback` into an `Either`, using the left value for `Fallback.Both`.
+   * Tranform a `Fallback` into an `Either`, using the left value for
+   * `Fallback.Both`.
    */
   def toEither: Either[A, B] = self match {
     case Fallback.Left(l)    => Left(l)

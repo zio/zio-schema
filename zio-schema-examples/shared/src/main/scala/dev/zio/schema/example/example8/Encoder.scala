@@ -1,6 +1,6 @@
 package dev.zio.schema.example.example8
 
-import zio.schema.{ DynamicValue, Schema, StandardType }
+import zio.schema.{DynamicValue, Schema, StandardType}
 
 trait Encoder[A] {
   def encode(in: A): Json

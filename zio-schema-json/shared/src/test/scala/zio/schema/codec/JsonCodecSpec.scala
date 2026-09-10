@@ -2509,8 +2509,10 @@ object JsonCodecSpec extends ZIOSpecDefault {
   implicit def mapEncoder[K, V](
     implicit keyEncoder: JsonEncoder[K],
     valueEncoder: JsonEncoder[V]
-  ): JsonEncoder[Map[K, V]] =
-    JsonEncoder.chunk(keyEncoder.zip(valueEncoder)).contramap[Map[K, V]](m => Chunk.fromIterable(m))
+  ): JsonEncoder[Map[K, V]] = {
+    val encoder = keyEncoder.zip(valueEncoder)
+    JsonEncoder.chunk(using encoder).contramap[Map[K, V]](m => Chunk.fromIterable(m))
+  }
 
   private def jsonEncoded[A](value: A)(implicit enc: JsonEncoder[A]): Chunk[Byte] =
     charSequenceToByteChunk(enc.encodeJson(value, None))

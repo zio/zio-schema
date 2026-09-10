@@ -8,7 +8,7 @@ import zio.constraintless.TypeList
 import zio.prelude._
 import zio.schema._
 import zio.schema.annotation.simpleEnum
-import zio.{ Chunk, ChunkBuilder }
+import zio.{Chunk, ChunkBuilder}
 
 sealed trait ExtensibleMetaSchema[BuiltIn <: TypeList] { self =>
   def builtInInstances: SchemaInstances[BuiltIn]
@@ -30,8 +30,8 @@ object ExtensibleMetaSchema {
   final case class Labelled[BuiltIn <: TypeList](label: String, schema: ExtensibleMetaSchema[BuiltIn])
 
   object Labelled {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Labelled[BuiltIn]] =
       Schema
         .defer(Schema.tuple2(Schema[String], ExtensibleMetaSchema.schema[BuiltIn]))
@@ -64,8 +64,8 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Product {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Product[BuiltIn]] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Product"),
@@ -105,8 +105,8 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Tuple {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Tuple[BuiltIn]] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Tuple"),
@@ -157,8 +157,8 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Sum {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Sum[BuiltIn]] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Sum"),
@@ -197,8 +197,8 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Either {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Either[BuiltIn]] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Either"),
@@ -249,8 +249,8 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Fallback {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Fallback[BuiltIn]] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Fallback"),
@@ -300,8 +300,8 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object FailNode {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[FailNode[BuiltIn]] =
       Schema.CaseClass3(
         TypeId.parse("zio.schema.meta.MetaSchema.FailNode"),
@@ -332,8 +332,8 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object ListNode {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[ListNode[BuiltIn]] =
       Schema.CaseClass3(
         TypeId.parse("zio.schema.meta.MetaSchema.ListNode"),
@@ -370,8 +370,8 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Dictionary {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Dictionary[BuiltIn]] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Dictionary"),
@@ -418,8 +418,8 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Value {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Value[BuiltIn]] =
       Schema
         .CaseClass3[String, Chunk[String], Boolean, (String, Chunk[String], Boolean)](
@@ -462,8 +462,8 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Ref {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Ref[BuiltIn]] =
       Schema.CaseClass3(
         TypeId.parse("zio.schema.meta.MetaSchema.Ref"),
@@ -500,8 +500,8 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Known {
-    implicit def schema[BuiltIn <: TypeList](
-      implicit builtInInstances: SchemaInstances[BuiltIn]
+    implicit def schema[BuiltIn <: TypeList](implicit
+      builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Known[BuiltIn]] =
       Schema.CaseClass3(
         TypeId.parse("zio.schema.meta.MetaSchema.Known"),
@@ -548,11 +548,11 @@ object ExtensibleMetaSchema {
   )(implicit builtInInstances: SchemaInstances[BuiltIn]): ExtensibleMetaSchema[BuiltIn] =
     getBuiltInTypeId(builtInInstances, schema) match {
       case Some(typeId) => Known(typeId, NodePath.root)
-      case None =>
+      case None         =>
         schema match {
-          case Schema.Primitive(typ, _)   => Value(typ, NodePath.root)
-          case Schema.Fail(message, _)    => FailNode(message, NodePath.root)
-          case Schema.Optional(schema, _) => subtree(NodePath.root, Lineage.empty, schema, optional = true)
+          case Schema.Primitive(typ, _)      => Value(typ, NodePath.root)
+          case Schema.Fail(message, _)       => FailNode(message, NodePath.root)
+          case Schema.Optional(schema, _)    => subtree(NodePath.root, Lineage.empty, schema, optional = true)
           case Schema.Either(left, right, _) =>
             Either(
               NodePath.root,
@@ -591,7 +591,7 @@ object ExtensibleMetaSchema {
             ListNode(item = subtree(NodePath.root / "item", Lineage.empty, schema), NodePath.root)
           case Schema.Transform(schema, _, _, _, _) => subtree(NodePath.root, Lineage.empty, schema)
           case lzy @ Schema.Lazy(_)                 => fromSchema(lzy.schema)
-          case s: Schema.Record[A] =>
+          case s: Schema.Record[A]                  =>
             s.fields
               .foldLeft(NodeBuilder(NodePath.root, Lineage(s.hashCode() -> NodePath.root))) { (node, field) =>
                 node.addLabelledSubtree(field.name, field.schema)
@@ -599,9 +599,8 @@ object ExtensibleMetaSchema {
               .buildProduct(s.id)
           case s: Schema.Enum[A] =>
             s.cases
-              .foldLeft(NodeBuilder(NodePath.root, Lineage(s.hashCode() -> NodePath.root))) {
-                case (node, caseValue) =>
-                  node.addLabelledSubtree(caseValue.id, caseValue.schema)
+              .foldLeft(NodeBuilder(NodePath.root, Lineage(s.hashCode() -> NodePath.root))) { case (node, caseValue) =>
+                node.addLabelledSubtree(caseValue.id, caseValue.schema)
               }
               .buildSum(s.id)
           case Schema.Dynamic(_) => fromSchema(DynamicValue.schema)
@@ -616,17 +615,16 @@ object ExtensibleMetaSchema {
   )(implicit builtInInstances: SchemaInstances[BuiltIn]): ExtensibleMetaSchema[BuiltIn] =
     lineage.paths
       .find(_._1 == schema.hashCode())
-      .map {
-        case (_, refPath) =>
-          Ref(refPath, path, optional)
+      .map { case (_, refPath) =>
+        Ref(refPath, path, optional)
       }
       .getOrElse {
         getBuiltInTypeId(builtInInstances, schema) match {
           case Some(typeId) => Known(typeId, path, optional)
-          case None =>
+          case None         =>
             schema match {
-              case Schema.Primitive(typ, _)   => Value(typ, path, optional)
-              case Schema.Optional(schema, _) => subtree(path, lineage, schema, optional = true)
+              case Schema.Primitive(typ, _)      => Value(typ, path, optional)
+              case Schema.Optional(schema, _)    => subtree(path, lineage, schema, optional = true)
               case Schema.Either(left, right, _) =>
                 Either(
                   path,
@@ -670,7 +668,7 @@ object ExtensibleMetaSchema {
                 ListNode(item = subtree(path / "item", lineage, schema, optional = false), path, optional)
               case Schema.Transform(schema, _, _, _, _) => subtree(path, lineage, schema, optional)
               case lzy @ Schema.Lazy(_)                 => subtree(path, lineage, lzy.schema, optional)
-              case s: Schema.Record[_] =>
+              case s: Schema.Record[_]                  =>
                 s.fields
                   .foldLeft(NodeBuilder(path, lineage :+ (s.hashCode() -> path), optional)) { (node, field) =>
                     node.addLabelledSubtree(field.name, field.schema)
@@ -678,9 +676,8 @@ object ExtensibleMetaSchema {
                   .buildProduct(s.id)
               case s: Schema.Enum[_] =>
                 s.cases
-                  .foldLeft(NodeBuilder(path, lineage :+ (s.hashCode() -> path), optional)) {
-                    case (node, caseValue) =>
-                      node.addLabelledSubtree(caseValue.id, caseValue.schema)
+                  .foldLeft(NodeBuilder(path, lineage :+ (s.hashCode() -> path), optional)) { case (node, caseValue) =>
+                    node.addLabelledSubtree(caseValue.id, caseValue.schema)
                   }
                   .buildSum(s.id)
               case Schema.Fail(message, _) => FailNode(message, path)
@@ -697,21 +694,20 @@ object ExtensibleMetaSchema {
       case ExtensibleMetaSchema.Value(typ, _, _) =>
         Schema.Primitive(typ, Chunk.empty)
       case ExtensibleMetaSchema.FailNode(msg, _, _) => Schema.Fail(msg)
-      case ExtensibleMetaSchema.Ref(refPath, _, _) =>
+      case ExtensibleMetaSchema.Ref(refPath, _, _)  =>
         def resolve[A](): Schema[A] =
           refs.getOrElse(refPath, Schema.Fail(s"invalid ref path $refPath")).asInstanceOf[Schema[A]]
         Schema.defer(resolve())
       case ExtensibleMetaSchema.Product(id, _, elems, _) =>
         Schema.record(
           id,
-          elems.map {
-            case Labelled(label, ast) =>
-              Schema.Field(
-                label,
-                materialize(ast, refs).asInstanceOf[Schema[Any]],
-                get0 = (p: ListMap[String, _]) => p(label),
-                set0 = (p: ListMap[String, _], v: Any) => p.updated(label, v)
-              )
+          elems.map { case Labelled(label, ast) =>
+            Schema.Field(
+              label,
+              materialize(ast, refs).asInstanceOf[Schema[Any]],
+              get0 = (p: ListMap[String, _]) => p(label),
+              set0 = (p: ListMap[String, _], v: Any) => p.updated(label, v)
+            )
           }: _*
         )
       case ExtensibleMetaSchema.Tuple(_, left, right, _) =>
@@ -771,8 +767,8 @@ object ExtensibleMetaSchema {
     if (ast.optional) baseSchema.optional else baseSchema
   }
 
-  implicit def schema[BuiltIn <: TypeList](
-    implicit builtInInstances: SchemaInstances[BuiltIn]
+  implicit def schema[BuiltIn <: TypeList](implicit
+    builtInInstances: SchemaInstances[BuiltIn]
   ): Schema[ExtensibleMetaSchema[BuiltIn]] =
     Schema.defer {
       Schema.EnumN[ExtensibleMetaSchema[BuiltIn], CaseSet.Aux[ExtensibleMetaSchema[BuiltIn]]](

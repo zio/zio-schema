@@ -5,8 +5,8 @@ import scala.collection.mutable
 import zio.schema.Schema
 
 /**
- * A per-encooding/decoding cache for field mappings. No need for thread safety as a single encoding/decoding
- * is sequential.
+ * A per-encooding/decoding cache for field mappings. No need for thread safety
+ * as a single encoding/decoding is sequential.
  */
 private class FieldMappingCache {
   private val mapping: mutable.Map[Schema[_], FieldMapping] = mutable.Map.empty
@@ -31,7 +31,7 @@ object FieldMapping {
   }
 
   def getFieldNumber(field: Schema.Field[_, _]): Option[Int] =
-    field.annotations.collectFirst {
-      case fieldNumber(n) => n
+    field.annotations.collectFirst { case fieldNumber(n) =>
+      n
     }
 }

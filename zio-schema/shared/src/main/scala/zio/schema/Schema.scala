@@ -11,19 +11,22 @@ import zio.schema.annotation._
 import zio.schema.internal.SourceLocation
 import zio.schema.meta._
 import zio.schema.validation._
-import zio.{ Chunk, NonEmptyChunk, Unsafe, prelude }
+import zio.{Chunk, NonEmptyChunk, Unsafe, prelude}
 
 /**
- * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
- * enumerations (sealed traits), collections, and various primitive types (including not only
- * Scala's own primitive types, but enhanced with java.time and big integers / decimals).
+ * A `Schema[A]` describes the structure of some data type `A`, in terms of case
+ * classes, enumerations (sealed traits), collections, and various primitive
+ * types (including not only Scala's own primitive types, but enhanced with
+ * java.time and big integers / decimals).
  *
- * Schemas models the structure of data types as first class values, so they can be introspected,
- * transformed, and combined using ordinary Scala code, without macros, metaprogramming, or codegen.
+ * Schemas models the structure of data types as first class values, so they can
+ * be introspected, transformed, and combined using ordinary Scala code, without
+ * macros, metaprogramming, or codegen.
  *
- * There are implicit schemas provided for all standard Scala types, and you can automatically
- * derive schemas for your own data types by using `DeriveSchema.gen[A]`. Whether you write them
- * by hand by using constructors and operators,
+ * There are implicit schemas provided for all standard Scala types, and you can
+ * automatically derive schemas for your own data types by using
+ * `DeriveSchema.gen[A]`. Whether you write them by hand by using constructors
+ * and operators,
  *
  * {{{
  * final case class Person(name: String, age: Int)
@@ -75,10 +78,10 @@ sealed trait Schema[A] {
   def annotate(annotation: Any): Schema[A]
 
   /**
-   *  Convert to Schema[B] iff B and A are homomorphic.
+   * Convert to Schema[B] iff B and A are homomorphic.
    *
-   *  This can be used to e.g convert between a case class and it's
-   *  "generic" representation as a ListMap[String,_]
+   * This can be used to e.g convert between a case class and it's "generic"
+   * representation as a ListMap[String,_]
    */
   def coerce[B](newSchema: Schema[B]): Either[String, Schema[B]] =
     for {
@@ -87,9 +90,8 @@ sealed trait Schema[A] {
     } yield self.transformOrFail(f, g)
 
   /**
-   * Performs a diff between thisValue and thatValue. See [[zio.schema.Differ]] for details
-   * on the default diff algorithms.
-   *
+   * Performs a diff between thisValue and thatValue. See [[zio.schema.Differ]]
+   * for details on the default diff algorithms.
    */
   def diff(thisValue: A, thatValue: A): Patch[A] = Differ.fromSchema(self)(thisValue, thatValue)
 
@@ -104,7 +106,7 @@ sealed trait Schema[A] {
   def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal]
 
   /**
-   *  Generate a homomorphism from A to B iff A and B are homomorphic
+   * Generate a homomorphism from A to B iff A and B are homomorphic
    */
   def migrate[B](newSchema: Schema[B]): Either[String, A => scala.util.Either[String, B]] =
     Migration.derive(MetaSchema.fromSchema(self), MetaSchema.fromSchema(newSchema)).map { transforms => (a: A) =>
@@ -112,15 +114,16 @@ sealed trait Schema[A] {
     }
 
   /**
-   * Returns a new schema that modifies the type produced by this schema to be optional.
+   * Returns a new schema that modifies the type produced by this schema to be
+   * optional.
    */
   def optional: Schema[Option[A]] = Schema.Optional(self)
 
   def ordering: Ordering[A] = SchemaOrdering.ordering(this)
 
   /**
-   * Returns a new schema that combines this schema and the specified schema together, modeling
-   * their either composition.
+   * Returns a new schema that combines this schema and the specified schema
+   * together, modeling their either composition.
    */
   def orElseEither[B](that: Schema[B]): Schema[scala.util.Either[A, B]] = Schema.Either(self, that)
 
@@ -140,18 +143,18 @@ sealed trait Schema[A] {
     DynamicValue.fromSchemaAndValue(self, value)
 
   /**
-   * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
-   * between `A` and `B`, without possibility of failure.
+   * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions
+   * that can transform between `A` and `B`, without possibility of failure.
    */
   def transform[B](f: A => B, g: B => A)(implicit loc: SourceLocation): Schema[B] =
     Schema.Transform[A, B, SourceLocation](self, a => Right(f(a)), b => Right(g(b)), annotations, loc)
 
   /**
-   * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
-   * between `A` and `B` (possibly failing in some cases).
+   * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions
+   * that can transform between `A` and `B` (possibly failing in some cases).
    */
-  def transformOrFail[B](f: A => scala.util.Either[String, B], g: B => scala.util.Either[String, A])(
-    implicit loc: SourceLocation
+  def transformOrFail[B](f: A => scala.util.Either[String, B], g: B => scala.util.Either[String, A])(implicit
+    loc: SourceLocation
   ): Schema[B] =
     Schema.Transform[A, B, SourceLocation](self, f, g, annotations, loc)
 
@@ -160,8 +163,8 @@ sealed trait Schema[A] {
   def validation(validation: Validation[A]): Schema[A] = annotate(zio.schema.annotation.validate(validation))
 
   /**
-   * Returns a new schema that combines this schema and the specified schema together, modeling
-   * their tuple composition.
+   * Returns a new schema that combines this schema and the specified schema
+   * together, modeling their tuple composition.
    */
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple2(self, that)
 }
@@ -191,8 +194,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
 
   def getTypeId[A](schema: Schema[A]): TypeId =
     schema match {
-      case record: Record[_] => record.id
-      case enum0: Enum[_]    => enum0.id
+      case record: Record[_]          => record.id
+      case enum0: Enum[_]             => enum0.id
       case Primitive(standardType, _) =>
         val typeName = standardType.tag match {
           case "unit"           => "scala.Unit"
@@ -229,9 +232,9 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           case other            => other
         }
         TypeId.parse(typeName)
-      case Transform(schema, _, _, _, _) => getTypeId(schema)
-      case Lazy(schema0)                 => getTypeId(schema0())
-      case Optional(schema, _)           => TypeId.parse("scala.Option")
+      case Transform(schema, _, _, _, _)  => getTypeId(schema)
+      case Lazy(schema0)                  => getTypeId(schema0())
+      case Optional(schema, _)            => TypeId.parse("scala.Option")
       case Sequence(_, _, _, _, identity) =>
         identity match {
           case s: String if s == "Chunk"         => TypeId.parse("zio.Chunk")
@@ -282,7 +285,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
             case Right(value) => loop(value, schema)
             case Left(error)  => Chunk(ValidationError.Generic(error))
           }
-        case Primitive(_, _) => Chunk.empty
+        case Primitive(_, _)                => Chunk.empty
         case optional @ Optional(schema, _) =>
           value.asInstanceOf[Option[optional.OptionalType]] match {
             case Some(value) => loop(value, schema)
@@ -361,7 +364,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case "WEEKS"     => Right(ChronoUnit.WEEKS)
       case "YEARS"     => Right(ChronoUnit.YEARS)
       case _           => Left("Failed")
-    }, {
+    },
+    {
       case ChronoUnit.SECONDS   => Right("SECONDS")
       case ChronoUnit.CENTURIES => Right("CENTURIES")
       case ChronoUnit.DAYS      => Right("DAYS")
@@ -402,14 +406,14 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       "NonEmptySet"
     )
 
-  implicit def nonEmptyMap[K, V](
-    implicit keySchema: Schema[K],
+  implicit def nonEmptyMap[K, V](implicit
+    keySchema: Schema[K],
     valueSchema: Schema[V]
   ): Schema[prelude.NonEmptyMap[K, V]] =
     Schema.NonEmptyMap[K, V](keySchema, valueSchema, Chunk.empty)
 
-  implicit def map[K, V](
-    implicit keySchema: Schema[K],
+  implicit def map[K, V](implicit
+    keySchema: Schema[K],
     valueSchema: Schema[V]
   ): Schema[scala.collection.immutable.Map[K, V]] =
     Schema.Map(keySchema, valueSchema, Chunk.empty)
@@ -447,8 +451,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       string =>
         try {
           Right(new URI(string))
-        } catch { case _: Exception => Left(s"Invalid URI: $string") },
-      uri => Right(uri.toString)
+        } catch { case _: Exception => Left(s"Invalid URI: $string") }, uri => Right(uri.toString)
     )
 
   implicit def standardSchema[A]: Schema[StandardType[A]] = Schema[String].transformOrFail[StandardType[A]](
@@ -506,18 +509,17 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
     val transient: Boolean =
       annotations.exists(_.isInstanceOf[transientField])
 
-    val fieldName: String = annotations.collectFirst {
-      case f: fieldName => f.name
+    val fieldName: String = annotations.collectFirst { case f: fieldName =>
+      f.name
     }.getOrElse(name)
 
-    val aliases: scala.collection.immutable.Set[String] = {
+    val aliases: scala.collection.immutable.Set[String] =
       annotations.foldLeft(scala.collection.immutable.Set.empty[String]) { (acc, annotation) =>
         annotation match {
           case aliases: fieldNameAliases => acc ++ aliases.aliases
           case _                         => acc
         }
       }
-    }
 
     val nameAndAliases: scala.collection.immutable.Set[String] =
       aliases + fieldName
@@ -584,11 +586,10 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
             case None        => field.schema.defaultValue
           }
         }.foldLeft[scala.util.Either[String, Chunk[R]]](Right(Chunk.empty)) {
-            case (e @ Left(_), _)              => e
-            case (_, Left(e))                  => Left[String, Chunk[R]](e)
-            case (Right(values), Right(value)) => Right[String, Chunk[R]](values :+ value.asInstanceOf[R])
-          }
-          .flatMap(self.construct)
+          case (e @ Left(_), _)              => e
+          case (_, Left(e))                  => Left[String, Chunk[R]](e)
+          case (Right(values), Right(value)) => Right[String, Chunk[R]](values :+ value.asInstanceOf[R])
+        }.flatMap(self.construct)
       }
   }
 
@@ -798,7 +799,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
     override def defaultValue: scala.util.Either[String, scala.util.Either[A, B]] =
       left.defaultValue match {
         case Right(a) => Right(Left(a))
-        case _ =>
+        case _        =>
           right.defaultValue match {
             case Right(b) => Right(Right(b))
             case _        => Left("unable to extract default value for Either")
@@ -816,8 +817,10 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
   }
 
   /**
-   * Schema for `zio.schema.Fallback` type. If `fullDecode` is set to `true`, it will decode `Fallback.Both` from `Fallback.Both`.
-   * If set to `false`, it will decode `Fallback.Left` when possible and `Fallback.Right` as second option from a `Fallback.Both`.
+   * Schema for `zio.schema.Fallback` type. If `fullDecode` is set to `true`, it
+   * will decode `Fallback.Both` from `Fallback.Both`. If set to `false`, it
+   * will decode `Fallback.Left` when possible and `Fallback.Right` as second
+   * option from a `Fallback.Both`.
    */
   final case class Fallback[A, B](
     left: Schema[A],
@@ -2976,8 +2979,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
   implicit def tuple3[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
     c1.zip(c2).zip(c3).transform({ case ((a, b), c) => (a, b, c) }, { case (a, b, c) => ((a, b), c) })
 
-  implicit def tuple4[A, B, C, D](
-    implicit c1: Schema[A],
+  implicit def tuple4[A, B, C, D](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D]
@@ -2987,8 +2990,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c4)
       .transform({ case (((a, b), c), d) => (a, b, c, d) }, { case (a, b, c, d) => (((a, b), c), d) })
 
-  implicit def tuple5[A, B, C, D, E](
-    implicit c1: Schema[A],
+  implicit def tuple5[A, B, C, D, E](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3000,8 +3003,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c5)
       .transform({ case ((((a, b), c), d), e) => (a, b, c, d, e) }, { case (a, b, c, d, e) => ((((a, b), c), d), e) })
 
-  implicit def tuple6[A, B, C, D, E, F](
-    implicit c1: Schema[A],
+  implicit def tuple6[A, B, C, D, E, F](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3013,12 +3016,15 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c4)
       .zip(c5)
       .zip(c6)
-      .transform({ case (((((a, b), c), d), e), f) => (a, b, c, d, e, f) }, {
-        case (a, b, c, d, e, f)                    => (((((a, b), c), d), e), f)
-      })
+      .transform(
+        { case (((((a, b), c), d), e), f) => (a, b, c, d, e, f) },
+        { case (a, b, c, d, e, f) =>
+          (((((a, b), c), d), e), f)
+        }
+      )
 
-  implicit def tuple7[A, B, C, D, E, F, G](
-    implicit c1: Schema[A],
+  implicit def tuple7[A, B, C, D, E, F, G](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3032,12 +3038,15 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c5)
       .zip(c6)
       .zip(c7)
-      .transform({ case ((((((a, b), c), d), e), f), g) => (a, b, c, d, e, f, g) }, {
-        case (a, b, c, d, e, f, g)                      => ((((((a, b), c), d), e), f), g)
-      })
+      .transform(
+        { case ((((((a, b), c), d), e), f), g) => (a, b, c, d, e, f, g) },
+        { case (a, b, c, d, e, f, g) =>
+          ((((((a, b), c), d), e), f), g)
+        }
+      )
 
-  implicit def tuple8[A, B, C, D, E, F, G, H](
-    implicit c1: Schema[A],
+  implicit def tuple8[A, B, C, D, E, F, G, H](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3053,12 +3062,15 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c6)
       .zip(c7)
       .zip(c8)
-      .transform({ case (((((((a, b), c), d), e), f), g), h) => (a, b, c, d, e, f, g, h) }, {
-        case (a, b, c, d, e, f, g, h)                        => (((((((a, b), c), d), e), f), g), h)
-      })
+      .transform(
+        { case (((((((a, b), c), d), e), f), g), h) => (a, b, c, d, e, f, g, h) },
+        { case (a, b, c, d, e, f, g, h) =>
+          (((((((a, b), c), d), e), f), g), h)
+        }
+      )
 
-  implicit def tuple9[A, B, C, D, E, F, G, H, I](
-    implicit c1: Schema[A],
+  implicit def tuple9[A, B, C, D, E, F, G, H, I](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3076,12 +3088,15 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c7)
       .zip(c8)
       .zip(c9)
-      .transform({ case ((((((((a, b), c), d), e), f), g), h), i) => (a, b, c, d, e, f, g, h, i) }, {
-        case (a, b, c, d, e, f, g, h, i)                          => ((((((((a, b), c), d), e), f), g), h), i)
-      })
+      .transform(
+        { case ((((((((a, b), c), d), e), f), g), h), i) => (a, b, c, d, e, f, g, h, i) },
+        { case (a, b, c, d, e, f, g, h, i) =>
+          ((((((((a, b), c), d), e), f), g), h), i)
+        }
+      )
 
-  implicit def tuple10[A, B, C, D, E, F, G, H, I, J](
-    implicit c1: Schema[A],
+  implicit def tuple10[A, B, C, D, E, F, G, H, I, J](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3101,12 +3116,15 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c8)
       .zip(c9)
       .zip(c10)
-      .transform({ case (((((((((a, b), c), d), e), f), g), h), i), j) => (a, b, c, d, e, f, g, h, i, j) }, {
-        case (a, b, c, d, e, f, g, h, i, j)                            => (((((((((a, b), c), d), e), f), g), h), i), j)
-      })
+      .transform(
+        { case (((((((((a, b), c), d), e), f), g), h), i), j) => (a, b, c, d, e, f, g, h, i, j) },
+        { case (a, b, c, d, e, f, g, h, i, j) =>
+          (((((((((a, b), c), d), e), f), g), h), i), j)
+        }
+      )
 
-  implicit def tuple11[A, B, C, D, E, F, G, H, I, J, K](
-    implicit c1: Schema[A],
+  implicit def tuple11[A, B, C, D, E, F, G, H, I, J, K](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3128,12 +3146,15 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c9)
       .zip(c10)
       .zip(c11)
-      .transform({ case ((((((((((a, b), c), d), e), f), g), h), i), j), k) => (a, b, c, d, e, f, g, h, i, j, k) }, {
-        case (a, b, c, d, e, f, g, h, i, j, k)                              => ((((((((((a, b), c), d), e), f), g), h), i), j), k)
-      })
+      .transform(
+        { case ((((((((((a, b), c), d), e), f), g), h), i), j), k) => (a, b, c, d, e, f, g, h, i, j, k) },
+        { case (a, b, c, d, e, f, g, h, i, j, k) =>
+          ((((((((((a, b), c), d), e), f), g), h), i), j), k)
+        }
+      )
 
-  implicit def tuple12[A, B, C, D, E, F, G, H, I, J, K, L](
-    implicit c1: Schema[A],
+  implicit def tuple12[A, B, C, D, E, F, G, H, I, J, K, L](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3158,13 +3179,14 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c11)
       .zip(c12)
       .transform(
-        { case (((((((((((a, b), c), d), e), f), g), h), i), j), k), l) => (a, b, c, d, e, f, g, h, i, j, k, l) }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l)                     => (((((((((((a, b), c), d), e), f), g), h), i), j), k), l)
+        { case (((((((((((a, b), c), d), e), f), g), h), i), j), k), l) => (a, b, c, d, e, f, g, h, i, j, k, l) },
+        { case (a, b, c, d, e, f, g, h, i, j, k, l) =>
+          (((((((((((a, b), c), d), e), f), g), h), i), j), k), l)
         }
       )
 
-  implicit def tuple13[A, B, C, D, E, F, G, H, I, J, K, L, M](
-    implicit c1: Schema[A],
+  implicit def tuple13[A, B, C, D, E, F, G, H, I, J, K, L, M](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3191,15 +3213,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c12)
       .zip(c13)
       .transform(
-        {
-          case ((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m) => (a, b, c, d, e, f, g, h, i, j, k, l, m)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m) => ((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m)
+        { case ((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m)
+        },
+        { case (a, b, c, d, e, f, g, h, i, j, k, l, m) =>
+          ((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m)
         }
       )
 
-  implicit def tuple14[A, B, C, D, E, F, G, H, I, J, K, L, M, N](
-    implicit c1: Schema[A],
+  implicit def tuple14[A, B, C, D, E, F, G, H, I, J, K, L, M, N](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3228,17 +3251,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c13)
       .zip(c14)
       .transform(
-        {
-          case (((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n) =>
-            (((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n)
+        { case (((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n)
+        },
+        { case (a, b, c, d, e, f, g, h, i, j, k, l, m, n) =>
+          (((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n)
         }
       )
 
-  implicit def tuple15[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O](
-    implicit c1: Schema[A],
+  implicit def tuple15[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3269,17 +3291,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c14)
       .zip(c15)
       .transform(
-        {
-          case ((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) =>
-            ((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o)
+        { case ((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
+        },
+        { case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) =>
+          ((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o)
         }
       )
 
-  implicit def tuple16[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P](
-    implicit c1: Schema[A],
+  implicit def tuple16[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3312,17 +3333,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c15)
       .zip(c16)
       .transform(
-        {
-          case (((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) =>
-            (((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p)
+        { case (((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
+        },
+        { case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) =>
+          (((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p)
         }
       )
 
-  implicit def tuple17[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q](
-    implicit c1: Schema[A],
+  implicit def tuple17[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3357,17 +3377,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c16)
       .zip(c17)
       .transform(
-        {
-          case ((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) =>
-            ((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q)
+        { case ((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q)
+        },
+        { case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) =>
+          ((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q)
         }
       )
 
-  implicit def tuple18[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R](
-    implicit c1: Schema[A],
+  implicit def tuple18[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3404,17 +3423,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c17)
       .zip(c18)
       .transform(
-        {
-          case (((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) =>
-            (((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r)
+        { case (((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r)
+        },
+        { case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) =>
+          (((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r)
         }
       )
 
-  implicit def tuple19[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S](
-    implicit c1: Schema[A],
+  implicit def tuple19[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3453,17 +3471,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c18)
       .zip(c19)
       .transform(
-        {
-          case ((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) =>
-            ((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s)
+        { case ((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s)
+        },
+        { case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) =>
+          ((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s)
         }
       )
 
-  implicit def tuple20[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T](
-    implicit c1: Schema[A],
+  implicit def tuple20[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3504,17 +3521,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c19)
       .zip(c20)
       .transform(
-        {
-          case (((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) =>
-            (((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t)
+        { case (((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t)
+        },
+        { case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) =>
+          (((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t)
         }
       )
 
-  implicit def tuple21[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U](
-    implicit c1: Schema[A],
+  implicit def tuple21[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3557,17 +3573,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .zip(c20)
       .zip(c21)
       .transform(
-        {
-          case ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u) =>
-            ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u)
+        { case ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u)
+        },
+        { case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u) =>
+          ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u)
         }
       )
 
-  implicit def tuple22[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V](
-    implicit c1: Schema[A],
+  implicit def tuple22[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V](implicit
+    c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
     c4: Schema[D],
@@ -3614,13 +3629,13 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       .transform(
         {
           case (
-              ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u),
-              v
+                ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u),
+                v
               ) =>
             (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v) =>
-            (((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v)
+        },
+        { case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v) =>
+          (((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v)
         }
       )
 // # RECORD SCHEMAS
@@ -3677,7 +3692,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           Right(defaultConstruct())
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk()
@@ -3728,7 +3744,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           Right(defaultConstruct(values(0).asInstanceOf[A]))
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(Some(field.get(value)))
@@ -3795,7 +3812,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2]))
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] =
@@ -3875,7 +3893,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3]))
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] =
@@ -3977,7 +3996,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] =
@@ -4098,7 +4118,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -4261,7 +4282,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -4445,7 +4467,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -4652,7 +4675,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -4876,7 +4900,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -5139,7 +5164,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -5424,7 +5450,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -5728,7 +5755,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -6051,7 +6079,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -6393,7 +6422,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -6755,7 +6785,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -7138,7 +7169,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -7540,7 +7572,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -7961,7 +7994,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -8403,7 +8437,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -8864,7 +8899,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -9365,7 +9401,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
@@ -9423,7 +9460,30 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z,
       annotations0: Chunk[Any] = Chunk.empty
     ): CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] =
-      new CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] {
+      new CaseClass21[
+        A1,
+        A2,
+        A3,
+        A4,
+        A5,
+        A6,
+        A7,
+        A8,
+        A9,
+        A10,
+        A11,
+        A12,
+        A13,
+        A14,
+        A15,
+        A16,
+        A17,
+        A18,
+        A19,
+        A20,
+        A21,
+        Z
+      ] {
         def id: TypeId                                    = id0
         def field1: Field.WithFieldName[Z, Field1, A1]    = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
         def field2: Field.WithFieldName[Z, Field2, A2]    = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
@@ -9932,7 +9992,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           )
         } catch {
           case _: Throwable => Left("invalid type in values")
-        } else
+        }
+      else
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(

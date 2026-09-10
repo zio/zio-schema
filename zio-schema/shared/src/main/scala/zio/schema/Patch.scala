@@ -1,7 +1,7 @@
 package zio.schema
 
-import java.math.{ BigInteger, MathContext }
-import java.time.temporal.{ ChronoField, ChronoUnit }
+import java.math.{BigInteger, MathContext}
+import java.time.temporal.{ChronoField, ChronoUnit}
 import java.time.{
   DayOfWeek,
   Duration => JDuration,
@@ -193,14 +193,14 @@ object Patch {
       for {
         patchedLocalDateTime <- localDateTimeDiff.patch(input.toLocalDateTime)
         patchedZoneId        <- zoneIdDiff.patch(input.getZone.getId)
-        patched <- try {
-                    Right(JZonedDateTime.of(patchedLocalDateTime, ZoneId.of(patchedZoneId)))
-                  } catch {
-                    case e: Throwable =>
-                      Left(
-                        s"Patched ZonedDateTime is not valid. Patched values $patchedLocalDateTime, $patchedZoneId. Error=${e.getMessage}"
-                      )
-                  }
+        patched              <- try {
+                     Right(JZonedDateTime.of(patchedLocalDateTime, ZoneId.of(patchedZoneId)))
+                   } catch {
+                     case e: Throwable =>
+                       Left(
+                         s"Patched ZonedDateTime is not valid. Patched values $patchedLocalDateTime, $patchedZoneId. Error=${e.getMessage}"
+                       )
+                   }
       } yield patched
 
     override def invert: Patch[JZonedDateTime] = ZonedDateTime(localDateTimeDiff.invert, zoneIdDiff.invert)
@@ -215,7 +215,7 @@ object Patch {
 
   final case class Tuple[A, B](leftDifference: Patch[A], rightDifference: Patch[B]) extends Patch[(A, B)] {
 
-    override def isIdentical: Boolean = leftDifference.isIdentical && rightDifference.isIdentical
+    override def isIdentical: Boolean                         = leftDifference.isIdentical && rightDifference.isIdentical
     override def patch(input: (A, B)): Either[String, (A, B)] =
       for {
         l <- leftDifference.patch(input._1)
@@ -227,7 +227,7 @@ object Patch {
 
   final case class LCS[A](edits: Chunk[Edit[A]]) extends Patch[Chunk[A]] {
     override def patch(as: Chunk[A]): Either[String, Chunk[A]] = {
-      import zio.schema.diff.{ Edit => ZEdit }
+      import zio.schema.diff.{Edit => ZEdit}
 
       @tailrec
       def calc(in: List[A], edits: List[Edit[A]], result: List[A]): Either[String, Chunk[A]] = (in, edits) match {
@@ -259,8 +259,8 @@ object Patch {
     override def isComparable: Boolean = diff.fold(_.isComparable, _.isComparable)
 
     override def patch(input: Either[A, B]): Either[String, Either[A, B]] = (input, diff) match {
-      case (Left(_), Right(_)) => Left(s"Cannot apply a right diff to a left value")
-      case (Right(_), Left(_)) => Left(s"Cannot apply a left diff to a right value")
+      case (Left(_), Right(_))    => Left(s"Cannot apply a right diff to a left value")
+      case (Right(_), Left(_))    => Left(s"Cannot apply a left diff to a right value")
       case (Left(in), Left(diff)) =>
         diff.patch(in).map(Left(_))
       case (Right(in), Right(diff)) =>
@@ -333,7 +333,8 @@ object Patch {
   }
 
   /**
-   * Represents diff between incomparable values. For instance Left(1) and Right("a")
+   * Represents diff between incomparable values. For instance Left(1) and
+   * Right("a")
    */
   final case class NotComparable[A]() extends Patch[A] {
     override def patch(input: A): Either[String, A] =
@@ -346,7 +347,7 @@ object Patch {
 
   final case class SchemaMigration(migrations: Chunk[Migration]) extends Patch[Schema[_]] { self =>
 
-    //TODO Probably need to implement this
+    // TODO Probably need to implement this
     override def patch(input: Schema[_]): Either[String, Schema[_]] = Left(s"Schema migrations cannot be applied")
 
     def orIdentical: Patch[Schema[_]] =
@@ -357,8 +358,8 @@ object Patch {
   }
 
   /**
-   * Map of field-level diffs between two records. The map of differences
-   * is keyed to the records field names.
+   * Map of field-level diffs between two records. The map of differences is
+   * keyed to the records field names.
    */
   final case class Record[R](differences: ListMap[String, Patch[_]], schema: Schema.Record[R]) extends Patch[R] {
     self =>
@@ -408,8 +409,8 @@ object Patch {
 
     override def invert: Patch[R] = {
       val inverted: ListMap[String, Patch[_]] =
-        differences.foldLeft[ListMap[String, Patch[_]]](ListMap.empty) {
-          case (map, (key, value)) => map.updated(key, value.invert)
+        differences.foldLeft[ListMap[String, Patch[_]]](ListMap.empty) { case (map, (key, value)) =>
+          map.updated(key, value.invert)
         }
       Record(inverted, schema)
     }

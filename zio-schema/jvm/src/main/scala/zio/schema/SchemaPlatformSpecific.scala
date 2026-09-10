@@ -7,8 +7,7 @@ trait SchemaPlatformSpecific {
       string =>
         try {
           Right(new java.net.URI(string).toURL)
-        } catch { case _: Exception => Left(s"Invalid URL: $string") },
-      url => Right(url.toString)
+        } catch { case _: Exception => Left(s"Invalid URL: $string") }, url => Right(url.toString)
     )
 
 }

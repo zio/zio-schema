@@ -77,13 +77,12 @@ object XmlWriter {
     }
 
   private def writeAttributes(sb: StringBuilder, attributes: Chunk[(XmlName, String)]): Unit =
-    attributes.foreach {
-      case (name, value) =>
-        sb.append(' ')
-        sb.append(name.qualifiedName)
-        sb.append("=\"")
-        sb.append(escapeAttribute(value))
-        sb.append('"')
+    attributes.foreach { case (name, value) =>
+      sb.append(' ')
+      sb.append(name.qualifiedName)
+      sb.append("=\"")
+      sb.append(escapeAttribute(value))
+      sb.append('"')
     }
 
   private def indent(sb: StringBuilder, depth: Int, step: Int): Unit = {

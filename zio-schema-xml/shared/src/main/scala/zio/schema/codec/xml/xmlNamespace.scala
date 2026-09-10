@@ -3,7 +3,8 @@ package zio.schema.codec.xml
 /**
  * Annotation for specifying XML namespace information on a type or field.
  *
- * When applied to a case class or a field, adds namespace information to the corresponding XML element.
+ * When applied to a case class or a field, adds namespace information to the
+ * corresponding XML element.
  *
  * {{{
  * @xmlNamespace("http://example.com/ns", Some("ex"))

@@ -40,7 +40,7 @@ object BuildHelper {
   val Scala3: String = scalaVersionFor("3")
 
   val zioVersion                   = "2.1.26"
-  val zioJsonVersion               = "1.0.0"
+  val zioJsonVersion               = "1.1.0"
   val zioPreludeVersion            = "1.0.0-RC48"
   val zioOpticsVersion             = "0.2.2"
   val zioBsonVersion               = "1.0.11"
@@ -85,7 +85,7 @@ object BuildHelper {
       }
     )
 
-  private def compilerOptions(scalaVersion: String, optimize: Boolean) = {
+  private def compilerOptions(scalaVersion: String) = {
     val stdOptions = Seq(
       "-deprecation",
       "-encoding",
@@ -113,19 +113,12 @@ object BuildHelper {
       "-Xsource:3.0"
     )
 
-    val optimizerOptions =
-      if (optimize)
-        Seq(
-          "-opt:l:inline"
-        )
-      else Seq.empty
-
     val extraOptions = CrossVersion.partialVersion(scalaVersion) match {
       case Some((3, _)) =>
         Seq(
           "-language:implicitConversions",
           "-Xignore-scala2-macros",
-          "-Ykind-projector",
+          "-Xkind-projector",
           // Scala 3.4 raised the default source level, turning migration lints
           // into errors: context bounds need a `using` clause to be passed
           // explicitly, `x: _*` splices are rejected and refutable patterns in a
@@ -141,7 +134,7 @@ object BuildHelper {
           "-Ywarn-unused",
           "-Ymacro-annotations",
           "-Ywarn-macros:after"
-        ) ++ std2xOptions ++ optimizerOptions
+        ) ++ std2xOptions
       case Some((2, 12)) =>
         Seq(
           "-Ypartial-unification",
@@ -152,7 +145,7 @@ object BuildHelper {
           "-Ywarn-nullary-override",
           "-Ywarn-nullary-unit",
           "-Wconf:cat=unused-nowarn:s"
-        ) ++ std2xOptions ++ optimizerOptions
+        ) ++ std2xOptions
       case _ => Seq.empty
     }
 
@@ -226,7 +219,7 @@ object BuildHelper {
       name := s"$prjName",
       crossScalaVersions := Seq(Scala213, Scala212, Scala3),
       ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
-      scalacOptions ++= compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
+      scalacOptions ++= compilerOptions(scalaVersion.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value),
       versionScheme := Some("early-semver"),
       ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
