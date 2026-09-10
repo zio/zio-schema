@@ -72,7 +72,7 @@ private case class DeriveInstance()(using val ctx: Quotes) {
                       val summoned = summonOptionalIfNotTop[F, A](top)
                       Expr.summon[scala.reflect.ClassTag[A]] match {
                           case Some(classTag) =>
-                            '{ $deriver.derivePrimitiveAlias[A, ut]($st, $summoned)($classTag) }
+                            '{ $deriver.derivePrimitiveAlias[A, ut]($st, $summoned)(using $classTag) }
                           case None =>
                             report.errorAndAbort(s"Cannot find a ClassTag for ${typeRepr.show}")
                       }                      
@@ -359,7 +359,7 @@ private case class DeriveInstance()(using val ctx: Quotes) {
                         val summoned = summonOptionalIfNotTop[F, A](top)
                         Expr.summon[scala.reflect.ClassTag[A]] match {
                             case Some(classTag) =>
-                              '{ $deriver.deriveUnknown[A]($summoned)($classTag) }
+                              '{ $deriver.deriveUnknown[A]($summoned)(using $classTag) }
                             case None =>
                               report.errorAndAbort(s"Cannot find a ClassTag for ${typeRepr.show}")
                         }
@@ -377,7 +377,7 @@ private case class DeriveInstance()(using val ctx: Quotes) {
     val summoned = summonOptionalIfNotTop[F, A](top)
     Expr.summon[scala.reflect.ClassTag[A]] match {
       case Some(classTag) =>
-        '{ $deriver.tryDeriveRecord[A](Schema.force($schema), Chunk.empty, $summoned)($classTag) }
+        '{ $deriver.tryDeriveRecord[A](Schema.force($schema), Chunk.empty, $summoned)(using $classTag) }
       case None =>
         val typeRepr = TypeRepr.of[A]
         report.errorAndAbort(s"Cannot find a ClassTag for ${typeRepr.show}")
@@ -413,7 +413,7 @@ private case class DeriveInstance()(using val ctx: Quotes) {
             selfRef -> '{
               $deriver.tryDeriveRecord[A](Schema.force($schema), Chunk(${
                 Varargs(fieldInstances)
-              }: _*), $summoned)($classTag)
+              }: _*), $summoned)(using $classTag)
             }
           )
         case None =>
@@ -471,7 +471,7 @@ private case class DeriveInstance()(using val ctx: Quotes) {
           selfRef -> '{
             $deriver.tryDeriveEnum[A](Schema.force($schema), Chunk(${
               Varargs(caseInstances)
-            }: _*), $summoned)($classTag)
+            }: _*), $summoned)(using $classTag)
           }
         )
       case None =>

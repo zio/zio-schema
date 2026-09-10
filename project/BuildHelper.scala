@@ -30,15 +30,14 @@ object BuildHelper {
   }
 
   private def scalaVersionFor(prefix: String): String =
-    versions
-      .collectFirst { case (key, value) if key.startsWith(prefix) => value }
+    versions.collectFirst { case (key, value) if key.startsWith(prefix) => value }
       .getOrElse(sys.error(s"No Scala $prefix version in the build matrix of .github/workflows/ci.yml"))
 
   val Scala212: String = scalaVersionFor("2.12")
   val Scala213: String = scalaVersionFor("2.13")
   // Matched on the major version so a Scala 3 minor bump in ci.yml does not
   // have to be mirrored here.
-  val Scala3: String   = scalaVersionFor("3")
+  val Scala3: String = scalaVersionFor("3")
 
   val zioVersion                   = "2.1.26"
   val zioJsonVersion               = "1.0.0"
@@ -126,7 +125,14 @@ object BuildHelper {
         Seq(
           "-language:implicitConversions",
           "-Xignore-scala2-macros",
-          "-Ykind-projector"
+          "-Ykind-projector",
+          // Scala 3.4 raised the default source level, turning migration lints
+          // into errors: context bounds need a `using` clause to be passed
+          // explicitly, `x: _*` splices are rejected and refutable patterns in a
+          // for generator need `case`. None of that can be written while these
+          // modules still cross-compile with Scala 2.12/2.13, so stay on the 3.3
+          // source level until Scala 2 support is dropped.
+          "-source:3.3"
         )
       case Some((2, 13)) =>
         Seq(
