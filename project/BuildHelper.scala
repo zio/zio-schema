@@ -29,9 +29,16 @@ object BuildHelper {
     list.map(v => (v.split('.').take(2).mkString("."), v)).toMap
   }
 
-  val Scala212: String = versions("2.12")
-  val Scala213: String = versions("2.13")
-  val Scala3: String   = versions("3.3")
+  private def scalaVersionFor(prefix: String): String =
+    versions
+      .collectFirst { case (key, value) if key.startsWith(prefix) => value }
+      .getOrElse(sys.error(s"No Scala $prefix version in the build matrix of .github/workflows/ci.yml"))
+
+  val Scala212: String = scalaVersionFor("2.12")
+  val Scala213: String = scalaVersionFor("2.13")
+  // Matched on the major version so a Scala 3 minor bump in ci.yml does not
+  // have to be mirrored here.
+  val Scala3: String   = scalaVersionFor("3")
 
   val zioVersion                   = "2.1.26"
   val zioJsonVersion               = "1.0.0"
