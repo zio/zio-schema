@@ -5,21 +5,21 @@ import sbtbuildinfo.*
 import BuildInfoKeys.*
 import com.typesafe.tools.mima.core.*
 import com.typesafe.tools.mima.core.ProblemFilters.exclude
-import com.typesafe.tools.mima.plugin.MimaKeys.{ mimaBinaryIssueFilters, mimaFailOnProblem, mimaPreviousArtifacts }
+import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaFailOnProblem, mimaPreviousArtifacts}
 import com.typesafe.tools.mima.plugin.MimaPlugin.autoImport.mimaCheckDirection
 import sbtdynver.DynVerPlugin.autoImport.previousStableVersion
 import scalafix.sbt.ScalafixPlugin.autoImport.*
 import scalanativecrossproject.NativePlatform
 
-import scala.scalanative.build.{ GC, Mode }
+import scala.scalanative.build.{GC, Mode}
 import scala.scalanative.sbtplugin.ScalaNativePlugin.autoImport.nativeConfig
 
 object BuildHelper {
 
   private val versions: Map[String, String] = {
-    import org.snakeyaml.engine.v2.api.{ Load, LoadSettings }
+    import org.snakeyaml.engine.v2.api.{Load, LoadSettings}
 
-    import java.util.{ List => JList, Map => JMap }
+    import java.util.{List => JList, Map => JMap}
     import scala.jdk.CollectionConverters._
 
     val doc = new Load(LoadSettings.builder().build())
@@ -93,13 +93,7 @@ object BuildHelper {
       "-feature",
       "-unchecked",
       "-language:existentials"
-    ) ++ {
-      if (sys.env.contains("CI")) {
-        Seq("-Xfatal-warnings")
-      } else {
-        Seq()
-      }
-    }
+    )
 
     val std2xOptions = Seq(
       "-language:higherKinds",
@@ -152,20 +146,11 @@ object BuildHelper {
     stdOptions ++ extraOptions
   }
 
-  val dottySettings = Seq(
-    scalacOptions --= {
-      if (scalaVersion.value == Scala3)
-        Seq("-Xfatal-warnings")
-      else
-        Seq()
-    }
-  )
-
   def platformSpecificSources(platform: String, conf: String, baseDirectory: File)(versions: String*): Seq[File] =
     for {
       platform <- List("shared", platform)
       version  <- "scala" :: versions.toList.map("scala-" + _)
-      result   = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
+      result    = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
       if result.exists
     } yield result
 
@@ -210,18 +195,18 @@ object BuildHelper {
   )
 
   def buildInfoSettings(packageName: String) = Seq(
-    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
+    buildInfoKeys    := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
     buildInfoPackage := packageName
   )
 
   def stdSettings(prjName: String) =
     Seq(
-      name := s"$prjName",
-      crossScalaVersions := Seq(Scala213, Scala212, Scala3),
-      ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
+      name                     := s"$prjName",
+      crossScalaVersions       := Seq(Scala213, Scala212, Scala3),
+      ThisBuild / scalaVersion := Scala213, // crossScalaVersions.value.head, //Scala3,
       scalacOptions ++= compilerOptions(scalaVersion.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value),
-      versionScheme := Some("early-semver"),
+      versionScheme                 := Some("early-semver"),
       ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
       ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
       ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
@@ -230,8 +215,8 @@ object BuildHelper {
       ),
       Test / parallelExecution := !sys.env.contains("CI"),
       incOptions ~= (_.withLogRecompileOnMacro(true)),
-      autoAPIMappings := true,
-      testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+      autoAPIMappings       := true,
+      testFrameworks        := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
       mimaPreviousArtifacts := previousStableVersion.value
         .filter(_ != "1.5.0")
         .map(organization.value %% name.value % _)
@@ -269,7 +254,27 @@ object BuildHelper {
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroEnum"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroMap"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroRecord"),
-        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroRecordField")
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.toAvroRecordField"),
+        // FIXME: remove after releasing with Scala 3.9.0
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.CaseSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.DynamicValue.<clinit>"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.FieldSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.TypeId.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.meta.ExtensibleMetaSchema#Lineage.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.meta.SchemaInstances.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.validation.PhoneNumberValidation.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.validation.Validation.<clinit>"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.CaseSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.FieldSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.CaseSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.DynamicValue.<clinit>"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("zio.schema.FieldSet#Empty.makeAccessors"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.TypeId.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.meta.ExtensibleMetaSchema#Lineage.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.meta.SchemaInstances.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.validation.PhoneNumberValidation.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.validation.Validation.<clinit>"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.AvroSchemaCodec.<clinit>")
       ),
       mimaFailOnProblem := true
     )

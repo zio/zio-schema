@@ -4,19 +4,21 @@ import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
 import java.util
 import java.util.concurrent.ConcurrentHashMap
+
 import scala.annotation._
 import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import scala.util.control.NonFatal
+
 import zio.json.JsonDecoder.{JsonError, UnsafeJson}
 import zio.json.ast.Json
 import zio.json.internal.{FastStringReader, Lexer, OneCharReader, RecordingReader, RetractReader, StringMatrix, Write}
 import zio.json.{
-  JsonFieldDecoder,
-  JsonFieldEncoder,
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
-  JsonEncoder => ZJsonEncoder
+  JsonEncoder => ZJsonEncoder,
+  JsonFieldDecoder,
+  JsonFieldEncoder
 }
 import zio.prelude.NonEmptyMap
 import zio.schema.Schema.GenericRecord
@@ -506,9 +508,11 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         case Schema.NonEmptySequence(schema, _, g, _, _) =>
           val encoder = schemaEncoder(schema, cfg)
           ZJsonEncoder.chunk(using encoder).contramap(g)
-        case Schema.Map(ks, vs, _)              => mapEncoder(ks, vs, cfg)
-        case Schema.NonEmptyMap(ks, vs, _)      => mapEncoder(ks, vs, cfg).contramap(_.toMap)
-        case Schema.Set(s, _)                   => ZJsonEncoder.set(using.schemaEncoder(s, cfg))
+        case Schema.Map(ks, vs, _)         => mapEncoder(ks, vs, cfg)
+        case Schema.NonEmptyMap(ks, vs, _) => mapEncoder(ks, vs, cfg).contramap(_.toMap)
+        case Schema.Set(s, _)              =>
+          val encoder = schemaEncoder(s, cfg)
+          ZJsonEncoder.set(using encoder)
         case Schema.Transform(c, _, g, a, _)    => transformEncoder(a.foldLeft(c)((s, a) => s.annotate(a)), g, cfg, discriminatorTuple)
         case Schema.Fail(_, _)                  => unitEncoder.contramap(_ => ())
         case Schema.Either(left, right, _)      => ZJsonEncoder.either(schemaEncoder(left, cfg), schemaEncoder(right, cfg))
@@ -884,9 +888,11 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       case s @ Schema.NonEmptySequence(codec, _, _, _, _) =>
         val decoder = schemaDecoder(codec, config)
         ZJsonDecoder.chunk(using decoder).mapOrFail(chunk => s.fromChunkOption(chunk).toRight(s"${s.identity} expected"))
-      case Schema.Map(ks, vs, _)           => mapDecoder(config)(ks, vs)
-      case Schema.NonEmptyMap(ks, vs, _)   => mapDecoder(config)(ks, vs).mapOrFail(m => NonEmptyMap.fromMapOption(m).toRight("NonEmptyMap expected"))
-      case Schema.Set(s, _)                => ZJsonDecoder.set(using.schemaDecoder(s, config))
+      case Schema.Map(ks, vs, _)         => mapDecoder(config)(ks, vs)
+      case Schema.NonEmptyMap(ks, vs, _) => mapDecoder(config)(ks, vs).mapOrFail(m => NonEmptyMap.fromMapOption(m).toRight("NonEmptyMap expected"))
+      case Schema.Set(s, _)              =>
+        val decoder = schemaDecoder(s, config)
+        ZJsonDecoder.set(using decoder)
       case Schema.Fail(message, _)         => failDecoder(message)
       case Schema.Either(left, right, _)   => ZJsonDecoder.either(schemaDecoder(left, config), schemaDecoder(right, config))
       case s @ Schema.Fallback(_, _, _, _) => fallbackDecoder(s, config)
@@ -945,7 +951,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         case Some(jsonFieldDecoder) =>
           ZJsonDecoder.map(using jsonFieldDecoder, valueDecoder)
         case _ =>
-          ZJsonDecoder.chunk(using.schemaDecoder(ks, config).zip(valueDecoder)).map(_.toMap)
+          val decoder = schemaDecoder(ks, config).zip(valueDecoder)
+          ZJsonDecoder.chunk(using decoder).map(_.toMap)
       }
     }
 

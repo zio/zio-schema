@@ -10,6 +10,6 @@ object VerifyFieldNameMacro {
     import ctx.reflect._
     val f = TypeRepr.of[F].dealias
     val s = TypeRepr.of[S]
-    if (f =:= s) '{true} else '{false}
+    if (f =:= s) '{ true } else '{ false }
   }
 }

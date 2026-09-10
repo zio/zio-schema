@@ -3,7 +3,7 @@ package zio.schema
 import zio._
 import zio.schema.Schema._
 import zio.schema.annotation.validate
-import zio.schema.validation.{ Validation, ValidationError }
+import zio.schema.validation.{Validation, ValidationError}
 import zio.test._
 
 object SchemaValidationSpecJVM extends ZIOSpecDefault {
@@ -28,8 +28,9 @@ object SchemaValidationSpecJVM extends ZIOSpecDefault {
 
   final case class Wrapper(person: Person)
 
-  implicit val schema
-    : CaseClass6[scala.util.Either[Person, Person], Option[Person], List[Person], (Person, Person), Wrapper, EnumData, ExampleData] =
+  implicit val schema: CaseClass6[scala.util.Either[Person, Person], Option[Person], List[
+    Person
+  ], (Person, Person), Wrapper, EnumData, ExampleData] =
     DeriveSchema.gen[ExampleData]
 
   val badData: Person  = Person("foo", 123123123)

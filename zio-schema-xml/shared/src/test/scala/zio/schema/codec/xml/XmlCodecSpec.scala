@@ -509,10 +509,10 @@ object XmlCodecSpec extends ZIOSpecDefault {
       val person = SimplePerson("Stream", 99)
       for {
         result <- ZStream
-                   .succeed(person)
-                   .via(codec.streamEncoder)
-                   .via(codec.streamDecoder)
-                   .run(ZSink.collectAll)
+                    .succeed(person)
+                    .via(codec.streamEncoder)
+                    .via(codec.streamDecoder)
+                    .run(ZSink.collectAll)
       } yield assertTrue(result == Chunk(person))
     }
   )
@@ -558,7 +558,7 @@ object XmlCodecSpec extends ZIOSpecDefault {
       )
     },
     test("parse nested elements") {
-      val result = XmlReader.read("<root><child>text</child></root>", ReaderConfig.default)
+      val result   = XmlReader.read("<root><child>text</child></root>", ReaderConfig.default)
       val expected = Xml.Element(
         XmlName("root"),
         Chunk.empty,
@@ -639,7 +639,7 @@ object XmlCodecSpec extends ZIOSpecDefault {
       result match {
         case Right(Xml.Element(_, _, children)) =>
           assertTrue(children.size == 1) &&
-            assertTrue(children.head.isInstanceOf[Xml.Element])
+          assertTrue(children.head.isInstanceOf[Xml.Element])
         case other =>
           assertTrue(other.toString == "unexpected")
       }
@@ -686,9 +686,9 @@ object XmlCodecSpec extends ZIOSpecDefault {
       result match {
         case Right(Xml.Element(_, _, children)) =>
           assertTrue(children.size == 3) &&
-            assertTrue(children(0).isInstanceOf[Xml.Text]) &&
-            assertTrue(children(1).isInstanceOf[Xml.Element]) &&
-            assertTrue(children(2).isInstanceOf[Xml.Text])
+          assertTrue(children(0).isInstanceOf[Xml.Text]) &&
+          assertTrue(children(1).isInstanceOf[Xml.Element]) &&
+          assertTrue(children(2).isInstanceOf[Xml.Text])
         case other =>
           assertTrue(other.toString == "unexpected")
       }
@@ -698,7 +698,7 @@ object XmlCodecSpec extends ZIOSpecDefault {
       result match {
         case Right(Xml.Element(name, _, _)) =>
           assertTrue(name.prefix == Some("ns")) &&
-            assertTrue(name.localName == "root")
+          assertTrue(name.localName == "root")
         case other =>
           assertTrue(other.toString == "unexpected")
       }

@@ -446,13 +446,14 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
     _.ast
   )
 
-  implicit val uri: Schema[java.net.URI] =
-    Schema[String].transformOrFail(
-      string =>
-        try {
-          Right(new URI(string))
-        } catch { case _: Exception => Left(s"Invalid URI: $string") }, uri => Right(uri.toString)
-    )
+  implicit val uri: Schema[java.net.URI] = {
+    val f = (string: String) =>
+      try {
+        Right(new URI(string))
+      } catch { case _: Exception => Left(s"Invalid URI: $string") }
+    val g = (uri: java.net.URI) => Right(uri.toString)
+    Schema[String].transformOrFail(f, g)
+  }
 
   implicit def standardSchema[A]: Schema[StandardType[A]] = Schema[String].transformOrFail[StandardType[A]](
     string =>

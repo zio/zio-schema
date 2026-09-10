@@ -43,9 +43,8 @@ object NodePathSpec extends ZIOSpecDefault {
             relativePath <- anyPath
           } yield path -> (path / relativePath)
 
-        check(pathAndSubpath) {
-          case (path, subpath) =>
-            assertTrue(subpath.isSubpathOf(path))
+        check(pathAndSubpath) { case (path, subpath) =>
+          assertTrue(subpath.isSubpathOf(path))
         }
       }
     ),
