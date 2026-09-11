@@ -213,13 +213,45 @@ object DynamicValue {
 
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
 
-  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
+  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue {
+    override def hashCode(): Int = {
+      // Order-insensitive: commutative accumulation so Map iteration order doesn't matter
+      var acc = 0x4d617044 // "MapD" seed
+      val it  = entries.iterator
+      while (it.hasNext) {
+        val (k, v) = it.next()
+        acc += (k.## * 31 + v.##)
+      }
+      acc ^ entries.size
+    }
+    override def equals(obj: Any): Boolean = obj match {
+      case Dictionary(otherEntries) => entries.toSet == otherEntries.toSet
+      case _                        => false
+    }
+  }
 
   final case class SetValue(values: Set[DynamicValue]) extends DynamicValue
 
-  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
+  sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue {
+    override def hashCode(): Int =
+      // Use standardType.tag (a stable String) instead of standardType.## which calls
+      // System.identityHashCode on non-case-object singletons — unstable across JVM runs.
+      standardType.tag.## * 31 + value.##
+    override def equals(obj: Any): Boolean = obj match {
+      case Primitive(otherValue, otherType) => standardType.tag == otherType.tag && value == otherValue
+      case _                                => false
+    }
+  }
 
-  sealed case class Singleton[A](instance: A) extends DynamicValue
+  sealed case class Singleton[A](instance: A) extends DynamicValue {
+    override def hashCode(): Int =
+      // Use class name for deterministic hashing — instance.## may use identityHashCode
+      instance.getClass.getName.##
+    override def equals(obj: Any): Boolean = obj match {
+      case Singleton(otherInstance) => instance.getClass == otherInstance.getClass
+      case _                        => false
+    }
+  }
 
   final case class SomeValue(value: DynamicValue) extends DynamicValue
 
