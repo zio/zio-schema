@@ -1002,6 +1002,78 @@ object JsonCodecSpec extends ZIOSpecDefault {
         )
       }
     ),
+    suite("trailing content after a valid JSON value")(
+      test("jsonDecoder rejects a string followed by an extra quote") {
+        assertTrue(JsonCodec.jsonDecoder(Schema[String]).decodeJson("\"foo\"\"").isLeft)
+      },
+      test("jsonDecoder rejects an extra closing brace after an object") {
+        assertTrue(JsonCodec.jsonDecoder(Schema[Map[String, Int]]).decodeJson("""{"a":1}}""").isLeft)
+      },
+      test("jsonDecoder rejects an empty object followed by a closing brace") {
+        assertTrue(JsonCodec.jsonDecoder(Schema[Map[String, Int]]).decodeJson("{}}").isLeft)
+      },
+      test("jsonDecoder rejects extra characters after an array") {
+        assertTrue(JsonCodec.jsonDecoder(Schema[List[Int]]).decodeJson("[1,2]x").isLeft)
+      },
+      test("jsonDecoder rejects extra characters after a boolean") {
+        assertTrue(JsonCodec.jsonDecoder(Schema[Boolean]).decodeJson("truee").isLeft)
+      },
+      test("jsonDecoder rejects extra characters after unit and null") {
+        assertTrue(JsonCodec.jsonDecoder(Schema[Unit]).decodeJson("{}x").isLeft) &&
+        assertTrue(JsonCodec.jsonDecoder(Schema[Option[Int]]).decodeJson("nullx").isLeft) &&
+        assert(JsonCodec.jsonDecoder(Schema[Option[Int]]).decodeJson("null"))(equalTo(Right(None)))
+      },
+      test("jsonDecoder rejects extra characters and values after a number") {
+        assertTrue(JsonCodec.jsonDecoder(Schema[Int]).decodeJson("42x").isLeft) &&
+        assertTrue(JsonCodec.jsonDecoder(Schema[Int]).decodeJson("42 43").isLeft)
+      },
+      test("jsonDecoder decodes a top-level number ending at the end of input") {
+        assert(JsonCodec.jsonDecoder(Schema[Int]).decodeJson("42"))(equalTo(Right(42)))
+      },
+      test("jsonDecoder accepts leading and trailing whitespace") {
+        assert(JsonCodec.jsonDecoder(Schema[Int]).decodeJson(" \t42\n "))(equalTo(Right(42))) &&
+        assert(JsonCodec.jsonDecoder(Schema[Map[String, Int]]).decodeJson(""" {"a":1} """))(
+          equalTo(Right(Map("a" -> 1)))
+        )
+      },
+      test("jsonDecoder stays lenient when composed inside other decoders") {
+        val decoder = JsonCodec.jsonDecoder(Schema[Int]).zip(JsonCodec.jsonDecoder(Schema[String]))
+        assert(decoder.decodeJson("""[1,"a"]"""))(equalTo(Right((1, "a"))))
+      },
+      test("schemaBasedBinaryCodec rejects trailing characters") {
+        val mapSchema = Schema.map(Schema[String], Schema[Int])
+        val codec     = JsonCodec.schemaBasedBinaryCodec[Int]
+        assertTrue(codec.decode(charSequenceToByteChunk("42x")).isLeft) &&
+        assert(codec.decode(charSequenceToByteChunk("42")))(equalTo(Right(42))) &&
+        assertTrue(
+          JsonCodec
+            .schemaBasedBinaryCodec[Map[String, Int]](JsonCodec.Configuration.default)(mapSchema)
+            .decode(charSequenceToByteChunk("""{"a":1}}"""))
+            .isLeft
+        )
+      },
+      test("zioJsonBinaryCodec rejects trailing characters") {
+        val codec = JsonCodec.zioJsonBinaryCodec(JsonCodec.jsonCodec(Schema[String]))
+        assertTrue(codec.decode(charSequenceToByteChunk("\"a\"\"")).isLeft) &&
+        assert(codec.decode(charSequenceToByteChunk("\"a\"")))(equalTo(Right("a")))
+      },
+      test("decoding a partially consumed fallback array consumes its remainder") {
+        val codec = JsonCodec.schemaBasedBinaryCodec[Fallback[Int, String]](JsonCodec.Configuration.default)(
+          Schema.Fallback(Schema[Int], Schema[String])
+        )
+        assert(codec.decode(charSequenceToByteChunk("""[30,"hello"]""")))(equalTo(Right(Fallback.Left(30)))) &&
+        assert(codec.decode(charSequenceToByteChunk("""[30,"hello",null]""")))(
+          equalTo(Right(Fallback.Left(30)))
+        )
+      },
+      test("streamDecoder keeps decoding values separated by boundary characters") {
+        assertDecodesMany(
+          Schema[Int],
+          Chunk(1, 2, 3, 4, 5),
+          charSequenceToByteChunk("1 2, 3;;; 4x5")
+        )
+      }
+    ),
     suite("case class")(
       test("case object") {
         assertDecodes(schemaObject, Singleton, charSequenceToByteChunk("{}"))
