@@ -12,7 +12,18 @@ import scala.util.control.NonFatal
 
 import zio.json.JsonDecoder.{JsonError, UnsafeJson}
 import zio.json.ast.Json
-import zio.json.internal.{FastStringReader, Lexer, OneCharReader, RecordingReader, RetractReader, StringMatrix, Write}
+import zio.json.internal.{
+  FastStringReader,
+  Lexer,
+  OneCharReader,
+  RecordingReader,
+  RetractReader,
+  StringMatrix,
+  UnexpectedEnd,
+  Utf8ChunkReader,
+  WithRetractReader,
+  Write
+}
 import zio.json.{
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
@@ -172,8 +183,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
-        jsonCodec
-          .decodeJson(new String(whole.toArray, JsonEncoder.CHARSET))
+        JsonDecoder
+          .decodeStrict(jsonCodec.decoder, new String(whole.toArray, JsonEncoder.CHARSET))
           .left
           .map(failure => DecodeError.ReadError(Cause.empty, failure))
 
@@ -182,7 +193,10 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
           ZPipeline.utfDecode.channel.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage))
         ) >>> splitOnJsonBoundary >>>
           ZPipeline.mapEitherChunked { (s: String) =>
-            jsonCodec.decodeJson(s).left.map(failure => DecodeError.ReadError(Cause.empty, failure))
+            JsonDecoder
+              .decodeLenient(jsonCodec.decoder, s)
+              .left
+              .map(failure => DecodeError.ReadError(Cause.empty, failure))
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -327,7 +341,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         ZPipeline.utfDecode.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage)) >>>
           (if (cfg.treatStreamsAsArrays) splitJsonArrayElements else splitOnJsonBoundary) >>>
           ZPipeline.mapZIO { (s: String) =>
-            ZIO.fromEither(JsonDecoder.decode(schema, s, cfg))
+            ZIO.fromEither(JsonDecoder.decodeLenient(schema, s, cfg))
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -358,10 +372,10 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     JsonEncoder.schemaEncoder(schema, cfg)
 
   def jsonDecoder[A](schema: Schema[A]): ZJsonDecoder[A] =
-    JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default)
+    new JsonDecoder.StrictJsonDecoder(JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default))
 
   def jsonDecoder[A](cfg: JsonCodec.Configuration)(schema: Schema[A]): ZJsonDecoder[A] =
-    JsonDecoder.schemaDecoder(schema, cfg)
+    new JsonDecoder.StrictJsonDecoder(JsonDecoder.schemaDecoder(schema, cfg))
 
   def jsonCodec[A](schema: Schema[A]): ZJsonCodec[A] =
     ZJsonCodec(jsonEncoder(schema), jsonDecoder(schema))
@@ -832,9 +846,89 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
     final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
-      schemaDecoder(schema, config).decodeJson(json) match {
+      decodeStrict(schemaDecoder(schema, config), json) match {
         case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
         case Right(value) => Right(value)
+      }
+
+    private[codec] def decodeLenient[A](
+      schema: Schema[A],
+      json: String,
+      config: Configuration
+    ): Either[DecodeError, A] =
+      decodeLenient(schemaDecoder(schema, config), json) match {
+        case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
+        case Right(value) => Right(value)
+      }
+
+    /**
+     * Decodes `json` as a complete JSON document, failing when non-whitespace
+     * characters trail the first JSON value. Equivalent to zio-json's
+     * `JsonDecoder.decodeJson` plus an end-of-input check.
+     */
+    private[codec] def decodeStrict[A](decoder: ZJsonDecoder[A], json: CharSequence): Either[String, A] =
+      try {
+        val in     = new WithRetractReader(new FastStringReader(json))
+        val result = decoder.unsafeDecode(Nil, in)
+        checkEndOfInput(Nil, in)
+        Right(result)
+      } catch {
+        case e: UnsafeJson         => Left(JsonError.render(e.trace))
+        case _: UnexpectedEnd      => Left("Unexpected end of input")
+        case _: StackOverflowError => Left("Unexpected structure")
+      }
+
+    /**
+     * Same as `decodeStrict` but leaves whatever follows the first JSON value
+     * unread, like zio-json's `JsonDecoder.decodeJson` does. Used for stream
+     * fragments, which may carry one trailing boundary character such as a `,`.
+     * Reading through a [[WithRetractReader]] also prevents
+     * [[StrictJsonDecoder]] from enforcing end of input on these fragments.
+     */
+    private[codec] def decodeLenient[A](decoder: ZJsonDecoder[A], json: CharSequence): Either[String, A] =
+      try Right(decoder.unsafeDecode(Nil, new WithRetractReader(new FastStringReader(json))))
+      catch {
+        case e: UnsafeJson         => Left(JsonError.render(e.trace))
+        case _: UnexpectedEnd      => Left("Unexpected end of input")
+        case _: StackOverflowError => Left("Unexpected structure")
+      }
+
+    /**
+     * Wraps a decoder so that whole-input decodes reject input that has
+     * non-whitespace characters trailing the first JSON value.
+     *
+     * The check only applies when zio-json's whole-input `decodeJson` overloads
+     * are the caller: they invoke `unsafeDecode` with an empty `trace` on a
+     * fresh [[FastStringReader]] or [[Utf8ChunkReader]]. Nested decodes always
+     * carry a non-empty trace and streaming reads go through other reader
+     * types, so decoder composition and stream decoding keep prefix semantics.
+     */
+    private[codec] final class StrictJsonDecoder[A](delegate: ZJsonDecoder[A]) extends ZJsonDecoder[A] {
+
+      def unsafeDecode(trace: List[JsonError], in: RetractReader): A =
+        in match {
+          case _: FastStringReader | _: Utf8ChunkReader if trace.isEmpty =>
+            val wrapped = new WithRetractReader(in)
+            val result  = delegate.unsafeDecode(trace, wrapped)
+            checkEndOfInput(trace, wrapped)
+            result
+          case _ =>
+            delegate.unsafeDecode(trace, in)
+        }
+
+      override def unsafeDecodeMissing(trace: List[JsonError]): A =
+        delegate.unsafeDecodeMissing(trace)
+
+      override def unsafeFromJsonAST(trace: List[JsonError], json: Json): A =
+        delegate.unsafeFromJsonAST(trace, json)
+    }
+
+    private def checkEndOfInput(trace: List[JsonError], in: RetractReader): Unit =
+      try {
+        val c = in.nextNonWhitespace()
+        Lexer.error(s"unexpected character '$c' after decoded value", trace)
+      } catch {
+        case _: UnexpectedEnd => ()
       }
 
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
@@ -1302,19 +1396,22 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
             val lexer = Lexer
             lexer.char(trace, in, '[')
 
+            // tracks whether the array's closing ']' has been consumed
+            var closed = !lexer.firstArrayElement(in)
+
             // get left element
-            if (lexer.firstArrayElement(in)) {
+            if (!closed) {
               val trace_ = JsonError.ArrayAccess(0) :: trace
               try left = Some(leftDecoder.unsafeDecode(trace_, in))
               catch {
                 case _: UnsafeJson => ()
               }
 
-              // read until ',' if left wasn't decoded
+              // read until ',' or ']' if left wasn't decoded
               var continue = true
               while (continue) {
                 try {
-                  lexer.nextArrayElement(trace, in)
+                  closed = !lexer.nextArrayElement(trace, in)
                   continue = false
                 } catch {
                   case _: UnsafeJson => ()
@@ -1323,16 +1420,26 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
             }
 
             // get right element
-            if (((left eq None) || schema.fullDecode) && lexer.firstArrayElement(in)) {
-              val trace_ = JsonError.ArrayAccess(1) :: trace
-              try right = Some(rightDecoder.unsafeDecode(trace_, in))
-              catch {
-                case _: UnsafeJson => ()
-              }
-              try lexer.nextArrayElement(trace, in)
-              catch {
-                case _: UnsafeJson => ()
-              }
+            if (!closed && ((left eq None) || schema.fullDecode)) {
+              if (lexer.firstArrayElement(in)) {
+                val trace_ = JsonError.ArrayAccess(1) :: trace
+                try right = Some(rightDecoder.unsafeDecode(trace_, in))
+                catch {
+                  case _: UnsafeJson => ()
+                }
+                try closed = !lexer.nextArrayElement(trace, in)
+                catch {
+                  case _: UnsafeJson => ()
+                }
+              } else closed = true
+            }
+
+            // consume any elements left unread and the closing ']'
+            while (!closed) {
+              if (lexer.firstArrayElement(in)) {
+                lexer.skipValue(trace, in)
+                closed = !lexer.nextArrayElement(trace, in)
+              } else closed = true
             }
 
           } catch {
