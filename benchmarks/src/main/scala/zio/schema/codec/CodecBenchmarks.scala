@@ -1,7 +1,7 @@
 package zio.schema.codec
 
 import zio.Chunk
-import zio.schema.{ DeriveSchema, Schema }
+import zio.schema.{DeriveSchema, Schema}
 
 object CodecBenchmarks {
 

@@ -24,8 +24,8 @@ class ProtobufBenchmarks {
 
   var outputs: Array[Any] = _
 
-  var bigByteChunk: Chunk[Byte] = _
-  var encodedBigByteChunk: Chunk[Byte] = _
+  var bigByteChunk: Chunk[Byte]                = _
+  var encodedBigByteChunk: Chunk[Byte]         = _
   var byteChunkCodec: BinaryCodec[Chunk[Byte]] = _
 
   @Setup
@@ -64,12 +64,12 @@ class ProtobufBenchmarks {
 
 object ProtobufBenchmarksProfiling extends App {
 
-  val bigSize = 30721
-  val byteChunkCodec = ProtobufCodec.protobufCodec[Chunk[Byte]]
-  val bigByteChunk = Chunk.fromArray(Random.nextBytes(bigSize))
+  val bigSize             = 30721
+  val byteChunkCodec      = ProtobufCodec.protobufCodec[Chunk[Byte]]
+  val bigByteChunk        = Chunk.fromArray(Random.nextBytes(bigSize))
   val encodedBigByteChunk = byteChunkCodec.encode(bigByteChunk)
 
-  while(true) {
+  while (true) {
     val decoded = byteChunkCodec.decode(encodedBigByteChunk)
     println(s"Decoded ${decoded.map(_.length)} bytes")
   }
