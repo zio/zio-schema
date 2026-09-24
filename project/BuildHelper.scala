@@ -49,7 +49,7 @@ object BuildHelper {
   val zioConstraintlessVersion     = "0.3.3"
   val scalaCollectionCompatVersion = "2.14.0"
   val msgpackVersion               = "0.9.12"
-  val jacksonScalaVersion          = "2.22.2"
+  val jacksonScalaVersion          = "2.22.3.1"
   val thriftVersion                = "0.24.0"
   val javaxAnnotationApiVersion    = "3.0.0"
   val scalaJavaTimeVersion         = "2.7.0"
