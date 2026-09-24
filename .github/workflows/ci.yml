@@ -10,7 +10,6 @@ env:
   release:
     types:
     - published
-    - edited
   push: {}
   pull_request:
     branches-ignore:
@@ -201,7 +200,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    if: ${{ (github.event_name == 'push') || ((github.event_name == 'release') && (github.event.action == 'published')) }}
+    if: ${{ (github.event_name == 'release') && (github.event.action == 'published') }}
     steps:
     - name: Git Checkout
       uses: actions/checkout@v7.0.1
@@ -342,8 +341,6 @@ jobs:
         registry-url: https://registry.npmjs.org
     - name: Publish Docs to NPM Registry
       run: sbt --no-colors docs/publishToNpm
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
   notify-docs-release:
     name: Notify Docs Release
     runs-on: ubuntu-latest

@@ -2,10 +2,9 @@ import sbtcrossproject.CrossPlugin.autoImport._
 import BuildHelper.{crossProjectSettings, _}
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 import com.typesafe.tools.mima.plugin.MimaKeys.mimaPreviousArtifacts
-import zio.Chunk
 import zio.sbt.ZioSbtCiPlugin
 import zio.sbt.ZioSbtCiPlugin._
-import zio.sbt.githubactions.{Condition, Job, Step, Strategy, Trigger}
+import zio.sbt.githubactions.{Job, Step, Strategy}
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
@@ -126,32 +125,6 @@ ThisBuild / ciTestJobs := {
 // macro-heavy compilation and Node's docs/website build), which the plugin defaults don't include.
 ThisBuild / ciJvmOptions  := Seq("-Xmx6G", "-Xss4M", "-XX:+UseG1GC")
 ThisBuild / ciNodeOptions := Seq("--max_old_space_size=6144")
-
-// The old CI also regenerated README.md on every push to main, not just on release.
-ThisBuild / ciUpdateReadmeCondition := Some(
-  Condition.Expression("github.event_name == 'push'") ||
-    Condition.Expression("(github.event_name == 'release') && (github.event.action == 'published')")
-)
-
-// The old CI re-ran on a release being edited (e.g. to retry a failed publish), not just published.
-ThisBuild / ciWorkflowTriggers := (ThisBuild / ciWorkflowTriggers).value.map {
-  case Trigger.Release(_) => Trigger.Release(Chunk("published", "edited"))
-  case other              => other
-}
-
-// `actions/setup-node` needs NODE_AUTH_TOKEN to authenticate `npm publish`; the plugin's
-// release-docs job doesn't set it, so docs publishing would fail with ENEEDAUTH otherwise.
-// Job steps are nested inside a single Step.StepSequence, so the rewrite has to recurse.
-def withNpmAuthToken(step: Step): Step = step match {
-  case s: Step.SingleStep if s.name == "Publish Docs to NPM Registry" =>
-    s.copy(env = s.env + ("NODE_AUTH_TOKEN" -> "${{ secrets.NPM_TOKEN }}"))
-  case seq: Step.StepSequence => seq.copy(steps = seq.steps.map(withNpmAuthToken))
-  case s                      => s
-}
-
-ThisBuild / ciPostReleaseJobs := (ThisBuild / ciPostReleaseJobs).value.map { job =>
-  if (job.id == "release-docs") job.copy(steps = job.steps.map(withNpmAuthToken)) else job
-}
 
 lazy val root = project
   .in(file("."))
