@@ -16,28 +16,13 @@ import scala.scalanative.sbtplugin.ScalaNativePlugin.autoImport.nativeConfig
 
 object BuildHelper {
 
-  private val versions: Map[String, String] = {
-    import org.snakeyaml.engine.v2.api.{Load, LoadSettings}
-
-    import java.util.{List => JList, Map => JMap}
-    import scala.jdk.CollectionConverters._
-
-    val doc = new Load(LoadSettings.builder().build())
-      .loadFromReader(scala.io.Source.fromFile(".github/workflows/ci.yml").bufferedReader())
-    val yaml = doc.asInstanceOf[JMap[String, JMap[String, JMap[String, JMap[String, JMap[String, JList[String]]]]]]]
-    val list = yaml.get("jobs").get("build").get("strategy").get("matrix").get("scala").asScala
-    list.map(v => (v.split('.').take(2).mkString("."), v)).toMap
-  }
-
-  private def scalaVersionFor(prefix: String): String =
-    versions.collectFirst { case (key, value) if key.startsWith(prefix) => value }
-      .getOrElse(sys.error(s"No Scala $prefix version in the build matrix of .github/workflows/ci.yml"))
-
-  val Scala212: String = scalaVersionFor("2.12")
-  val Scala213: String = scalaVersionFor("2.13")
-  // Matched on the major version so a Scala 3 minor bump in ci.yml does not
-  // have to be mirrored here.
-  val Scala3: String = scalaVersionFor("3")
+  // Single source of truth for cross-built Scala versions. ci.yml is now
+  // *generated* from these (via `ciTargetScalaVersions`/`ciTestJobs` in
+  // build.sbt using the zio-sbt-ci plugin), so they can no longer be read
+  // back out of the workflow file without a chicken-and-egg problem.
+  val Scala212: String = "2.12.21"
+  val Scala213: String = "2.13.18"
+  val Scala3: String   = "3.9.0"
 
   val zioVersion                   = "2.1.26"
   val zioJsonVersion               = "1.1.0"
