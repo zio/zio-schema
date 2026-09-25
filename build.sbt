@@ -2,6 +2,9 @@ import sbtcrossproject.CrossPlugin.autoImport._
 import BuildHelper.{crossProjectSettings, _}
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 import com.typesafe.tools.mima.plugin.MimaKeys.mimaPreviousArtifacts
+import zio.sbt.ZioSbtCiPlugin
+import zio.sbt.ZioSbtCiPlugin._
+import zio.sbt.githubactions.{Job, Step, Strategy}
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
@@ -70,8 +73,62 @@ addCommandAlias(
     "zioSchemaZioTestJS/test; zioSchemaProtobufJS/test; zioSchemaXmlJS/test;"
 )
 
+addCommandAlias("lint", "fmtCheck; fixCheck")
+
+def platformTestJob(checkout: Step, platform: String, extraSteps: Step*): Job =
+  Job(
+    id = s"test-$platform",
+    name = s"Test $platform",
+    jobTimeout = Some(40),
+    strategy = Some(
+      Strategy(
+        matrix = Map(
+          "java"  -> List("17", "21"),
+          "scala" -> List(Scala212, Scala213, Scala3)
+        ),
+        failFast = false
+      )
+    ),
+    steps = Seq(checkout, SetupJava("${{ matrix.java }}"), SetupSBT, CacheDependencies) ++
+      extraSteps ++
+      Seq(Step.SingleStep(name = "Test", run = Some(s"sbt ++$${{ matrix.scala }}! test$platform")))
+  )
+
+ThisBuild / ciTargetJavaVersions := Seq("17", "21")
+
+ThisBuild / ciTestJobs := {
+  val checkout = Checkout.value
+  Seq(
+    platformTestJob(checkout, "JVM"),
+    platformTestJob(checkout, "JS"),
+    platformTestJob(
+      checkout,
+      "Native",
+      Step.SingleStep(name = "Install Boehm GC", run = Some("sudo apt-get update && sudo apt-get install -y libgc-dev"))
+    ),
+    Job(
+      id = "mima-check",
+      name = "MiMa Check",
+      jobTimeout = Some(20),
+      steps = Seq(
+        checkout,
+        SetupJava("21"),
+        SetupSBT,
+        CacheDependencies,
+        Step.SingleStep(name = "MiMa Check", run = Some("sbt +mimaReportBinaryIssues"))
+      )
+    )
+  )
+}
+
+// Preserve the JVM/Node tuning the handwritten workflow had (bigger heap/stack for
+// macro-heavy compilation and Node's docs/website build), which the plugin defaults don't include.
+ThisBuild / ciJvmOptions  := Seq("-Xmx6G", "-Xss4M", "-XX:+UseG1GC")
+ThisBuild / ciNodeOptions := Seq("--max_old_space_size=6144")
+
 lazy val root = project
   .in(file("."))
+  .enablePlugins(ZioSbtCiPlugin)
   .settings(
     name                  := "zio-schema",
     publish / skip        := true,
