@@ -120,14 +120,14 @@ object DynamicValueSpec extends ZIOSpecDefault {
           assertTrue(typed == Right(ListMap("name" -> "John", "age" -> 30)))
         },
         test("recovers nested records, options and sequences rebuilt from their AST") {
-          val person        = RegPerson(
+          val person = RegPerson(
             "John",
             RegAddress("Main St", "12345"),
             Some(RegAddress("2nd St", "67890")),
             Chunk(RegAddress("3rd St", "54321"))
           )
           val personDynamic = RegPerson.schema.toDynamic(person)
-          val registry = DynamicValue.registry(RegPerson.schema, RegAddress.schema)
+          val registry      = DynamicValue.registry(RegPerson.schema, RegAddress.schema)
 
           val typed = personDynamic.toTypedValue(registry)(RegPerson.schema.ast.toSchema)
 
@@ -136,7 +136,7 @@ object DynamicValueSpec extends ZIOSpecDefault {
         test("recovers enum cases rebuilt from their AST") {
           val shapes        = Chunk[RegShape](RegShape.Circle(2.0), RegShape.Rectangle(3.0, 4.0))
           val shapesDynamic = Schema[Chunk[RegShape]].toDynamic(shapes)
-          val registry =
+          val registry      =
             DynamicValue.registry(RegShape.Circle.schema, RegShape.Rectangle.schema)
 
           val typed = shapesDynamic.toTypedValue(registry)(Schema[Chunk[RegShape]].ast.toSchema)
