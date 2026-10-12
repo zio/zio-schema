@@ -57,7 +57,7 @@ sealed trait DynamicValue {
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
         Right(value.asInstanceOf[A])
 
-      case (DynamicValue.Record(_, values), s @ Schema.GenericRecord(id, structure, _)) =>
+      case (DynamicValue.Record(_, values), Schema.GenericRecord(id, structure, _)) =>
         registry.lift(id) match {
           // The registry holds the schema of the record this TypeId refers to. Only records that know how
           // to construct their typed value are useful here: a rebuilt generic record in the registry would
