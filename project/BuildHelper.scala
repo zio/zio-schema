@@ -21,7 +21,7 @@ object BuildHelper {
   // build.sbt using the zio-sbt-ci plugin), so they can no longer be read
   // back out of the workflow file without a chicken-and-egg problem.
   val Scala212: String = "2.12.21"
-  val Scala213: String = "2.13.18"
+  val Scala213: String = "3.10.0"
   val Scala3: String   = "3.9.0"
 
   val zioVersion                   = "2.1.26"
