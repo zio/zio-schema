@@ -27,36 +27,84 @@ sealed trait DynamicValue {
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
 
+  /**
+   * Converts this dynamic value to a typed value using the given schema,
+   * reconstructing records whose schema was rebuilt from a `MetaSchema` (for
+   * example via `schema.ast.toSchema`). A rebuilt schema represents records as
+   * `Schema.GenericRecord`, which no longer knows how to construct the original
+   * typed value; when a generic record's `TypeId` is present in the registry,
+   * the registered record schema is used to construct the typed value instead.
+   * The registry is consulted at every nesting level, and records missing from
+   * it keep the previous behaviour of decoding to a `ListMap[String, _]`.
+   */
+  def toTypedValue[A](registry: DynamicValue.ConstructorRegistry)(implicit schema: Schema[A]): Either[String, A] =
+    toTypedValueLazyError(registry).left.map(_.message)
+
+  /**
+   * Converts this dynamic value to a typed value using the given schema and
+   * constructor registry, preserving the full [[DecodeError]] on failure. See
+   * the `toTypedValue` overload taking a registry for details.
+   */
+  def toValue[A](registry: DynamicValue.ConstructorRegistry)(implicit schema: Schema[A]): Either[DecodeError, A] =
+    toTypedValueLazyError(registry)
+
+  /**
+   * Converts this dynamic value to a typed value using the given schema and
+   * constructor registry, discarding the error on failure. See the
+   * `toTypedValue` overload taking a registry for details.
+   */
+  def toTypedValueOption[A](registry: DynamicValue.ConstructorRegistry)(implicit schema: Schema[A]): Option[A] =
+    toTypedValueLazyError(registry).toOption
+
   private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DecodeError, A] =
+    toTypedValueLazyError(DynamicValue.ConstructorRegistry.empty)
+
+  private def toTypedValueLazyError[A](
+    registry: DynamicValue.ConstructorRegistry
+  )(implicit schema: Schema[A]): Either[DecodeError, A] =
     (self, schema) match {
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
         Right(value.asInstanceOf[A])
 
-      case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
-        DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[DecodeError, A]]
+      case (DynamicValue.Record(_, values), s @ Schema.GenericRecord(id, structure, _)) =>
+        registry.constructorFor(id) match {
+          case Some(recordSchema) =>
+            DynamicValue
+              .decodeStructure(values, structure.toChunk, registry)
+              .map(m => Chunk.fromIterable(m.values))
+              .flatMap(fieldValues =>
+                recordSchema
+                  .construct(fieldValues)(Unsafe.unsafe)
+                  .left
+                  .map(err => DecodeError.MalformedField(s, err))
+                  .map(_.asInstanceOf[A])
+              )
+          case None =>
+            DynamicValue.decodeStructure(values, structure.toChunk, registry).asInstanceOf[Either[DecodeError, A]]
+        }
 
       case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
         DynamicValue
-          .decodeStructure(values, s.fields)
+          .decodeStructure(values, s.fields, registry)
           .map(m => Chunk.fromIterable(m.values))
           .flatMap(values => s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
 
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
         s.caseOf(key) match {
           case Some(caseValue) =>
-            value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
+            value.toTypedValueLazyError(registry)(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
           case None => Left(DecodeError.MissingCase(key, s))
         }
 
       case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
-        value.toTypedValueLazyError(schema1).map(Left(_))
+        value.toTypedValueLazyError(registry)(schema1).map(Left(_))
 
       case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
-        value.toTypedValueLazyError(schema1).map(Right(_))
+        value.toTypedValueLazyError(registry)(schema1).map(Right(_))
 
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
-        val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
-        val typedRight = rightValue.toTypedValueLazyError(rightSchema)
+        val typedLeft  = leftValue.toTypedValueLazyError(registry)(leftSchema)
+        val typedRight = rightValue.toTypedValueLazyError(registry)(rightSchema)
         (typedLeft, typedRight) match {
           case (Left(e1), Left(e2)) =>
             Left(DecodeError.And(e1, e2))
@@ -70,7 +118,7 @@ sealed trait DynamicValue {
           .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
             case (err @ Left(_), _)     => err
             case (Right(values), value) =>
-              value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
+              value.toTypedValueLazyError(registry)(schema.elementSchema).map(values :+ _)
           }
           .map(schema.fromChunk)
 
@@ -78,18 +126,18 @@ sealed trait DynamicValue {
         values.foldLeft[Either[DecodeError, Set[t]]](Right[DecodeError, Set[t]](Set.empty)) {
           case (err @ Left(_), _)     => err
           case (Right(values), value) =>
-            value.toTypedValueLazyError(schema.elementSchema).map(values + _)
+            value.toTypedValueLazyError(registry)(schema.elementSchema).map(values + _)
         }
 
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
-        value.toTypedValueLazyError(schema).map(Some(_))
+        value.toTypedValueLazyError(registry)(schema).map(Some(_))
 
       case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
         Right(None)
 
       case (value, Schema.Transform(schema, f, _, _, _)) =>
         value
-          .toTypedValueLazyError(schema)
+          .toTypedValueLazyError(registry)(schema)
           .flatMap(value => f(value).left.map(err => DecodeError.MalformedField(schema, err)))
 
       case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
@@ -97,21 +145,21 @@ sealed trait DynamicValue {
           case (err @ Left(_), _)  => err
           case (Right(map), entry) => {
             for {
-              key   <- entry._1.toTypedValueLazyError(schema.keySchema)
-              value <- entry._2.toTypedValueLazyError(schema.valueSchema)
+              key   <- entry._1.toTypedValueLazyError(registry)(schema.keySchema)
+              value <- entry._2.toTypedValueLazyError(registry)(schema.valueSchema)
             } yield map ++ Map(key -> value)
           }
         }
 
       case (_, l @ Schema.Lazy(_)) =>
-        toTypedValueLazyError(l.schema)
+        toTypedValueLazyError(registry)(l.schema)
 
       case (DynamicValue.Error(message), _) =>
         Left(DecodeError.ReadError(Cause.empty, message))
 
       case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
         val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
-        dyn.toTypedValueLazyError(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
+        dyn.toTypedValueLazyError(registry)(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
 
       case (dyn, Schema.Dynamic(_)) => Right(dyn)
 
@@ -186,6 +234,74 @@ object DynamicValue {
 
   def apply[A](a: A)(implicit ev: Schema[A]): DynamicValue = ev.toDynamic(a)
 
+  /**
+   * Maps the [[TypeId]] of a record to a record schema that knows how to
+   * construct the record's typed value. Used by the `toTypedValue`, `toValue`
+   * and `toTypedValueOption` overloads taking a registry to restore typed
+   * values from schemas rebuilt from a `MetaSchema`, which represent records as
+   * `Schema.GenericRecord` and have therefore lost their constructors.
+   */
+  final class ConstructorRegistry private (private val records: Map[TypeId, Schema.Record[_]]) {
+    private[schema] def constructorFor(id: TypeId): Option[Schema.Record[_]] = records.get(id)
+  }
+
+  object ConstructorRegistry {
+
+    /**
+     * A registry without any record; decoding with it behaves exactly like
+     * decoding without a registry.
+     */
+    val empty: ConstructorRegistry = new ConstructorRegistry(Map.empty)
+
+    /**
+     * Builds a registry holding every record schema reachable from the given
+     * schemas, walking record fields, enumeration cases, collection elements,
+     * map keys and values, options, either and tuple branches, fallbacks,
+     * transforms and deferred schemas. Records are registered under their
+     * [[TypeId]], so building the registry from a root schema is enough to
+     * reconstruct the records nested anywhere inside it. Generic records, which
+     * can only construct a `ListMap[String, _]`, are walked through but never
+     * registered.
+     */
+    def fromSchemas(schemas: Schema[_]*): ConstructorRegistry = {
+      val visited = scala.collection.mutable.Set.empty[Schema[_]]
+      val records = Map.newBuilder[TypeId, Schema.Record[_]]
+
+      def loop(schema: Schema[_]): Unit =
+        if (!visited.contains(schema)) {
+          visited += schema
+          schema match {
+            case generic: Schema.GenericRecord =>
+              generic.fields.foreach(field => loop(field.schema))
+            case record: Schema.Record[_] =>
+              records += record.id -> record
+              record.fields.foreach(field => loop(field.schema))
+            case enumSchema: Schema.Enum[_] =>
+              enumSchema.cases.foreach(c => loop(c.schema))
+            case sequence: Schema.Sequence[_, _, _] =>
+              loop(sequence.elementSchema)
+            case set: Schema.Set[_] =>
+              loop(set.elementSchema)
+            case map: Schema.Map[_, _] =>
+              loop(map.keySchema)
+              loop(map.valueSchema)
+            case Schema.Optional(inner, _)          => loop(inner)
+            case Schema.Either(left, right, _)      => loop(left); loop(right)
+            case Schema.Tuple2(left, right, _)      => loop(left); loop(right)
+            case Schema.Fallback(left, right, _, _) =>
+              loop(left)
+              loop(right)
+            case Schema.Transform(inner, _, _, _, _) => loop(inner)
+            case lazySchema: Schema.Lazy[_]          => loop(lazySchema.schema)
+            case _                                   => ()
+          }
+        }
+
+      schemas.foreach(loop)
+      new ConstructorRegistry(records.result())
+    }
+  }
+
   // scalafmt: { maxColumn = 400 }
   def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue =
     FromSchemaAndValue.process(schema, value)
@@ -193,13 +309,20 @@ object DynamicValue {
   def decodeStructure(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
+  ): Either[DecodeError, ListMap[String, _]] =
+    decodeStructure(values, structure, ConstructorRegistry.empty)
+
+  private[schema] def decodeStructure(
+    values: ListMap[String, DynamicValue],
+    structure: Chunk[Schema.Field[_, _]],
+    registry: ConstructorRegistry
   ): Either[DecodeError, ListMap[String, _]] = {
     val keys = values.keySet
     keys.foldLeft[Either[DecodeError, ListMap[String, Any]]](Right(ListMap.empty)) {
       case (Right(record), key) =>
         (structure.find(_.name == key), values.get(key)) match {
           case (Some(field), Some(value)) =>
-            value.toTypedValueLazyError(field.schema).map(value => (record + (key -> value)))
+            value.toTypedValueLazyError(registry)(field.schema).map(value => (record + (key -> value)))
           case _ =>
             Left(DecodeError.IncompatibleShape(values, structure))
         }
