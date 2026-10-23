@@ -106,12 +106,11 @@ object DynamicValueSpec extends ZIOSpecDefault {
           val user        = AstUser("John", 30)
           val userDynamic = AstUser.schema.toDynamic(user)
           val registry    = DynamicValue.ConstructorRegistry.fromSchemas(AstUser.schema)
+          val rebuilt     = AstUser.schema.ast.toSchema.asInstanceOf[Schema[AstUser]]
 
-          val typed = userDynamic.toTypedValue(registry)(AstUser.schema.ast.toSchema)
-
-          assertTrue(typed == Right(user)) &&
-          assertTrue(userDynamic.toValue(registry)(AstUser.schema.ast.toSchema).toOption.exists(_ == user)) &&
-          assertTrue(userDynamic.toTypedValueOption(registry)(AstUser.schema.ast.toSchema).exists(_ == user))
+          assertTrue(userDynamic.toTypedValue(registry)(rebuilt) == Right(user)) &&
+          assertTrue(userDynamic.toValue(registry)(rebuilt) == Right(user)) &&
+          assertTrue(userDynamic.toTypedValueOption(registry)(rebuilt).contains(user))
         },
         test("decodes to a generic record when the record is not registered") {
           val userDynamic = AstUser.schema.toDynamic(AstUser("John", 30))
