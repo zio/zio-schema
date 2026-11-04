@@ -23,6 +23,19 @@ object SchemaSpec extends ZIOSpecDefault {
         assert(Schema.Tuple2(schemaUnit, schemaUnit))(hasSameSchema(Schema.Tuple2(schemaUnit, schemaUnit))) &&
         assert(Schema.Tuple2(schemaTransform, schemaTransform))(
           hasSameSchema(Schema.Tuple2(schemaTransform, schemaTransform))
+        ) &&
+        assert(Schema.Tuple2(Schema[String], Schema[Int]))(
+          not(hasSameSchema(Schema.Tuple2(Schema[String], Schema[Boolean])))
+        ) &&
+        assertTrue(
+          !Schema.strictEquality.equal(
+            Schema.Tuple2(Schema[String], Schema[Int]),
+            Schema.Tuple2(Schema[String], Schema[Boolean])
+          ),
+          Schema.strictEquality.equal(
+            Schema.Tuple2(Schema[String], Schema[Int]),
+            Schema.Tuple2(Schema[String], Schema[Int])
+          )
         )
       },
       test("record") {
