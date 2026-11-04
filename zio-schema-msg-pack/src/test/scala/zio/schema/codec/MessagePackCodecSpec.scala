@@ -829,6 +829,23 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
         } yield assert(d)(
           failsWithA[DecodeError]
         )
+      },
+      test("out of range enum index") {
+        for {
+          bytes <- writeManually { p =>
+                     p.packInt(3)
+                   }
+          d        <- decode(schemaOneOf, bytes).exit
+          d2       <- decodeNS(schemaOneOf, bytes).exit
+          negBytes <- writeManually { p =>
+                        p.packInt(-1)
+                      }
+          d3 <- decode(schemaOneOf, negBytes).exit
+          d4 <- decodeNS(schemaOneOf, negBytes).exit
+        } yield assert(d)(failsWithA[DecodeError]) &&
+          assert(d2)(failsWithA[DecodeError]) &&
+          assert(d3)(failsWithA[DecodeError]) &&
+          assert(d4)(failsWithA[DecodeError])
       }
     )
   )
