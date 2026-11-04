@@ -564,6 +564,12 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
 
             assert(result)(isRight(equalTo("""{"type":"int","zio.schema.codec.intType":"short"}""")))
           },
+          test("encodes ByteType") {
+            val schema = Schema.primitive(StandardType.ByteType)
+            val result = AvroSchemaCodec.encode(schema)
+
+            assert(result)(isRight(equalTo("""{"type":"int","zio.schema.codec.intType":"byte"}""")))
+          },
           test("encodes IntType") {
             val schema = Schema.primitive(StandardType.IntType)
             val result = AvroSchemaCodec.encode(schema)
@@ -1610,6 +1616,19 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
             assert(schema)(isRight(isStandardType(StandardType.ShortType)))
+          },
+          test("decodes byte") {
+            val s      = """{"type":"int","zio.schema.codec.intType":"byte"}"""
+            val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
+
+            assert(schema)(isRight(isStandardType(StandardType.ByteType)))
+          },
+          test("roundtrips ByteType") {
+            val decoded = AvroSchemaCodec
+              .encode(Schema[Byte])
+              .flatMap(s => AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes())))
+
+            assert(decoded)(isRight(isStandardType(StandardType.ByteType)))
           },
           test("decodes month") {
             val s      = """{"type":"int","zio.schema.codec.intType":"month"}"""
