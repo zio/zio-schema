@@ -1210,15 +1210,26 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       } else {
         new ZJsonDecoder[ListMap[String, Any]] {
           private[this] val fields            = schema.fields.toArray
+          private[this] val spans             = new Array[JsonError.ObjectAccess](fields.length)
           private[this] val spansWithDecoders =
-            new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](fields.length << 1) {
+            new util.HashMap[String, (String, JsonError.ObjectAccess, ZJsonDecoder[Any])](fields.length << 1) {
+              var idx = 0
               fields.foreach { field =>
+                val name =
+                  if (config.fieldNameFormat == NameFormat.Identity) field.fieldName
+                  else if (field.fieldName == field.name) config.fieldNameFormat(field.fieldName)
+                  else field.fieldName
+                val span = JsonError.ObjectAccess(name)
+                spans(idx) = span
+                idx += 1
                 val spanWithDecoder =
                   (
-                    JsonError.ObjectAccess(field.fieldName),
+                    field.fieldName,
+                    span,
                     schemaDecoder(field.schema, config).asInstanceOf[ZJsonDecoder[Any]]
                   )
-                field.nameAndAliases.foreach(put(_, spanWithDecoder))
+                put(name, spanWithDecoder)
+                (field.nameAndAliases - field.fieldName).foreach(put(_, spanWithDecoder))
               }
             }
           private[this] val skipExtraFields = !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
@@ -1235,12 +1246,12 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
               val fieldNameOrAlias = lexer.string(trace, in).toString
               val spanWithDecoder  = spansWithDecoders.get(fieldNameOrAlias)
               if (spanWithDecoder ne null) {
-                val span   = spanWithDecoder._1
-                val dec    = spanWithDecoder._2
-                val trace_ = span :: trace
+                val fieldName = spanWithDecoder._1 // reuse strings with calculated hashCode
+                val span      = spanWithDecoder._2
+                val dec       = spanWithDecoder._3
+                val trace_    = span :: trace
                 lexer.char(trace_, in, ':')
-                val fieldName = span.field // reuse strings with calculated hashCode
-                val prev      = map.put(fieldName, dec.unsafeDecode(trace_, in))
+                val prev = map.put(fieldName, dec.unsafeDecode(trace_, in))
                 if (prev != null) lexer.error("duplicate", trace_)
               } else if (skipExtraFields || discriminator.contains(fieldNameOrAlias)) {
                 lexer.char(trace, in, ':')
@@ -1250,8 +1261,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
             }
             var idx = 0
             while (idx < fields.length) {
-              val field = fields(idx)
-              idx += 1
+              val field     = fields(idx)
               val fieldName = field.fieldName // reuse strings with calculated hashCode
               if (map.get(fieldName) == null) {
                 map.put( // mitigation of a linking error for `map.computeIfAbsent` in Scala.js
@@ -1268,13 +1278,14 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
                       case _: Schema.Optional[_] if !explicitNulls                          => None
                       case collection: Schema.Collection[_, _] if !explicitEmptyCollections =>
                         collection.defaultValue.getOrElse(
-                          lexer.error("missing", spansWithDecoders.get(fieldName)._1 :: trace)
+                          lexer.error("missing", spans(idx) :: trace)
                         )
-                      case _ => lexer.error("missing", spansWithDecoders.get(fieldName)._1 :: trace)
+                      case _ => lexer.error("missing", spans(idx) :: trace)
                     }
                   }
                 )
               }
+              idx += 1
             }
             (ListMap.newBuilder[String, Any] ++= ({                         // to avoid O(n) insert operations
               import scala.collection.JavaConverters.mapAsScalaMapConverter // use deprecated class for Scala 2.12 compatibility
@@ -1819,7 +1830,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
           throw new UnsupportedOperationException("Not needed for internal use")
 
         override def iterator: Iterator[(String, Any)] = new Iterator[(String, Any)] {
-          private[this] val keys    = spans
+          private[this] val keys    = fields
           private[this] val values  = buffer
           private[this] var nextIdx = 0
 
@@ -1829,7 +1840,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
           def next(): (String, Any) = {
             val idx = nextIdx
             nextIdx += 1
-            (keys(idx).field, values(idx))
+            (keys(idx).fieldName, values(idx))
           }
         }
       }).result()

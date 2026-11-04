@@ -927,6 +927,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
           RecordExampleWithOptField(f1 = Some("test"), f2 = None, f4 = "", f5 = "hello"),
           charSequenceToByteChunk("""{"$f1":"test"}""")
         )
+      },
+      test("with fieldNameFormat") {
+        assertDecodes(
+          RecordExample.schema,
+          RecordExample(f1 = "test", f2 = None, f4 = Some("v4"), f20 = Some("v20"), f21 = Vector.empty, f22 = Nil),
+          charSequenceToByteChunk("""{"$f1":"test","F4":"v4","F20":"v20"}"""),
+          JsonCodec.Configuration(fieldNameFormat = NameFormat.PascalCase)
+        )
       }
     ),
     suite("EnumN")(
@@ -1254,6 +1262,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
           BigProduct.schema,
           BigProduct(f00 = true, f01 = Some(123.toByte), f67 = None, f68 = Nil, f69 = Vector.empty),
           charSequenceToByteChunk("""{"f00":true,"f-01":123}""")
+        )
+      },
+      test("with fieldNameFormat") {
+        assertDecodes(
+          BigProduct.schema,
+          BigProduct(f00 = true, f01 = Some(123.toByte), f67 = None, f68 = Nil, f69 = Vector.empty),
+          charSequenceToByteChunk("""{"F00":true,"F01":123}"""),
+          JsonCodec.Configuration(fieldNameFormat = NameFormat.PascalCase)
         )
       }
     ),
