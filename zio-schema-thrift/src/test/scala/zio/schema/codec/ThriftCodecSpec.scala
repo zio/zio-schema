@@ -151,6 +151,27 @@ object ThriftCodecSpec extends ZIOSpecDefault {
           e  <- encode(schemaFail, StringValue("foo")).map(_.size).exit
           e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size).exit
         } yield assert(e)(dies(anything)) && assert(e2)(dies(anything))
+      },
+      test("concurrent streams sharing streamEncoder") {
+        val codec     = ThriftCodec.thriftCodec(Record.schemaRecord)
+        val pipeline  = codec.streamEncoder
+        val records1  = Chunk.fromIterable((1 to 50).map(i => Record(s"foo-$i", i)))
+        val records2  = Chunk.fromIterable((51 to 100).map(i => Record(s"bar-$i", i)))
+        val expected1 = records1.flatMap(codec.encode)
+        val expected2 = records2.flatMap(codec.encode)
+        for {
+          res <- ZStream
+                   .fromChunks(records1.map(Chunk.single(_)): _*)
+                   .via(pipeline)
+                   .runCollect
+                   .zipPar(
+                     ZStream
+                       .fromChunks(records2.map(Chunk.single(_)): _*)
+                       .via(pipeline)
+                       .runCollect
+                   )
+          (out1, out2) = res
+        } yield assert(out1)(equalTo(expected1)) && assert(out2)(equalTo(expected2))
       }
     ),
     suite("Should successfully encode and decode")(
