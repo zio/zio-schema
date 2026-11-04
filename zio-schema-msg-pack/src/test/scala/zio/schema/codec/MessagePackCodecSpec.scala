@@ -829,6 +829,33 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
         } yield assert(d)(
           failsWithA[DecodeError]
         )
+      },
+      test("fallback with unexpected field name uses fallback path") {
+        for {
+          bytes <- writeManually { p =>
+                     p.packArrayHeader(2)
+                     p.packString("invalid")
+                     p.packInt(1)
+                   }
+          d <- decodeNS(fallbackSchema1, bytes).exit
+        } yield assert(d)(
+          fails(equalTo(DecodeError.MalformedFieldWithPath(Chunk("fallback"), "Unexpected field name: invalid")))
+        )
+      },
+      test("fallback with invalid array size reports expected 2 or 3 elements") {
+        for {
+          bytes <- writeManually { p =>
+                     p.packArrayHeader(1)
+                     p.packString("left")
+                   }
+          d <- decodeNS(fallbackSchema1, bytes).exit
+        } yield assert(d)(
+          fails(
+            equalTo(
+              DecodeError.MalformedFieldWithPath(Chunk("fallback"), "Expected 2 or 3 elements but received 1.")
+            )
+          )
+        )
       }
     )
   )
