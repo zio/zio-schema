@@ -82,6 +82,18 @@ object DynamicValueSpec extends ZIOSpecDefault {
           check(SchemaGen.anyMapAndValue) { case (schema, a) =>
             assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
           }
+        },
+        test("round-trips non-empty sequence") {
+          val schema = Schema.nonEmptyChunk[Int]
+          val value  = NonEmptyChunk(1, 2, 3)
+          assert(schema.fromDynamic(schema.toDynamic(value)))(isRight(equalTo(value))) &&
+          assert(schema.fromDynamic(DynamicValue.Sequence(Chunk.empty)))(isLeft)
+        },
+        test("round-trips non-empty map") {
+          val schema = Schema.nonEmptyMap[String, Int]
+          val value  = zio.prelude.NonEmptyMap("a" -> 1, "b" -> 2)
+          assert(schema.fromDynamic(schema.toDynamic(value)))(isRight(equalTo(value))) &&
+          assert(schema.fromDynamic(DynamicValue.Dictionary(Chunk.empty)))(isLeft)
         }
       ),
       suite("stack safety")(

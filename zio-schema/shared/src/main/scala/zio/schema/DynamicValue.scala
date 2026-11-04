@@ -74,6 +74,19 @@ sealed trait DynamicValue {
           }
           .map(schema.fromChunk)
 
+      case (DynamicValue.Sequence(values), schema: Schema.NonEmptySequence[col, t, _]) =>
+        values
+          .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
+            case (err @ Left(_), _)     => err
+            case (Right(values), value) =>
+              value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
+          }
+          .flatMap { chunk =>
+            schema
+              .fromChunkOption(chunk)
+              .toRight(DecodeError.MalformedField(schema, "Empty NonEmptySequence"))
+          }
+
       case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
         values.foldLeft[Either[DecodeError, Set[t]]](Right[DecodeError, Set[t]](Set.empty)) {
           case (err @ Left(_), _)     => err
@@ -102,6 +115,22 @@ sealed trait DynamicValue {
             } yield map ++ Map(key -> value)
           }
         }
+
+      case (DynamicValue.Dictionary(entries), schema: Schema.NonEmptyMap[k, v]) =>
+        entries
+          .foldLeft[Either[DecodeError, Map[k, v]]](Right[DecodeError, Map[k, v]](Map.empty)) {
+            case (err @ Left(_), _)  => err
+            case (Right(map), entry) =>
+              for {
+                key   <- entry._1.toTypedValueLazyError(schema.keySchema)
+                value <- entry._2.toTypedValueLazyError(schema.valueSchema)
+              } yield map + (key -> value)
+          }
+          .flatMap { map =>
+            schema
+              .fromChunkOption(Chunk.fromIterable(map))
+              .toRight(DecodeError.MalformedField(schema, "Empty NonEmptyMap"))
+          }
 
       case (_, l @ Schema.Lazy(_)) =>
         toTypedValueLazyError(l.schema)
