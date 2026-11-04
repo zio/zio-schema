@@ -1070,6 +1070,20 @@ object JsonCodecSpec extends ZIOSpecDefault {
               JsonCodec.Configuration(fieldNameFormat = NameFormat.PascalCase)
             )
         }
+        test("pascal case with case class having > 22 fields") {
+          assertDecodes(
+            RecordExampleWithOptField.schema,
+            RecordExampleWithOptField(f1 = Some("test"), f2 = Some("b"), f4 = "", f5 = "hello", f6 = Some("c")),
+            charSequenceToByteChunk("""{"$f1":"test","F2":"b","F6":"c"}"""),
+            JsonCodec.Configuration(fieldNameFormat = NameFormat.PascalCase)
+          ) &>
+            assertDecodes(
+              BigProduct.schema,
+              BigProduct(f00 = true, f67 = None, f68 = List(1.toByte), f69 = Vector(2.toByte)),
+              charSequenceToByteChunk("""{"F00":true,"F68":[1],"F69":[2]}"""),
+              JsonCodec.Configuration(fieldNameFormat = NameFormat.PascalCase)
+            )
+        }
       },
       test("reject extra fields") {
         assertDecodesToError(
