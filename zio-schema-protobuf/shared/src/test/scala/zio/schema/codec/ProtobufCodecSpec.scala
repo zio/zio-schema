@@ -905,6 +905,15 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
             encoded <- encode(schemaRecordV1, recordV1)
             decoded <- decodeChunkNS(schemaRecordV2, encoded).exit
           } yield assertTrue(decoded.isFailure)
+        },
+        test("Fallback decoder reports invalid wire field number") {
+          // Field number 4 with VarInt wire type (tag = (4 << 3) | 0 = 0x20)
+          val invalidFallbackPayload = Chunk[Byte](0x20, 0x01)
+          for {
+            decoded <- decodeChunkNS(fallbackSchema1, invalidFallbackPayload).exit
+          } yield assert(decoded)(
+            fails(equalTo(DecodeError.ExtraFields("4", "Invalid field number (4) for fallback")))
+          )
         }
       )
     )
