@@ -54,6 +54,23 @@ sealed trait DynamicValue {
       case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
         value.toTypedValueLazyError(schema1).map(Right(_))
 
+      case (DynamicValue.LeftValue(value), Schema.Fallback(schema1, _, _, _)) =>
+        value.toTypedValueLazyError(schema1).map(Fallback.Left(_))
+
+      case (DynamicValue.RightValue(value), Schema.Fallback(_, schema2, _, _)) =>
+        value.toTypedValueLazyError(schema2).map(Fallback.Right(_))
+
+      case (DynamicValue.BothValue(leftValue, rightValue), Schema.Fallback(leftSchema, rightSchema, _, _)) =>
+        val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
+        val typedRight = rightValue.toTypedValueLazyError(rightSchema)
+        (typedLeft, typedRight) match {
+          case (Left(e1), Left(e2)) =>
+            Left(DecodeError.And(e1, e2))
+          case (_, Left(e))         => Left(e)
+          case (Left(e), _)         => Left(e)
+          case (Right(a), Right(b)) => Right(Fallback.Both(a, b))
+        }
+
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
         val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
         val typedRight = rightValue.toTypedValueLazyError(rightSchema)

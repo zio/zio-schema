@@ -27,6 +27,15 @@ object DynamicValueSpec extends ZIOSpecDefault {
             assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
           }
         },
+        test("round-trips Fallbacks") {
+          val schema: Schema[Fallback[String, Int]] = Schema.Fallback(Schema[String], Schema[Int])
+          val left                                  = Fallback.Left[String, Int]("hello")
+          val right                                 = Fallback.Right[String, Int](42)
+          val both                                  = Fallback.Both[String, Int]("hello", 42)
+          assert(schema.fromDynamic(schema.toDynamic(left)))(isRight(equalTo(left))) &&
+          assert(schema.fromDynamic(schema.toDynamic(right)))(isRight(equalTo(right))) &&
+          assert(schema.fromDynamic(schema.toDynamic(both)))(isRight(equalTo(both)))
+        },
         test("round-trips Tuples") {
           check(SchemaGen.anyTupleAndValue) { case (schema, a) =>
             assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
