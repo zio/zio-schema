@@ -219,6 +219,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
             c      <- string
           } {
             var valueEnded = false
+            var appendChar = true
             context match {
               case ContextEscape =>
                 context = 's'
@@ -250,9 +251,11 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
                     depth -= 1
                     context = if (depth < 0) ContextDone else ContextJson
                     valueEnded = true
+                    appendChar = depth >= 0
                   case _ if !validNumChars(c) =>
                     context = ContextJson
                     valueEnded = true
+                    appendChar = depth > 0
                   case _ =>
                 }
               case ContextDone => // no more values, ignore everything
@@ -275,7 +278,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
                   case _ =>
                 }
             }
-            if (context != ContextDone && (depth > 0 || context != ContextJson || valueEnded))
+            if (appendChar && context != ContextDone && (depth > 0 || context != ContextJson || valueEnded))
               stringBuilder.append(c)
 
             if (valueEnded && depth == 0) {
@@ -358,10 +361,10 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     JsonEncoder.schemaEncoder(schema, cfg)
 
   def jsonDecoder[A](schema: Schema[A]): ZJsonDecoder[A] =
-    JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default)
+    StrictJsonDecoder.wrap(JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default))
 
   def jsonDecoder[A](cfg: JsonCodec.Configuration)(schema: Schema[A]): ZJsonDecoder[A] =
-    JsonDecoder.schemaDecoder(schema, cfg)
+    StrictJsonDecoder.wrap(JsonDecoder.schemaDecoder(schema, cfg))
 
   def jsonCodec[A](schema: Schema[A]): ZJsonCodec[A] =
     ZJsonCodec(jsonEncoder(schema), jsonDecoder(schema))
@@ -832,7 +835,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
     final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
-      schemaDecoder(schema, config).decodeJson(json) match {
+      StrictJsonDecoder.wrap(schemaDecoder(schema, config)).decodeJson(json) match {
         case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
         case Right(value) => Right(value)
       }
