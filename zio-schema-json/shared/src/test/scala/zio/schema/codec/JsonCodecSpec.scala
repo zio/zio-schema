@@ -34,10 +34,20 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   val withNonEmptyChunkSchema: Schema[WithNonEmptyChunk] = DeriveSchema.gen[WithNonEmptyChunk]
 
+  case object EmptyObj {
+    implicit val schema: Schema[EmptyObj.type] = DeriveSchema.gen[EmptyObj.type]
+  }
+
+  final case class SimpleRec(a: Int)
+  object SimpleRec {
+    implicit val schema: Schema[SimpleRec] = DeriveSchema.gen[SimpleRec]
+  }
+
   def spec: Spec[TestEnvironment, Any] =
     suite("JsonCodec Spec")(
       encoderSuite,
       decoderSuite,
+      trailingInputSuite,
       encoderDecoderSuite
     ) @@ timeout(180.seconds)
 
@@ -1615,6 +1625,21 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertZIO(result)(isLeft)
       }
     )
+  )
+
+  private val trailingInputSuite = suite("rejects malformed trailing characters (#712)")(
+    test("rejects trailing characters after objects, strings, arrays, booleans, and numbers") {
+      assertTrue(
+        JsonCodec.jsonDecoder(Schema[EmptyObj.type]).decodeJson("{}}").isLeft,
+        JsonCodec.jsonDecoder(Schema[SimpleRec]).decodeJson("""{"a":1}}""").isLeft,
+        JsonCodec.jsonDecoder(Schema[String]).decodeJson("\"foo\"\"").isLeft,
+        JsonCodec.jsonDecoder(Schema[List[Int]]).decodeJson("[1,2]]").isLeft,
+        JsonCodec.jsonDecoder(Schema[Boolean]).decodeJson("true}}").isLeft,
+        JsonCodec.jsonDecoder(Schema[Int]).decodeJson("42x").isLeft,
+        JsonCodec.jsonDecoder(Schema[SimpleRec]).decodeJson("""  {"a":1}  """) == Right(SimpleRec(1)),
+        JsonCodec.jsonDecoder(Schema[Int]).decodeJson("42") == Right(42)
+      )
+    }
   )
 
   private val encoderDecoderSuite = suite("encoding then decoding")(
