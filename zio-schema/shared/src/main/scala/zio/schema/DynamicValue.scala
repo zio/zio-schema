@@ -6,9 +6,10 @@ import java.util.UUID
 
 import scala.collection.immutable.ListMap
 
+import zio.prelude.Validation
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{MetaSchema, Migration}
-import zio.{Cause, Chunk, Unsafe}
+import zio.Chunk
 
 sealed trait DynamicValue {
   self =>
@@ -22,102 +23,22 @@ sealed trait DynamicValue {
   def toTypedValue[A](implicit schema: Schema[A]): Either[String, A] =
     toTypedValueLazyError.left.map(_.message)
 
+  def toTypedValueValidation[A](implicit schema: Schema[A]): Validation[String, A] =
+    toValueValidation(schema).mapError(_.message)
+
   def toValue[A](implicit schema: Schema[A]): Either[DecodeError, A] = toTypedValueLazyError
+
+  def toValueValidation[A](implicit schema: Schema[A]): Validation[DecodeError, A] =
+    DynamicValueValidator.validate(self, schema)
+
+  def validate[A](implicit schema: Schema[A]): Validation[DecodeError, A] =
+    DynamicValueValidator.validate(self, schema)
 
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
 
   private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DecodeError, A] =
-    (self, schema) match {
-      case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
-        Right(value.asInstanceOf[A])
-
-      case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
-        DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[DecodeError, A]]
-
-      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
-        DynamicValue
-          .decodeStructure(values, s.fields)
-          .map(m => Chunk.fromIterable(m.values))
-          .flatMap(values => s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
-
-      case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
-        s.caseOf(key) match {
-          case Some(caseValue) =>
-            value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
-          case None => Left(DecodeError.MissingCase(key, s))
-        }
-
-      case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
-        value.toTypedValueLazyError(schema1).map(Left(_))
-
-      case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
-        value.toTypedValueLazyError(schema1).map(Right(_))
-
-      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
-        val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
-        val typedRight = rightValue.toTypedValueLazyError(rightSchema)
-        (typedLeft, typedRight) match {
-          case (Left(e1), Left(e2)) =>
-            Left(DecodeError.And(e1, e2))
-          case (_, Left(e))         => Left(e)
-          case (Left(e), _)         => Left(e)
-          case (Right(a), Right(b)) => Right(a -> b)
-        }
-
-      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
-        values
-          .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
-            case (err @ Left(_), _)     => err
-            case (Right(values), value) =>
-              value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
-          }
-          .map(schema.fromChunk)
-
-      case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
-        values.foldLeft[Either[DecodeError, Set[t]]](Right[DecodeError, Set[t]](Set.empty)) {
-          case (err @ Left(_), _)     => err
-          case (Right(values), value) =>
-            value.toTypedValueLazyError(schema.elementSchema).map(values + _)
-        }
-
-      case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
-        value.toTypedValueLazyError(schema).map(Some(_))
-
-      case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
-        Right(None)
-
-      case (value, Schema.Transform(schema, f, _, _, _)) =>
-        value
-          .toTypedValueLazyError(schema)
-          .flatMap(value => f(value).left.map(err => DecodeError.MalformedField(schema, err)))
-
-      case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
-        entries.foldLeft[Either[DecodeError, Map[k, v]]](Right[DecodeError, Map[k, v]](Map.empty)) {
-          case (err @ Left(_), _)  => err
-          case (Right(map), entry) => {
-            for {
-              key   <- entry._1.toTypedValueLazyError(schema.keySchema)
-              value <- entry._2.toTypedValueLazyError(schema.valueSchema)
-            } yield map ++ Map(key -> value)
-          }
-        }
-
-      case (_, l @ Schema.Lazy(_)) =>
-        toTypedValueLazyError(l.schema)
-
-      case (DynamicValue.Error(message), _) =>
-        Left(DecodeError.ReadError(Cause.empty, message))
-
-      case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
-        val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
-        dyn.toTypedValueLazyError(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
-
-      case (dyn, Schema.Dynamic(_)) => Right(dyn)
-
-      case _ =>
-        Left(DecodeError.CastError(self, schema))
-    }
+    DynamicValueValidator.validate(self, schema).toEitherWith(_.reduceLeft(DecodeError.And(_, _)))
 
 }
 
@@ -193,19 +114,16 @@ object DynamicValue {
   def decodeStructure(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
-  ): Either[DecodeError, ListMap[String, _]] = {
-    val keys = values.keySet
-    keys.foldLeft[Either[DecodeError, ListMap[String, Any]]](Right(ListMap.empty)) {
-      case (Right(record), key) =>
-        (structure.find(_.name == key), values.get(key)) match {
-          case (Some(field), Some(value)) =>
-            value.toTypedValueLazyError(field.schema).map(value => (record + (key -> value)))
-          case _ =>
-            Left(DecodeError.IncompatibleShape(values, structure))
-        }
-      case (Left(err), _) => Left(err)
-    }
-  }
+  ): Either[DecodeError, ListMap[String, _]] =
+    DynamicValueValidator
+      .decodeStructure(values, structure)
+      .toEitherWith(_.reduceLeft(DecodeError.And(_, _)))
+
+  def decodeStructureValidation(
+    values: ListMap[String, DynamicValue],
+    structure: Chunk[Schema.Field[_, _]]
+  ): Validation[DecodeError, ListMap[String, _]] =
+    DynamicValueValidator.decodeStructure(values, structure)
 
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
 
