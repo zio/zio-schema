@@ -98,6 +98,39 @@ object DynamicValueSpec extends ZIOSpecDefault {
             assertTrue(json2 == Right(json))
           }
         } @@ TestAspect.size(250) @@ TestAspect.ignore
+      ),
+      suite("toTypedValue with Constructor registry (#511)")(
+        test("reconstructs a typed case class when schema is rebuilt from AST") {
+          val user        = AstUser("John", 30)
+          val userDynamic = AstUser.schema.toDynamic(user)
+          val registry    = DynamicValue.Constructor.registry(AstUser.schema)
+
+          val typed = userDynamic.toTypedValue(registry)(AstUser.schema.ast.toSchema)
+
+          assertTrue(typed == Right(user))
+        },
+        test("automatically extracts nested record and enum case constructors from parent schema") {
+          val person = AstPerson(
+            "John",
+            AstAddress("Main St", "12345"),
+            Some(AstAddress("2nd St", "67890")),
+            Chunk(AstShape.Circle(2.5), AstShape.Rectangle(3.0, 4.0))
+          )
+          val personDynamic = AstPerson.schema.toDynamic(person)
+          val registry      = DynamicValue.Constructor.registry(AstPerson.schema)
+
+          val typed = personDynamic.toTypedValue(registry)(AstPerson.schema.ast.toSchema)
+
+          assertTrue(typed == Right(person))
+        },
+        test("falls back to ListMap when TypeId is not present in registry") {
+          val userDynamic = AstUser.schema.toDynamic(AstUser("John", 30))
+          val emptyReg    = PartialFunction.empty[TypeId, DynamicValue.Constructor[_]]
+
+          val typed = userDynamic.toTypedValue(emptyReg)(AstUser.schema.ast.toSchema)
+
+          assertTrue(typed == Right(scala.collection.immutable.ListMap("name" -> "John", "age" -> 30)))
+        }
       )
     )
 
@@ -113,4 +146,31 @@ object DynamicValueSpec extends ZIOSpecDefault {
       assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
     }
 
+
+  final case class AstUser(name: String, age: Int)
+  object AstUser {
+    implicit val schema: Schema[AstUser] = DeriveSchema.gen[AstUser]
+  }
+
+  final case class AstAddress(street: String, zip: String)
+  object AstAddress {
+    implicit val schema: Schema[AstAddress] = DeriveSchema.gen[AstAddress]
+  }
+
+  sealed trait AstShape
+  object AstShape {
+    final case class Circle(radius: Double)                    extends AstShape
+    final case class Rectangle(width: Double, height: Double) extends AstShape
+    implicit val schema: Schema[AstShape] = DeriveSchema.gen[AstShape]
+  }
+
+  final case class AstPerson(
+    name: String,
+    address: AstAddress,
+    previousAddress: Option[AstAddress],
+    shapes: Chunk[AstShape]
+  )
+  object AstPerson {
+    implicit val schema: Schema[AstPerson] = DeriveSchema.gen[AstPerson]
+  }
 }
