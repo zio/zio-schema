@@ -82,7 +82,27 @@ object DynamicValueSpec extends ZIOSpecDefault {
           check(SchemaGen.anyMapAndValue) { case (schema, a) =>
             assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
           }
-        }
+        },
+        suite("AST-rebuilt schema toTypedValue (#511)")(
+          test("restores typed record via DynamicValue.registry") {
+            val schema      = Schema[SchemaGen.Arity2]
+            val value       = SchemaGen.Arity2("John", SchemaGen.Arity1(30))
+            val dynamic     = schema.toDynamic(value)
+            val registry    = DynamicValue.registry(schema)
+            val rebuilt     = schema.ast.toSchema
+            val typedResult = dynamic.toTypedValue(registry)(rebuilt)
+            assertTrue(typedResult == Right(value))
+          },
+          test("restores typed record via ast.toSchema(registry)") {
+            val schema      = Schema[SchemaGen.Arity2]
+            val value       = SchemaGen.Arity2("Alice", SchemaGen.Arity1(42))
+            val dynamic     = schema.toDynamic(value)
+            val registry    = DynamicValue.registry(schema)
+            val rebuilt     = schema.ast.toSchema(registry)
+            val typedResult = dynamic.toTypedValue(rebuilt)
+            assertTrue(typedResult == Right(value))
+          }
+        )
       ),
       suite("stack safety")(
         test("fromSchemaAndValue is stack safe") {
