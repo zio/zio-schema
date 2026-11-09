@@ -10,11 +10,16 @@ const sidebars = {
         "use-cases",
         "basic-building-blocks",
         "standard-type-reference",
+        "whats-new-since-1-7-5",
         {
           type: "category",
           label: "Writing Schema",
           collapsed: true,
-          items: ["manual-schema-construction", "automatic-schema-derivation"],
+          items: [
+            "manual-schema-construction",
+            "automatic-schema-derivation",
+            "schema-annotations",
+          ],
         },
         {
           type: "category",
