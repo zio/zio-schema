@@ -37,8 +37,8 @@ sealed trait DynamicValue {
   def toTypedValueOption[A](registry: PartialFunction[TypeId, Schema[_]])(implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError(schema, registry).toOption
 
-  private def toTypedValueLazyError[A](
-    implicit schema: Schema[A],
+  private def toTypedValueLazyError[A](implicit
+    schema: Schema[A],
     registry: PartialFunction[TypeId, Schema[_]] = PartialFunction.empty
   ): Either[DecodeError, A] =
     (self, schema) match {
@@ -234,18 +234,18 @@ object DynamicValue {
           case e: Schema.Enum[_] =>
             entries.put(e.id, e)
             e.cases.foreach(c => collect(c.schema))
-          case Schema.Optional(inner, _)            => collect(inner)
-          case Schema.Sequence(inner, _, _, _, _)   => collect(inner)
+          case Schema.Optional(inner, _)                  => collect(inner)
+          case Schema.Sequence(inner, _, _, _, _)         => collect(inner)
           case Schema.NonEmptySequence(inner, _, _, _, _) => collect(inner)
-          case Schema.Set(inner, _)                 => collect(inner)
-          case Schema.Map(k, v, _)                  => collect(k); collect(v)
-          case Schema.NonEmptyMap(k, v, _)          => collect(k); collect(v)
-          case Schema.Either(l, r, _)               => collect(l); collect(r)
-          case Schema.Fallback(l, r, _, _)          => collect(l); collect(r)
-          case Schema.Tuple2(l, r, _)               => collect(l); collect(r)
-          case Schema.Transform(inner, _, _, _, _)  => collect(inner)
-          case lzy @ Schema.Lazy(_)                 => collect(lzy.schema)
-          case _                                    => ()
+          case Schema.Set(inner, _)                       => collect(inner)
+          case Schema.Map(k, v, _)                        => collect(k); collect(v)
+          case Schema.NonEmptyMap(k, v, _)                => collect(k); collect(v)
+          case Schema.Either(l, r, _)                     => collect(l); collect(r)
+          case Schema.Fallback(l, r, _, _)                => collect(l); collect(r)
+          case Schema.Tuple2(l, r, _)                     => collect(l); collect(r)
+          case Schema.Transform(inner, _, _, _, _)        => collect(inner)
+          case lzy @ Schema.Lazy(_)                       => collect(lzy.schema)
+          case _                                          => ()
         }
       }
     }

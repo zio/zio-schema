@@ -691,8 +691,14 @@ object ExtensibleMetaSchema {
 
   private[schema] def materialize[BuiltIn <: TypeList](
     ast: ExtensibleMetaSchema[BuiltIn],
+    refs: mutable.Map[NodePath, Schema[_]]
+  )(implicit builtInInstances: SchemaInstances[BuiltIn]): Schema[_] =
+    materialize(ast, refs, PartialFunction.empty)(builtInInstances)
+
+  private[schema] def materialize[BuiltIn <: TypeList](
+    ast: ExtensibleMetaSchema[BuiltIn],
     refs: mutable.Map[NodePath, Schema[_]],
-    registry: PartialFunction[TypeId, Schema[_]] = PartialFunction.empty
+    registry: PartialFunction[TypeId, Schema[_]]
   )(implicit builtInInstances: SchemaInstances[BuiltIn]): Schema[_] = {
     val baseSchema = ast match {
       case ExtensibleMetaSchema.Value(typ, _, _) =>
@@ -703,21 +709,24 @@ object ExtensibleMetaSchema {
           refs.getOrElse(refPath, Schema.Fail(s"invalid ref path $refPath")).asInstanceOf[Schema[A]]
         Schema.defer(resolve())
       case ExtensibleMetaSchema.Product(id, _, elems, _) =>
-        registry.lift(id).collect {
-          case registered: Schema.Record[_] if !registered.isInstanceOf[Schema.GenericRecord] => registered
-        }.getOrElse {
-          Schema.record(
-            id,
-            elems.map { case Labelled(label, ast) =>
-              Schema.Field(
-                label,
-                materialize(ast, refs, registry).asInstanceOf[Schema[Any]],
-                get0 = (p: ListMap[String, _]) => p(label),
-                set0 = (p: ListMap[String, _], v: Any) => p.updated(label, v)
-              )
-            }: _*
-          )
-        }
+        registry
+          .lift(id)
+          .collect {
+            case registered: Schema.Record[_] if !registered.isInstanceOf[Schema.GenericRecord] => registered
+          }
+          .getOrElse {
+            Schema.record(
+              id,
+              elems.map { case Labelled(label, ast) =>
+                Schema.Field(
+                  label,
+                  materialize(ast, refs, registry).asInstanceOf[Schema[Any]],
+                  get0 = (p: ListMap[String, _]) => p(label),
+                  set0 = (p: ListMap[String, _], v: Any) => p.updated(label, v)
+                )
+              }: _*
+            )
+          }
       case ExtensibleMetaSchema.Tuple(_, left, right, _) =>
         Schema.tuple2(
           materialize(left, refs, registry),
