@@ -16,9 +16,9 @@ In order to derive a generator from a ZIO Schema, we need to add the following d
 libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % @VERSION@
 ```
 
-## DriveGen
+## DeriveGen
 
-The `DriveGen` inside `zio.schema` package provides the `gen` operator which takes a `Schema[A]` implicitly and returns a `Gen[Sized, A]`:
+The `DeriveGen` object inside `zio.schema` package provides the `gen` operator which takes a `Schema[A]` implicitly and returns a `Gen[Sized, A]`:
 
 ```scala
 object DeriveGen {
@@ -47,7 +47,7 @@ object ExampleSpec extends ZIOSpecDefault {
   def spec =
     test("example test") {
       check(Person.gen) { p =>
-        assertTrue(???)
+        assertTrue(Person.schema.fromDynamic(Person.schema.toDynamic(p)) == Right(p))
       }
     }
 }
