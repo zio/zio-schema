@@ -18,7 +18,7 @@ libraryDependencies += "dev.zio" %% "zio-schema-bson" % @VERSION@
 
 ## BsonSchemaCodec
 
-The `BsonSchemaCodec` object inside the `zio.schema.codec` package provides the `bsonCodec` operator which allows us to derive Protobuf codecs from a ZIO Schema:
+The `BsonSchemaCodec` object inside the `zio.schema.codec` package provides the `bsonCodec` operator which allows us to derive BSON codecs from a ZIO Schema:
 
 ```scala
 object BsonSchemaCodec {
