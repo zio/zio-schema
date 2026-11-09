@@ -10,6 +10,7 @@ const sidebars = {
         "use-cases",
         "basic-building-blocks",
         "standard-type-reference",
+        "whats-new-since-1-7-5",
         {
           type: "category",
           label: "Writing Schema",
