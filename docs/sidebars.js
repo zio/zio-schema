@@ -8,8 +8,19 @@ const sidebars = {
       items: [
         "motivation",
         "use-cases",
+        {
+          type: "category",
+          label: "Getting Started",
+          collapsed: false,
+          items: ["tutorial/first-schema"],
+        },
         "basic-building-blocks",
-        "standard-type-reference",
+        {
+          type: "category",
+          label: "Reference",
+          collapsed: false,
+          items: ["reference/schema-methods", "standard-type-reference"],
+        },
         {
           type: "category",
           label: "Writing Schema",
