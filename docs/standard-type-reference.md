@@ -2,10 +2,11 @@
 id: standard-type-reference
 title: "Standard Type Reference"
 ---
+# Standard Type Reference
 
-ZIO Schema provides a number of built-in primitive types, that we can use to represent our data. Each one has a `defaultValue` that generates a value of the type. The following table lists every standard type and whether `defaultValue` succeeds on each platform. A ❌ means that `defaultValue` returns a `Left` on that platform, because the value cannot be generated there:
+ZIO Schema provides a number of built-in primitive types, that we can use to represent our data. These can be seen in the following table:
 
-|Standard Type|JVM|ScalaJS|Scala Native|
+|Standard Type|JVM Support|ScalaJS Support|Scala Native Support|
 |--------------|:--------------:|:--------------:|:--------------:|
 |`Boolean`|✅|✅|✅|
 |`Byte`|✅|✅|✅|
