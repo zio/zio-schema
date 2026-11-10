@@ -27,7 +27,7 @@ val john = Person("John", 42)
 
 Combinators build a new schema from existing ones. `Schema#optional`, written `?`, accepts a missing value. `Schema#zip`, written `<*>`, pairs two schemas into a tuple schema. `Schema#orElseEither`, written `<+>`, accepts a value of either schema, as an `Either`. `Schema#repeated` returns a schema for a `Chunk` of values.
 
-```scala mdoc
+```scala mdoc:silent
 val maybeAge: Schema[Option[Int]] = Schema[Int].?
 
 val pair: Schema[(String, Int)] = Schema[String] <*> Schema[Int]
@@ -61,9 +61,11 @@ Person.schema.validate(john).isEmpty
 
 `Schema#transform` maps a schema of `A` to a schema of `B`, given a function in each direction. `Schema#transformOrFail` does the same, but each function can fail with a message. These methods are covered in [Transforming Schemas](../operations/transforming-schemas.md).
 
-```scala mdoc
+```scala mdoc:silent
 val nameOnly: Schema[String] = Person.schema.transform(_.name, name => Person(name, 0))
+```
 
+```scala mdoc
 nameOnly.defaultValue
 ```
 

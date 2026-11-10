@@ -58,9 +58,11 @@ val john  = Person("John", 42)
 val older = john.copy(age = 43)
 ```
 
-```scala mdoc
+```scala mdoc:silent
 val forward = Person.schema.diff(john, older)
+```
 
+```scala mdoc
 Person.schema.patch(older, forward.invert) == Right(john)
 ```
 

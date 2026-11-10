@@ -27,7 +27,7 @@ import zio.Chunk
 import zio.schema._
 
 val listDiffer: Differ[Chunk[Int]] = Differ.fromSchema(Schema[Int]).chunk
-// listDiffer: Differ[Chunk[Int]] = zio.schema.Differ$LCSDiff$$anon$1@4a8cac5c
+// listDiffer: Differ[Chunk[Int]] = zio.schema.Differ$LCSDiff$$anon$1@7e2180d3
 
 val patch = listDiffer(Chunk(1, 2, 3), Chunk(1, 3))
 // patch: Patch[Chunk[Int]] = LCS(
@@ -65,18 +65,9 @@ val older = john.copy(age = 43)
 
 ```scala
 val forward = Person.schema.diff(john, older)
-// forward: Patch[Person] = Record(
-//   differences = ListMap(
-//     "name" -> Transform(
-//       patch = Identical(),
-//       f = scala.Function1$$Lambda/0x000075f1897532c0@3473e3b1,
-//       g = scala.Function1$$Lambda/0x000075f1897532c0@39e41e56
-//     ),
-//     "age" -> Number(distance = -1)
-//   ),
-//   schema = CaseClass2(Nominal(Chunk(repl),Chunk(MdocSession,MdocApp),Person), Field(name,$Lazy$),Field(age,$Lazy$))
-// )
+```
 
+```scala
 Person.schema.patch(older, forward.invert) == Right(john)
 // res1: Boolean = true
 ```

@@ -29,33 +29,12 @@ Combinators build a new schema from existing ones. `Schema#optional`, written `?
 
 ```scala
 val maybeAge: Schema[Option[Int]] = Schema[Int].?
-// maybeAge: Schema[Option[Int]] = Optional(
-//   schema = Primitive(standardType = int, annotations = IndexedSeq()),
-//   annotations = IndexedSeq()
-// )
 
 val pair: Schema[(String, Int)] = Schema[String] <*> Schema[Int]
-// pair: Schema[(String, Int)] = Tuple2(
-//   left = Primitive(standardType = string, annotations = IndexedSeq()),
-//   right = Primitive(standardType = int, annotations = IndexedSeq()),
-//   annotations = IndexedSeq()
-// )
 
 val either: Schema[Either[String, Int]] = Schema[String] <+> Schema[Int]
-// either: Schema[Either[String, Int]] = Either(
-//   left = Primitive(standardType = string, annotations = IndexedSeq()),
-//   right = Primitive(standardType = int, annotations = IndexedSeq()),
-//   annotations = IndexedSeq()
-// )
 
 val names: Schema[zio.Chunk[String]] = Schema[String].repeated
-// names: Schema[zio.Chunk[String]] = Sequence(
-//   elementSchema = Primitive(standardType = string, annotations = IndexedSeq()),
-//   fromChunk = zio.schema.Schema$$$Lambda/0x0000763409608398@18c4cf22,
-//   toChunk = zio.schema.Schema$$$Lambda/0x0000763409608760@3a6eb037,
-//   annotations = IndexedSeq(),
-//   identity = "Chunk"
-// )
 ```
 
 ## Defaults and Annotations
@@ -87,14 +66,9 @@ Person.schema.validate(john).isEmpty
 
 ```scala
 val nameOnly: Schema[String] = Person.schema.transform(_.name, name => Person(name, 0))
-// nameOnly: Schema[String] = Transform(
-//   schema = CaseClass2(Nominal(Chunk(repl),Chunk(MdocSession,MdocApp),Person), Field(name,$Lazy$),Field(age,$Lazy$)),
-//   f = zio.schema.Schema$$Lambda/0x00007634095d6980@4d157cf6,
-//   g = zio.schema.Schema$$Lambda/0x00007634095d6d50@73216254,
-//   annotations = IndexedSeq(),
-//   identity = SourceLocation(path = "schema-methods.md", line = 55, col = 55)
-// )
+```
 
+```scala
 nameOnly.defaultValue
 // res3: Either[String, String] = Right(value = "")
 ```
