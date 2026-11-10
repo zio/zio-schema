@@ -103,4 +103,43 @@ person object encoded to JSON string: 7b 22 6e 61 6d 65 22 3a 22 4a 6f 68 6e 22 
 JSON object decoded to Person class: Person(John,42)
 ```
 
+## Configuration
+
+`JsonCodec.Configuration` controls how a codec derived with `jsonCodec(config)` or `schemaBasedBinaryCodec(config)` encodes and decodes. Its `default` value applies when you pass no configuration. It has these parameters:
+
+- `explicitEmptyCollections`: whether empty collections are written as `[]`, or omitted and read back as empty when missing.
+- `explicitNulls`: whether `None` is written as `null`, or omitted and read back as `None` when missing.
+- `discriminatorSettings`: how the case of a sealed trait is recorded, such as the discriminator field name and its format.
+- `fieldNameFormat`: a `NameFormat` that renames every field, such as `NameFormat.SnakeCase`.
+- `treatStreamsAsArrays`: whether streams are encoded and decoded as JSON arrays.
+- `rejectExtraFields`: whether decoding fails on fields that the type does not declare.
+
+An annotation on a type or field overrides the matching setting for that type or field. For example, `@rejectExtraFields` on one case class wins over `rejectExtraFields = false` in the configuration. See [Schema Annotations](../../schema-annotations.md) for the annotation forms.
+
+To write a `Profile` with snake-case field names, and to omit empty `Option` values and empty lists:
+
+```scala
+import zio.schema.codec.JsonCodec
+import zio.schema.{DeriveSchema, NameFormat, Schema}
+
+final case class Profile(userName: String, nickname: Option[String], tags: List[String])
+
+object Profile {
+  implicit val schema: Schema[Profile] = DeriveSchema.gen
+}
+
+val config = JsonCodec.Configuration(
+  explicitEmptyCollections = JsonCodec.ExplicitConfig(encoding = false),
+  explicitNulls = JsonCodec.ExplicitConfig(encoding = false),
+  fieldNameFormat = NameFormat.SnakeCase
+)
+```
+
+Encoding a profile with no nickname and no tags leaves out both optional parts:
+
+```scala
+println(JsonCodec.jsonCodec(config)(Profile.schema).encodeJson(Profile("alice", None, Nil), None).toString)
+// {"user_name":"alice"}
+```
+
 By utilizing JSON codecs derived from ZIO Schema, developers can easily serialize and deserialize data in JSON format without writing boilerplate code. This enhances productivity and simplifies data handling in Scala applications.

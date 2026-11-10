@@ -4,9 +4,9 @@ title: "Serialization of the Schema Itself"
 sidebar_label: "Schema Serialization"
 ---
 
-In distributed systems, we often need to move computations to data instead of moving data to computations. The data is big and the network is slow, so moving it is expensive and sometimes impossible due to the volume of data. So in distributed systems, we would like to move our functions to the data and apply the data to the functions and gather the results back.
+In distributed systems, we often move computation to the data instead of moving data to the computation. Large data sets are expensive to send over a slow network, so a receiver that already holds a function can be sent the data instead, or the other way around. To do that, both sides need to agree on the structure of the data. ZIO Schema makes the structure of a type a value, so the structure can in principle be sent over the wire like any other data.
 
-So we need a way to serialize our computations and send them through the network. In ZIO Schema, each schema itself has a schema, so we can treat the structure as pure data! we can serialize our schemas by calling the `serializable` method:
+The `serializable` method returns a schema that describes the schema itself:
 
 ```scala
 sealed trait Schema[A] {
@@ -14,4 +14,8 @@ sealed trait Schema[A] {
 }
 ```
 
-By calling this method, we can get the schema of a schema. So we can serialize it and send it across the wire, and it can be deserialized on the other side. After deserializing it, we have a schema that is isomorphic to the original schema. So all the operations that we can perform on the original type `A`, we can perform on any value that is isomorphic to `A` on the other side.
+A sender would turn a schema into a value with `serializable.toDynamic`, and a receiver would turn it back into a `Schema[A]` with `fromDynamic`. The round trip would let the receiver convert data with the same structure as the sender.
+
+:::caution
+At the time of writing, `serializable` fails at runtime for schemas of case classes. Calling `toDynamic` on the result throws a `ClassCastException` from `GenericRecord` to `ListMap`. Do not rely on this round trip until the library fixes the problem.
+:::

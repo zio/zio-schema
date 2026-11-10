@@ -8,8 +8,25 @@ const sidebars = {
       items: [
         "motivation",
         "use-cases",
+        {
+          type: "category",
+          label: "Getting Started",
+          collapsed: false,
+          items: ["tutorial/first-schema"],
+        },
         "basic-building-blocks",
-        "standard-type-reference",
+        {
+          type: "category",
+          label: "Reference",
+          collapsed: false,
+          items: [
+            "standard-type-reference",
+            "reference/schema-methods",
+            "reference/patch-and-differ",
+            "reference/name-format-and-type-id",
+            "reference/codec-core",
+          ],
+        },
         "whats-new-since-1-7-5",
         {
           type: "category",
@@ -41,6 +58,7 @@ const sidebars = {
           label: "Derivations",
           collapsed: true,
           items: [
+            "derivations/derivation-scala-versions",
             "derivations/ordering-derivation",
             "derivations/optics-derivation",
             "derivations/zio-test-gen-derivation",

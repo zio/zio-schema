@@ -85,9 +85,9 @@ object Migration {
 }
 ```
 
-It takes two `MetaSchema` values, the old and the new schema, and returns a `Chunk[Migration]` that describes the migrations steps. Let's try a simple example:
+It takes two `MetaSchema` values, the old and the new schema, and returns a `Chunk[Migration]` that describes the migrations steps. The following example derives the steps between two versions of a `Person` model and prints them:
 
-```scala mdoc:compile-only
+```scala mdoc
 import zio.schema._
 import zio.schema.meta._
 
@@ -116,15 +116,4 @@ val migrations = Migration.derive(
 println(migrations)
 ```
 
-The output of the above code is:
-
-```scala
-Right(
-  Chunk(IncrementDimensions(Chunk(language,item),1),
-  ChangeType(Chunk(height),double),
-  AddNode(Chunk(role),string),
-  DeleteNode(Chunk(age)))
-)
-```
-
-This output describes a series of migration steps that should be applied to the old schema to be transformed into the new schema.
+The output lists the steps in the order they must be applied to the old values. Here, `language` changes from a `String` to a `Set[String]`, so the migration adds a dimension to it. The `height` field changes type, `role` is added, and `age` is removed.
