@@ -19,7 +19,13 @@ const sidebars = {
           type: "category",
           label: "Reference",
           collapsed: false,
-          items: ["reference/schema-methods", "standard-type-reference"],
+          items: [
+            "standard-type-reference",
+            "reference/schema-methods",
+            "reference/patch-and-differ",
+            "reference/name-format-and-type-id",
+            "reference/codec-core",
+          ],
         },
         {
           type: "category",
