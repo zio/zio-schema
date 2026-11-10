@@ -47,6 +47,7 @@ const sidebars = {
           label: "Derivations",
           collapsed: true,
           items: [
+            "derivations/derivation-scala-versions",
             "derivations/ordering-derivation",
             "derivations/optics-derivation",
             "derivations/zio-test-gen-derivation",
