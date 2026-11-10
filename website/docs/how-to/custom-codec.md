@@ -68,8 +68,9 @@ We create the codec and encode a value:
 
 ```scala
 val lineCodec = new PersonLineCodec
-// lineCodec: PersonLineCodec = repl.MdocSession$MdocApp$PersonLineCodec@43e0583d
+```
 
+```scala
 lineCodec.encode(Person("John", 42))
 // res0: String = "John,42"
 ```

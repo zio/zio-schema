@@ -66,9 +66,11 @@ This codec writes its own format and does not read the schema. Use it when the f
 
 We create the codec and encode a value:
 
-```scala mdoc
+```scala mdoc:silent
 val lineCodec = new PersonLineCodec
+```
 
+```scala mdoc
 lineCodec.encode(Person("John", 42))
 ```
 
