@@ -27,8 +27,9 @@ import zio.Chunk
 import zio.schema._
 
 val listDiffer: Differ[Chunk[Int]] = Differ.fromSchema(Schema[Int]).chunk
-// listDiffer: Differ[Chunk[Int]] = zio.schema.Differ$LCSDiff$$anon$1@7e2180d3
+```
 
+```scala
 val patch = listDiffer(Chunk(1, 2, 3), Chunk(1, 3))
 // patch: Patch[Chunk[Int]] = LCS(
 //   edits = IndexedSeq(Keep(value = 1), Delete(value = 2), Keep(value = 3))

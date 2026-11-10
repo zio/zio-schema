@@ -22,12 +22,14 @@ A `Differ[A]` has one abstract method, `apply`, which takes the old and new valu
 
 The following example diffs two chunks. The patch records that the element `2` was removed, and applying it to the old chunk gives the new one:
 
-```scala mdoc
+```scala mdoc:silent
 import zio.Chunk
 import zio.schema._
 
 val listDiffer: Differ[Chunk[Int]] = Differ.fromSchema(Schema[Int]).chunk
+```
 
+```scala mdoc
 val patch = listDiffer(Chunk(1, 2, 3), Chunk(1, 3))
 
 patch.patch(Chunk(1, 2, 3))

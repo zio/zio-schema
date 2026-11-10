@@ -25,7 +25,14 @@ const sidebars = {
             "reference/patch-and-differ",
             "reference/name-format-and-type-id",
             "reference/codec-core",
+            "reference/migration-operations",
           ],
+        },
+        {
+          type: "category",
+          label: "How-to Guides",
+          collapsed: true,
+          items: ["how-to/custom-codec", "how-to/custom-deriver"],
         },
         "whats-new-since-1-7-5",
         {
