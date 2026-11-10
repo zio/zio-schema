@@ -37,7 +37,7 @@ object BuildHelper {
   val jacksonScalaVersion          = "2.22.3.1"
   val thriftVersion                = "0.24.0"
   val javaxAnnotationApiVersion    = "3.0.0"
-  val scalaJavaTimeVersion         = "2.7.0"
+  val scalaJavaTimeVersion         = "2.9.0"
 
   def macroDefinitionSettings = Seq(
     scalacOptions += "-language:experimental.macros",
