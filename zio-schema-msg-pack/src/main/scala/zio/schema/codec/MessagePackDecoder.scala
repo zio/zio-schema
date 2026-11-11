@@ -331,7 +331,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
           decodeString(path :+ "fallback").flatMap {
             case "left"  => decodeValue(path :+ "fallback:left", left).map(Fallback.Left(_))
             case "right" => decodeValue(path :+ "fallback:right", right).map(Fallback.Right(_))
-            case str     => fail(path :+ "either", s"Unexpected field name: $str")
+            case str     => fail(path :+ "fallback", s"Unexpected field name: $str")
           }
         } else if (size == 3) {
           unpacker.skipValue()
@@ -343,7 +343,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
             res
           }
         } else {
-          fail(path :+ "fallback", s"Expected 1 or 2 elements but received $size.")
+          fail(path :+ "fallback", s"Expected 2 or 3 elements but received $size.")
         }
     )
 
