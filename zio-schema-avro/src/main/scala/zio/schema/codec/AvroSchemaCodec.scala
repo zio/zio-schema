@@ -282,7 +282,7 @@ object AvroSchemaCodec extends AvroSchemaCodec {
           case StandardType.BoolType   => Right(SchemaAvro.create(SchemaAvro.Type.BOOLEAN))
           case StandardType.ShortType  =>
             Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Short)))
-          case StandardType.ByteType   =>
+          case StandardType.ByteType =>
             Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Byte)))
           case StandardType.IntType    => Right(SchemaAvro.create(SchemaAvro.Type.INT))
           case StandardType.LongType   => Right(SchemaAvro.create(SchemaAvro.Type.LONG))
