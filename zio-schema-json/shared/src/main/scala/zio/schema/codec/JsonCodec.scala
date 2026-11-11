@@ -831,11 +831,25 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
-    final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
-      schemaDecoder(schema, config).decodeJson(json) match {
-        case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
-        case Right(value) => Right(value)
+    final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] = {
+      val reader = new FastStringReader(json)
+      try {
+        val value = schemaDecoder(schema, config).unsafeDecode(Nil, reader)
+        try {
+          val extra = reader.nextNonWhitespace()
+          Left(DecodeError.ReadError(Cause.empty, s"expected EOF but found '$extra'"))
+        } catch {
+          case _: zio.json.internal.UnexpectedEnd => Right(value)
+        }
+      } catch {
+        case UnsafeJson(trace) =>
+          Left(DecodeError.ReadError(Cause.empty, JsonError.render(trace)))
+        case _: zio.json.internal.UnexpectedEnd =>
+          Left(DecodeError.ReadError(Cause.empty, "Unexpected end of input"))
+        case _: StackOverflowError =>
+          Left(DecodeError.ReadError(Cause.empty, "Unexpected structure (unbounded depth)"))
       }
+    }
 
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
       new ZJsonDecoder[Option[A]] {
