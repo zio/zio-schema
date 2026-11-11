@@ -23,7 +23,8 @@ object SchemaSpec extends ZIOSpecDefault {
         assert(Schema.Tuple2(schemaUnit, schemaUnit))(hasSameSchema(Schema.Tuple2(schemaUnit, schemaUnit))) &&
         assert(Schema.Tuple2(schemaTransform, schemaTransform))(
           hasSameSchema(Schema.Tuple2(schemaTransform, schemaTransform))
-        )
+        ) &&
+        assert(Schema.Tuple2(schemaString, schemaInt))(not(hasSameSchema(Schema.Tuple2(schemaString, schemaBoolean))))
       },
       test("record") {
         assert(schemaRecord("key"))(hasSameSchema(schemaRecord("key"))) &&
@@ -57,8 +58,10 @@ object SchemaSpec extends ZIOSpecDefault {
     }
   )
 
-  def schemaUnit: Schema[Unit] = Schema[Unit]
-  def schemaInt: Schema[Int]   = Schema[Int]
+  def schemaUnit: Schema[Unit]       = Schema[Unit]
+  def schemaInt: Schema[Int]         = Schema[Int]
+  def schemaString: Schema[String]   = Schema[String]
+  def schemaBoolean: Schema[Boolean] = Schema[Boolean]
 
   def schemaRecord(key: String): Schema[ListMap[String, _]] =
     Schema.record(
