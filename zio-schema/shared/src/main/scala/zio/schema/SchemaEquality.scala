@@ -65,7 +65,7 @@ trait SchemaEquality {
           case (lTuple: Schema.Tuple2[_, _], rTuple: Schema.Tuple2[_, _]) =>
             lTuple.annotations == rTuple.annotations &&
             lTuple.left === rTuple.left &&
-            rTuple.right === rTuple.right
+            lTuple.right === rTuple.right
           case (lEither: Schema.Either[_, _], rEither: Schema.Either[_, _]) =>
             lEither.annotations == rEither.annotations &&
             lEither.left === rEither.left &&
