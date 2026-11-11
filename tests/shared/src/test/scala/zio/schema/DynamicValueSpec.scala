@@ -102,6 +102,21 @@ object DynamicValueSpec extends ZIOSpecDefault {
           val nemSchema = Schema.nonEmptyMap[String, Int]
           val emptyDyn  = DynamicValue.Dictionary(Chunk.empty)
           assert(emptyDyn.toTypedValue(nemSchema))(isLeft)
+        },
+        test("round-trips Fallback.Left") {
+          val schema                       = Schema.Fallback(Schema[Int], Schema[String])
+          val value: Fallback[Int, String] = Fallback.Left(42)
+          assert(DynamicValue.fromSchemaAndValue(schema, value).toTypedValue(schema))(isRight(equalTo(value)))
+        },
+        test("round-trips Fallback.Right") {
+          val schema                       = Schema.Fallback(Schema[Int], Schema[String])
+          val value: Fallback[Int, String] = Fallback.Right("fallback")
+          assert(DynamicValue.fromSchemaAndValue(schema, value).toTypedValue(schema))(isRight(equalTo(value)))
+        },
+        test("round-trips Fallback.Both") {
+          val schema                       = Schema.Fallback(Schema[Int], Schema[String])
+          val value: Fallback[Int, String] = Fallback.Both(42, "fallback")
+          assert(DynamicValue.fromSchemaAndValue(schema, value).toTypedValue(schema))(isRight(equalTo(value)))
         }
       ),
       suite("stack safety")(
