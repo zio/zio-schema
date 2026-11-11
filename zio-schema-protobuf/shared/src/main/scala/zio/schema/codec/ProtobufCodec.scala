@@ -924,8 +924,8 @@ object ProtobufCodec {
         case (_, fieldNum) if fieldNum == 1 => Fallback.Left(context)
         case (_, fieldNum) if fieldNum == 2 => Fallback.Right(context)
         case (_, fieldNum) if fieldNum == 3 => Fallback.Both(context, context)
-        case _                              =>
-          throw ExtraFields(fieldNumber.toString, s"Invalid field number ($fieldNumber) for fallback")
+        case (_, fieldNum)                  =>
+          throw ExtraFields(fieldNum.toString, s"Invalid field number ($fieldNum) for fallback")
       }
 
     override protected def startReadingRightFallback(
