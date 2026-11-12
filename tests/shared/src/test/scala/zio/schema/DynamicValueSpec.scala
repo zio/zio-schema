@@ -1,5 +1,7 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
+
 import zio._
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
@@ -98,6 +100,128 @@ object DynamicValueSpec extends ZIOSpecDefault {
             assertTrue(json2 == Right(json))
           }
         } @@ TestAspect.size(250) @@ TestAspect.ignore
+      ),
+      suite("AST-rebuilt schema")(
+        test("recovers the issue #511 record through a registry built from the root schema") {
+          val user        = AstUser("John", 30)
+          val userDynamic = AstUser.schema.toDynamic(user)
+          val registry    = DynamicValue.ConstructorRegistry.fromSchemas(AstUser.schema)
+          val rebuilt     = AstUser.schema.ast.toSchema.asInstanceOf[Schema[AstUser]]
+
+          assertTrue(userDynamic.toTypedValue(AstUser.schema) == Right(user)) &&
+          assertTrue(userDynamic.toTypedValue(registry)(rebuilt) == Right(user)) &&
+          assertTrue(userDynamic.toValue(registry)(rebuilt) == Right(user)) &&
+          assertTrue(userDynamic.toTypedValueOption(registry)(rebuilt).contains(user))
+        },
+        test("DynamicValue.registry aliases fromSchemas") {
+          val user        = AstUser("John", 30)
+          val userDynamic = AstUser.schema.toDynamic(user)
+          val rebuilt     = AstUser.schema.ast.toSchema.asInstanceOf[Schema[AstUser]]
+
+          assertTrue(userDynamic.toTypedValue(DynamicValue.registry(AstUser.schema))(rebuilt) == Right(user))
+        },
+        test("decodes to a generic record when the registry has no matching entry") {
+          val userDynamic = AstUser.schema.toDynamic(AstUser("John", 30))
+          val rebuilt     = AstUser.schema.ast.toSchema.asInstanceOf[Schema[ListMap[String, Any]]]
+          val expected    = ListMap[String, Any]("name" -> "John", "age" -> 30)
+
+          assertTrue(userDynamic.toTypedValue(rebuilt) == Right(expected)) &&
+          assertTrue(
+            userDynamic.toTypedValue(DynamicValue.ConstructorRegistry.empty)(rebuilt) == Right(expected)
+          )
+        },
+        test("fromSchemas on a root schema recovers nested records, options, sequences, maps and eithers") {
+          val person = AstPerson(
+            "John",
+            AstAddress("Main St", "12345"),
+            Some(AstAddress("2nd St", "67890")),
+            Chunk(AstAddress("3rd St", "54321")),
+            Map("home" -> AstAddress("4th St", "11111")),
+            Right(AstAddress("5th St", "22222"))
+          )
+          val personDynamic = AstPerson.schema.toDynamic(person)
+          // A single root schema is enough — nested AstAddress is discovered automatically.
+          val registry = DynamicValue.ConstructorRegistry.fromSchemas(AstPerson.schema)
+
+          val typed =
+            personDynamic.toTypedValue(registry)(AstPerson.schema.ast.toSchema.asInstanceOf[Schema[AstPerson]])
+
+          assertTrue(typed == Right(person))
+        },
+        test("fromSchemas walks collection elements that fromRecords would miss") {
+          val addresses    = Chunk(AstAddress("Main St", "12345"), AstAddress("2nd St", "67890"))
+          val addressesDyn = Schema[Chunk[AstAddress]].toDynamic(addresses)
+          val rebuilt      = Schema[Chunk[AstAddress]].ast.toSchema.asInstanceOf[Schema[Chunk[AstAddress]]]
+          // fromRecords ignores non-record roots, so a Chunk schema contributes nothing.
+          val fromRecords = DynamicValue.ConstructorRegistry.fromRecords(Schema[Chunk[AstAddress]])
+          val fromSchemas = DynamicValue.ConstructorRegistry.fromSchemas(Schema[Chunk[AstAddress]])
+
+          val walked  = addressesDyn.toTypedValue(fromSchemas)(rebuilt)
+          val skipped = addressesDyn.toTypedValue(fromRecords)(rebuilt)
+
+          assertTrue(fromRecords.isEmpty) &&
+          assertTrue(fromSchemas.contains(AstAddress.schema.asInstanceOf[Schema.Record[_]].id)) &&
+          assertTrue(walked == Right(addresses)) &&
+          assertTrue(skipped != Right(addresses))
+        },
+        test("recovers recursive records") {
+          val list        = AstNode(1, Some(AstNode(2, None)))
+          val listDynamic = AstNode.schema.toDynamic(list)
+          val registry    = DynamicValue.ConstructorRegistry.fromSchemas(AstNode.schema)
+
+          val typed = listDynamic.toTypedValue(registry)(AstNode.schema.ast.toSchema.asInstanceOf[Schema[AstNode]])
+
+          assertTrue(typed == Right(list))
+        },
+        test("recovers enumeration cases, including case objects") {
+          val shapes        = Chunk[AstShape](AstShape.Circle(2.0), AstShape.Point)
+          val shapesDynamic = Schema[Chunk[AstShape]].toDynamic(shapes)
+          val registry      = DynamicValue.ConstructorRegistry.fromSchemas(Schema[Chunk[AstShape]])
+
+          val typed = shapesDynamic.toTypedValue(registry)(
+            Schema[Chunk[AstShape]].ast.toSchema.asInstanceOf[Schema[Chunk[AstShape]]]
+          )
+
+          assertTrue(typed == Right(shapes))
+        },
+        test("fails when a required field is missing from the dynamic record") {
+          val incomplete = AstUser.schema.toDynamic(AstUser("John", 30)) match {
+            case DynamicValue.Record(id, values) => DynamicValue.Record(id, values - "age")
+            case other                           => other
+          }
+          val registry = DynamicValue.ConstructorRegistry.fromSchemas(AstUser.schema)
+
+          val typed = incomplete.toTypedValue(registry)(AstUser.schema.ast.toSchema.asInstanceOf[Schema[AstUser]])
+
+          assertTrue(typed.isLeft)
+        },
+        test("constructs a record whose DynamicValue keys are in a different order than the schema fields") {
+          val user      = AstUser("John", 30)
+          val recordId  = AstUser.schema.asInstanceOf[Schema.Record[AstUser]].id
+          val reordered = DynamicValue.Record(
+            recordId,
+            ListMap(
+              "age"  -> DynamicValue.Primitive(30, StandardType.IntType),
+              "name" -> DynamicValue.Primitive("John", StandardType.StringType)
+            )
+          )
+          val registry = DynamicValue.ConstructorRegistry.fromSchemas(AstUser.schema)
+
+          assertTrue(reordered.toTypedValue(AstUser.schema) == Right(user)) &&
+          assertTrue(
+            reordered.toTypedValue(registry)(AstUser.schema.ast.toSchema.asInstanceOf[Schema[AstUser]]) == Right(user)
+          )
+        },
+        test("combined registries prefer the right-hand entries") {
+          val user        = AstUser("John", 30)
+          val userDynamic = AstUser.schema.toDynamic(user)
+          val combined    =
+            DynamicValue.ConstructorRegistry.empty ++ DynamicValue.ConstructorRegistry.fromSchemas(AstUser.schema)
+
+          assertTrue(
+            userDynamic.toTypedValue(combined)(AstUser.schema.ast.toSchema.asInstanceOf[Schema[AstUser]]) == Right(user)
+          )
+        }
       )
     )
 
@@ -112,5 +236,50 @@ object DynamicValueSpec extends ZIOSpecDefault {
     check(gen) { a =>
       assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
     }
+
+  final case class AstUser(name: String, age: Int)
+
+  object AstUser {
+    implicit val schema: Schema[AstUser] = DeriveSchema.gen[AstUser]
+  }
+
+  final case class AstAddress(street: String, zip: String)
+
+  object AstAddress {
+    implicit val schema: Schema[AstAddress] = DeriveSchema.gen[AstAddress]
+  }
+
+  final case class AstPerson(
+    name: String,
+    address: AstAddress,
+    previous: Option[AstAddress],
+    others: Chunk[AstAddress],
+    aliases: Map[String, AstAddress],
+    contact: Either[String, AstAddress]
+  )
+
+  object AstPerson {
+    implicit val schema: Schema[AstPerson] = DeriveSchema.gen[AstPerson]
+  }
+
+  final case class AstNode(value: Int, next: Option[AstNode])
+
+  object AstNode {
+    implicit val schema: Schema[AstNode] = DeriveSchema.gen[AstNode]
+  }
+
+  sealed trait AstShape
+
+  object AstShape {
+    final case class Circle(radius: Double) extends AstShape
+
+    object Circle {
+      implicit val schema: Schema[Circle] = DeriveSchema.gen[Circle]
+    }
+
+    case object Point extends AstShape
+
+    implicit val schema: Schema[AstShape] = DeriveSchema.gen[AstShape]
+  }
 
 }

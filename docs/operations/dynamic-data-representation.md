@@ -98,6 +98,50 @@ assert(dynamicJohnPerson.toTypedValue[User] == Right(johnUser))
 assert(dynamicJohnUser.toTypedValue[Person] == Right(johnPerson))
 ```
 
+## Rebuilding a typed value from `schema.ast.toSchema`
+
+`Schema#ast` (a `MetaSchema`) is a typeless description of a schema. Calling
+`schema.ast.toSchema` materializes that description back into a `Schema`, but
+record types become `Schema.GenericRecord`. A generic record can only construct
+a `ListMap[String, _]`; it has lost the original case-class constructor, so:
+
+```scala
+val user        = Person("John Doe", 42)
+val userDynamic = Person.schema.toDynamic(user)
+
+userDynamic.toTypedValue(Person.schema)
+// Right(Person("John Doe", 42))
+
+userDynamic.toTypedValue(Person.schema.ast.toSchema)
+// Right(ListMap(name -> "John Doe", age -> 42))
+```
+
+To recover the original typed value, supply a
+[[zio.schema.DynamicValue.ConstructorRegistry ConstructorRegistry]] that maps
+each record's `TypeId` back to a schema that still knows how to construct it.
+`ConstructorRegistry.fromSchemas` walks a root schema and registers every
+reachable non-generic record, so a single root is enough for nested, recursive
+and enum cases:
+
+```scala mdoc:compile-only
+import zio.schema._
+
+case class Person(name: String, age: Int)
+
+object Person {
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+}
+
+val user        = Person("John Doe", 42)
+val userDynamic = Person.schema.toDynamic(user)
+val registry    = DynamicValue.ConstructorRegistry.fromSchemas(Person.schema)
+
+assert(userDynamic.toTypedValue(registry)(Person.schema.ast.toSchema) == Right(user))
+```
+
+The existing `toTypedValue` / `toValue` / `toTypedValueOption` methods keep
+their previous behaviour when no registry is supplied.
+
 ## Manipulating Dynamic Values
 
 When we turn a typed value `A` into a `DynamicValue`, we can manipulate its structure and data dynamically. For example, we can add a new field to a record or change the type of a field. This process is called dynamic value migration, which we will discuss in the [schema migration](schema-migration.md) section.
