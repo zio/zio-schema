@@ -529,7 +529,26 @@ lazy val docs = project
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % zioVersion
     ),
-    projectName                                := "ZIO Schema",
+    projectName  := "ZIO Schema",
+    readmeBanner := {
+      val logoBase = "https://raw.githubusercontent.com/zio/zio-schema/main/brand"
+      // <picture> lets GitHub swap the logo per theme: the light logo's wordmark is near-black,
+      // which would be invisible on GitHub's dark canvas without the dark variant.
+      s"""|
+          |<picture>
+          |  <source media="(prefers-color-scheme: dark)" srcset="$logoBase/logo-dark.svg">
+          |  <img alt="ZIO Schema" src="$logoBase/logo-light.svg" width="520">
+          |</picture>
+          |""".stripMargin
+    },
+    // The banner already carries the "ZIO Schema" wordmark, so drop the "# ZIO Schema" heading
+    // that the plugin puts after it; otherwise the README shows the project name twice in a row.
+    // The image's alt text supplies the accessible name in its place.
+    generateReadme := {
+      generateReadme.value
+      val readme = (ThisBuild / baseDirectory).value / "README.md"
+      IO.write(readme, IO.read(readme).replaceFirst(s"(?m)^# ${projectName.value}\n\n", ""))
+    },
     mainModuleName                             := (zioSchemaJVM / moduleName).value,
     projectStage                               := ProjectStage.Development,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),

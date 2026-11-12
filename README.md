@@ -2,7 +2,10 @@
 [//]: # (So please do not edit it manually. Instead, change "docs/index.md" file or sbt setting keys)
 [//]: # (e.g. "readmeDocumentation" and "readmeSupport".)
 
-# ZIO Schema
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zio/zio-schema/main/brand/logo-dark.svg">
+  <img alt="ZIO Schema" src="https://raw.githubusercontent.com/zio/zio-schema/main/brand/logo-light.svg" width="520">
+</picture>
 
 [ZIO Schema](https://github.com/zio/zio-schema) is a [ZIO](https://zio.dev)-based library for modeling the schema of data structures as first-class values.
 
@@ -39,17 +42,17 @@ _ZIO Schema_ is used by a growing number of ZIO libraries, including [ZIO Flow](
 In order to use this library, we need to add the following lines in our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema"          % "1.9.0"
-libraryDependencies += "dev.zio" %% "zio-schema-avro"     % "1.9.0"
-libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "1.9.0"
-libraryDependencies += "dev.zio" %% "zio-schema-json"     % "1.9.0"
-libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "1.9.0"
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "1.9.0"
-libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "1.9.0"
-libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % "1.9.0"
+libraryDependencies += "dev.zio" %% "zio-schema"          % "1.9.1"
+libraryDependencies += "dev.zio" %% "zio-schema-avro"     % "1.9.1"
+libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "1.9.1"
+libraryDependencies += "dev.zio" %% "zio-schema-json"     % "1.9.1"
+libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "1.9.1"
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "1.9.1"
+libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "1.9.1"
+libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % "1.9.1"
 
 // Required for the automatic generic derivation of schemas
-libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "1.9.0"
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "1.9.1"
 libraryDependencies += "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided"
 ```
 
