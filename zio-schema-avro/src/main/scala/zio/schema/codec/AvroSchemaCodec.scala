@@ -148,6 +148,7 @@ object AvroSchemaCodec extends AvroSchemaCodec {
                     }
                   case SchemaAvro.Type.INT =>
                     IntType.fromAvroInt(avroSchema) match {
+                      case Some(IntType.Byte)       => Right(Schema.primitive(StandardType.ByteType))
                       case Some(IntType.Char)       => Right(Schema.primitive(StandardType.CharType))
                       case Some(IntType.DayOfWeek)  => Right(Schema.primitive(StandardType.DayOfWeekType))
                       case Some(IntType.Year)       => Right(Schema.primitive(StandardType.YearType))
@@ -281,7 +282,8 @@ object AvroSchemaCodec extends AvroSchemaCodec {
           case StandardType.BoolType   => Right(SchemaAvro.create(SchemaAvro.Type.BOOLEAN))
           case StandardType.ShortType  =>
             Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Short)))
-          case StandardType.ByteType   => Right(SchemaAvro.create(SchemaAvro.Type.INT))
+          case StandardType.ByteType =>
+            Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Byte)))
           case StandardType.IntType    => Right(SchemaAvro.create(SchemaAvro.Type.INT))
           case StandardType.LongType   => Right(SchemaAvro.create(SchemaAvro.Type.LONG))
           case StandardType.FloatType  => Right(SchemaAvro.create(SchemaAvro.Type.FLOAT))
