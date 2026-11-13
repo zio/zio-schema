@@ -1342,8 +1342,9 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
               cur: RetractReader
             ): (Option[X], RetractReader) = {
               val rr = RecordingReader(cur)
-              try (Some(decoder.unsafeDecode(trace_, rr)), rr)
-              catch {
+              try {
+                (Some(decoder.unsafeDecode(trace_, rr)), rr)
+              } catch {
                 case _: UnsafeJson =>
                   rr.rewind()
                   lexer.skipValue(trace_, rr)
