@@ -105,7 +105,11 @@ object Patch {
               .asInstanceOf[A]
           )
         case (_: StandardType.ZonedDateTimeType.type, distance :: Nil) =>
-          Right(LocalDate.ofEpochDay(a.asInstanceOf[LocalDate].toEpochDay - distance).asInstanceOf[A])
+          Right(
+            a.asInstanceOf[JZonedDateTime]
+              .`with`(ChronoField.EPOCH_DAY, a.asInstanceOf[JZonedDateTime].toLocalDate.toEpochDay - distance)
+              .asInstanceOf[A]
+          )
         case (_: StandardType.InstantType.type, dist1 :: dist2 :: Nil) =>
           Right(
             Instant
