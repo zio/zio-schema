@@ -81,6 +81,38 @@ sealed trait DynamicValue {
             value.toTypedValueLazyError(schema.elementSchema).map(values + _)
         }
 
+      case (DynamicValue.SetValue(values), schema: Schema.Sequence[col, t, _]) =>
+        values
+          .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
+            case (err @ Left(_), _)     => err
+            case (Right(acc), value)    =>
+              value.toTypedValueLazyError(schema.elementSchema).map(acc :+ _)
+          }
+          .map(schema.fromChunk)
+
+      case (DynamicValue.Sequence(values), schema: Schema.NonEmptySequence[col, t, _]) =>
+        values
+          .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
+            case (err @ Left(_), _)     => err
+            case (Right(acc), value)    =>
+              value.toTypedValueLazyError(schema.elementSchema).map(acc :+ _)
+          }
+          .flatMap(chunk =>
+            schema.fromChunk(chunk) match {
+              case Some(colValue) => Right(colValue)
+              case None           => Left(DecodeError.ReadError(Cause.empty, "Expected non-empty sequence"))
+            }
+          )
+
+      case (DynamicValue.Singleton(instance), _) =>
+        Right(instance.asInstanceOf[A])
+
+      case (DynamicValue.Primitive((), StandardType.UnitType), s: Schema.CaseClass0[A]) =>
+        s.construct(Chunk.empty)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err))
+
+      case (DynamicValue.Singleton(_), Schema.Primitive(StandardType.UnitType, _)) =>
+        Right(().asInstanceOf[A])
+
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
         value.toTypedValueLazyError(schema).map(Some(_))
 
@@ -193,19 +225,19 @@ object DynamicValue {
   def decodeStructure(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
-  ): Either[DecodeError, ListMap[String, _]] = {
-    val keys = values.keySet
-    keys.foldLeft[Either[DecodeError, ListMap[String, Any]]](Right(ListMap.empty)) {
-      case (Right(record), key) =>
-        (structure.find(_.name == key), values.get(key)) match {
-          case (Some(field), Some(value)) =>
-            value.toTypedValueLazyError(field.schema).map(value => (record + (key -> value)))
+  ): Either[DecodeError, ListMap[String, _]] =
+    structure.foldLeft[Either[DecodeError, ListMap[String, Any]]](Right(ListMap.empty)) {
+      case (Right(record), field) =>
+        (values.get(field.name), field.schema) match {
+          case (Some(value), _) =>
+            value.toTypedValueLazyError(field.schema).map(v => record + (field.name -> v))
+          case (None, Schema.Optional(_, _)) =>
+            Right(record + (field.name -> None))
           case _ =>
             Left(DecodeError.IncompatibleShape(values, structure))
         }
       case (Left(err), _) => Left(err)
     }
-  }
 
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
 
