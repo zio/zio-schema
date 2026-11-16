@@ -1,5 +1,9 @@
 {
   "name": "@zio.dev/zio-schema",
   "description": "ZIO Schema Documentation",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zio/zio-schema.git"
+  }
 }
