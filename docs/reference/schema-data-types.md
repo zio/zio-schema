@@ -316,7 +316,7 @@ val pingSchema: Schema[Ping.type] = Schema.CaseClass0(TypeId.parse("Ping"), () =
 pingSchema.defaultValue
 ```
 
-[Manual Schema Construction](../manual-schema-construction.md) builds `CaseClass2` and `CaseClass3` schemas step by step. On Scala 2, `DeriveSchema.gen` describes a case class with more than 22 fields as a `GenericRecord` inside a `Transform`.
+[Manual Schema Construction](../manual-schema-construction.md) builds `CaseClass2` and `CaseClass3` schemas step by step. On both Scala 2 and Scala 3, `DeriveSchema.gen` describes a case class with more than 22 fields as a `GenericRecord` inside a `Transform`.
 
 ### Generic Records
 
@@ -938,7 +938,7 @@ The `Schema` companion object has constructors and implicit instances that retur
 | `Schema.singleton`, `Schema.first`, `Schema.second`                     | `Transform`                      |
 | `Schema.bigDecimal`, `Schema.bigInt`, `Schema.uri`, `Schema.chronoUnit` | `Transform` over a primitive     |
 
-`DeriveSchema.gen` builds `CaseClass0` to `CaseClass22` for case classes and `Enum1` to `Enum22` or `EnumN` for sealed traits.
+`DeriveSchema.gen` builds `CaseClass0` to `CaseClass22` for case classes, a `Transform` over a `GenericRecord` for case classes with more than 22 fields, and `Enum1` to `Enum22` or `EnumN` for sealed traits.
 
 ## Integration
 
