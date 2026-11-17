@@ -17,7 +17,7 @@ ZIO Schema provides schema derivation in the `zio-schema-derivation` module. In 
 libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
 ```
 
-Every codec module, such as `zio-schema-json`, already depends on this module. On Scala 2, the macros also need `scala-reflect` at compile time; the [Installation](index.md#installation) section shows how to add it.
+Every codec module, such as `zio-schema-json`, already depends on this module. On Scala 2, the macros also need `scala-reflect` at compile time; the [Installation](index.md#installation) section shows how to add it. On Scala 3, the artifacts are compiled with Scala 3.9, so the project needs Scala 3.9 or later.
 
 ## Deriving Schemas
 
@@ -93,9 +93,9 @@ decodedCustomer == Right(customer)
 - Sealed traits and sealed abstract classes, including sealed hierarchies nested inside other sealed traits. Every case must be a case class, a case object, or a nested sealed trait. A sum type with more than 22 cases becomes an `EnumN`.
 - Recursive and mutually recursive types.
 - Generic case classes and sealed traits. The type arguments are recorded in a `genericTypeInfo` annotation.
-- On Scala 3 only: `enum` definitions, union types, and `derives Schema`.
+- On Scala 3 only: `enum` definitions, union types, and `derives Schema`. [How to Use ZIO Schema with Scala 3](how-to/scala-3.md) shows each of them, and why opaque types need a hand-written schema.
 
-Field types are resolved the same way: derivation uses an implicit schema if one is in scope, and otherwise derives one for case classes, sealed traits, and the standard collections. When every case of a sealed trait or enum is a case object, derivation adds the `simpleEnum` annotation, so codecs such as JSON encode the cases as plain strings.
+Field types are resolved the same way: derivation uses an implicit schema if one is in scope, and otherwise derives one for case classes, sealed traits, and the standard collections. When no case of a sealed trait or enum has fields, as when every case is a case object, derivation adds the `simpleEnum` annotation, so codecs such as JSON encode the cases as plain strings.
 
 Derivation also copies the annotations of the type and its fields into the schema. [Schema Annotations](schema-annotations.md) lists the annotations that codecs read.
 
