@@ -26,7 +26,7 @@ libraryDependencies ++= Seq(
 )
 ```
 
-The JSON module depends on `zio-schema-derivation`, which provides `DeriveSchema`, so we do not add it separately. On Scala 2, the derivation macros also need `scala-reflect` at compile time. The [Installation](index.md#installation) section shows how to add it, lists the other modules with the platforms they support, and explains when to use `%%%` instead of `%%`.
+The JSON module depends on `zio-schema-derivation`, which provides `DeriveSchema`, so we do not add it separately. On Scala 2, the derivation macros also need `scala-reflect` at compile time. On Scala 3, the project must use Scala 3.9 or later. The [Installation](index.md#installation) section shows how to add `scala-reflect`, lists the other modules with the platforms they support, and explains when to use `%%%` instead of `%%`.
 
 ## 1. Define a Case Class and Derive Its Schema
 
