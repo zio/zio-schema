@@ -6,7 +6,7 @@ sidebar_label: "XML"
 
 ## Introduction
 
-XML (Extensible Markup Language) is a widely used markup language for representing structured data. ZIO Schema provides the `zio-schema-xml` module that derives XML codecs from a ZIO Schema. The XML codec has no third-party dependencies: it has its own XML AST (`Xml`), a hand-written parser (`XmlReader`), and a writer (`XmlWriter`). It runs on the JVM, Scala.js, and Scala Native.
+XML (Extensible Markup Language) is a widely used markup language for representing structured data. ZIO Schema provides the `zio-schema-xml` module that derives XML codecs from a ZIO Schema. The XML codec does not depend on an XML library: it has its own XML AST (`Xml`), a hand-written parser (`XmlReader`), and a writer (`XmlWriter`). It runs on the JVM, Scala.js, and Scala Native.
 
 ## Installation
 
@@ -238,7 +238,7 @@ println(new String(xmlCodec.encode(Person("John", 42)).toArray, "UTF-8"))
 ## Streaming
 
 :::caution
-`XmlCodec#streamDecoder` parses each upstream chunk as one complete XML document. It does not parse incrementally, so it cannot split a large document or a sequence of documents into values. A chunk that holds part of a document fails to decode, and when a chunk holds several documents, only the first is decoded.
+The `BinaryCodec#streamDecoder` of the XML codec parses each upstream chunk as one complete XML document. It does not parse incrementally, so it cannot split a large document or a sequence of documents into values. A chunk that holds part of a document fails to decode, and when a chunk holds several documents, only the first is decoded.
 :::
 
 To process many XML values, encode each one with `BinaryCodec#encode`, send each as its own message, and decode each message with `BinaryCodec#decode`. To read one large XML document, decode the whole document into a type that holds a collection. The [How to Encode and Decode Streams](../../integration-with-zio-streams.md) guide shows the per-message approach.
