@@ -42,6 +42,7 @@ Every project needs two modules: `zio-schema`, which holds `Schema` itself, and 
 libraryDependencies ++= Seq(
   // Schema, DynamicValue, diff and patch, migration, validation (JVM, Scala.js, Native)
   "dev.zio" %% "zio-schema"            % "@VERSION@",
+
   // DeriveSchema.gen and the Deriver API for your own type classes (JVM, Scala.js, Native)
   "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
 )
@@ -52,6 +53,7 @@ In a Scala.js or Scala Native project, use the `%%%` operator instead:
 ```scala
 libraryDependencies ++= Seq(
   "dev.zio" %%% "zio-schema"            % "@VERSION@",
+
   "dev.zio" %%% "zio-schema-derivation" % "@VERSION@"
 )
 ```
@@ -87,16 +89,22 @@ A codec module encodes and decodes values in one data format, using their schema
 libraryDependencies ++= Seq(
   // JSON codec (JVM, Scala.js, Native)
   "dev.zio" %% "zio-schema-json"     % "@VERSION@",
+
   // Protocol Buffers codec (JVM, Scala.js, Native)
   "dev.zio" %% "zio-schema-protobuf" % "@VERSION@",
+
   // XML codec (JVM, Scala.js, Native)
   "dev.zio" %% "zio-schema-xml"      % "@VERSION@",
+
   // Apache Avro codec (JVM only)
   "dev.zio" %% "zio-schema-avro"     % "@VERSION@",
+
   // BSON codec for MongoDB (JVM only)
   "dev.zio" %% "zio-schema-bson"     % "@VERSION@",
+
   // MessagePack codec (JVM only)
   "dev.zio" %% "zio-schema-msg-pack" % "@VERSION@",
+
   // Apache Thrift codec (JVM only)
   "dev.zio" %% "zio-schema-thrift"   % "@VERSION@"
 )
@@ -108,8 +116,10 @@ In a Scala.js or Scala Native project, only the JSON, Protocol Buffers, and XML 
 libraryDependencies ++= Seq(
   // JSON codec
   "dev.zio" %%% "zio-schema-json"     % "@VERSION@",
+
   // Protocol Buffers codec
   "dev.zio" %%% "zio-schema-protobuf" % "@VERSION@",
+
   // XML codec
   "dev.zio" %%% "zio-schema-xml"      % "@VERSION@"
 )
