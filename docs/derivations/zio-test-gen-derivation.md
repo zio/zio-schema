@@ -13,7 +13,7 @@ ZIO Test supports property-based testing with the `Gen` type. A `Gen[R, A]` is a
 To derive a generator from a schema, we add the following dependency to our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % "@VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % "@VERSION@" % Test
 ```
 
 ## DeriveGen
