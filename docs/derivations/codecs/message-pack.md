@@ -88,30 +88,7 @@ The decoder is strict. It fails when the input has a different number of fields 
 ## Streaming
 
 :::caution
-`MessagePackCodec#streamEncoder` emits cumulative output: the bytes it emits for element `n` contain the encodings of elements 1 to `n`, so a stream of three values produces six encoded values. The stream decoder also decodes each upstream chunk as one value. To stream MessagePack values, encode and decode each element with `BinaryCodec#encode` and `BinaryCodec#decode` instead of the stream pipelines.
+The `BinaryCodec#streamEncoder` of the MessagePack codec emits cumulative output: the bytes it emits for element `n` contain the encodings of elements 1 to `n`, so a stream of three values produces six encoded values. The stream decoder also decodes each upstream chunk as one value. To stream MessagePack values, encode and decode each element with `BinaryCodec#encode` and `BinaryCodec#decode` instead of the stream pipelines.
 :::
 
-To encode a stream of values one element at a time, so that each `Chunk[Byte]` holds exactly one encoded value:
-
-```scala mdoc:compile-only
-import zio._
-import zio.schema.codec.{BinaryCodec, DecodeError, MessagePackCodec}
-import zio.schema.{DeriveSchema, Schema}
-import zio.stream.ZStream
-
-case class Person(name: String, age: Int)
-
-object Person {
-  implicit val schema: Schema[Person] = DeriveSchema.gen
-}
-
-val codec: BinaryCodec[Person] = MessagePackCodec.messagePackCodec[Person]
-
-val messages: ZStream[Any, Nothing, Chunk[Byte]] =
-  ZStream(Person("John", 42), Person("Jane", 34)).map(codec.encode)
-
-val people: ZStream[Any, DecodeError, Person] =
-  messages.mapZIO(bytes => ZIO.fromEither(codec.decode(bytes)))
-```
-
-The [How to Encode and Decode Streams](../../integration-with-zio-streams.md) guide covers framing for all binary codecs.
+The [How to Encode and Decode Streams](../../integration-with-zio-streams.md) guide shows how to send one value per message, and how to frame many values in one byte stream; both patterns work for MessagePack.
