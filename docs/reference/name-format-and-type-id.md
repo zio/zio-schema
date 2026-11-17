@@ -33,7 +33,7 @@ NameFormat.PascalCase("first_name")
 NameFormat.KebabCase("firstName")
 ```
 
-A `NameFormat` is applied to names in the codecs that support it. For example, `JsonCodec.Configuration` takes a name format for JSON keys, as described in the [JSON Codecs](../derivations/codecs/json.md) page. A format changes only the names used for encoding, not the field names of the Scala type.
+A `NameFormat` is applied to names in the codecs that support it. For example, the `fieldNameFormat` parameter of `JsonCodec.Configuration` takes a name format for JSON keys, as described in the [JSON Codecs](../derivations/codecs/json.md) page. A format changes only the names used for encoding, not the field names of the Scala type.
 
 `NameFormat.Custom` accepts any function, so one can produce names that the standard styles do not cover:
 
@@ -62,7 +62,7 @@ TypeId.parse("com.example.Outer.Person")
 
 `TypeId.parse` cannot know which parts of a dotted name are packages and which are objects, so it guesses from the case of the first letter. Reading from the right, the last part is the type name, the parts before it that start with an upper-case letter are object names, and everything to their left is the package. A package name that starts with an upper-case letter is therefore read as an object name. An empty string parses to `TypeId.Structural`.
 
-The `fullyQualified` method on a `Nominal` value joins its parts back into a dotted name:
+`TypeId.Nominal#fullyQualified` joins its parts back into a dotted name:
 
 ```scala mdoc
 TypeId.parse("com.example.Outer.Person") match {
