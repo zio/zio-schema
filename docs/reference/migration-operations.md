@@ -9,7 +9,7 @@ keywords:
   - "Reference"
 ---
 
-A `Migration` is one step that changes a `DynamicValue` so that it matches a new schema. Several steps can be combined in one `Chunk`. The [Schema Migration](../operations/schema-migration.md) page shows how to run them and how `Migration.derive` produces them. This page lists each operation and what it does to a value.
+A `Migration` is one step that changes a `DynamicValue` so that it matches a new schema. Several steps can be combined in one `Chunk`. The [Schema Migration](../operations/schema-migration.md) page shows how to run them and how `Migration.derive` produces them. This page lists each operation and what it does to a value. The examples apply steps to the same `Person1` value through a small `applied` helper:
 
 ```scala mdoc:silent
 import zio.Chunk
