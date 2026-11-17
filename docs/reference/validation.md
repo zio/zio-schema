@@ -129,7 +129,7 @@ Schema.validate(Temperature(-300.0)).map(_.message)
 `Schema#validation` returns a copy of the schema with the rule stored as a `@validate` annotation:
 
 ```scala
-trait Schema[A] {
+sealed trait Schema[A] {
   def validation(validation: Validation[A]): Schema[A]
 }
 ```
@@ -188,7 +188,7 @@ object Schema {
   def validate[A](value: A)(implicit schema: Schema[A]): Chunk[ValidationError]
 }
 
-trait Schema[A] {
+sealed trait Schema[A] {
   def validate(value: A)(implicit schema: Schema[A]): Chunk[ValidationError]
 }
 ```
@@ -505,7 +505,7 @@ The format of `Validation.time` is close to the one of `java.time.format.DateTim
 | Letter | Meaning                                        | Allowed repetitions |
 | ------ | ---------------------------------------------- | ------------------- |
 | `H`    | Hour of day (`HH` accepts `00` to `24`)        | 1 or 2              |
-| `h`    | Hour of the clock, `1` to `12`                 | 1 or 2              |
+| `h`    | Hour of the clock, `0` to `12`                 | 1 or 2              |
 | `m`    | Minute, `0` to `59`                            | 1 or 2              |
 | `s`    | Second, `0` to `59`                            | 1 or 2              |
 | `S`    | Fraction of a second, exactly that many digits | 1 to 9              |
@@ -666,7 +666,11 @@ import zio.schema.validation._
 Validation.maxLength(3).validate("abcd").left.map(_.map(_.message))
 ```
 
-When a codec reports a validation failure, it uses the separate `DecodeError.ValidationError` case, which carries the `Validation`, the `Schema.Field` and a message. See [Codec Core](codec-core.md) for decode errors.
+`DecodeError` also has a separate `DecodeError.ValidationError` case, which carries the `Validation`, the `Schema.Field` and a message. The built-in codecs never report it, because they do not run rules while decoding. See [Codec Core Types](codec-core.md) for decode errors.
+
+:::caution[`RegexMatch` Messages Print the Whole Pattern]
+`ValidationError.RegexMatch#message` includes the complete `Regex` tree of the rule. For a predefined validator such as `Validation.email`, that message is very long and means nothing to an end user. Match on `ValidationError.RegexMatch` and write your own message; [How to Validate Untrusted Input](../how-to/validate-input.md) shows one way.
+:::
 
 ## Low-Level Building Blocks
 
