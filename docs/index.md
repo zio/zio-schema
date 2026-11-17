@@ -48,29 +48,57 @@ ZIO Schema is published for Scala 2.12, 2.13, and 3.
 The Scala 3 artifacts are compiled with Scala 3.9, so a Scala 3 project must use Scala 3.9 or later to depend on them.
 :::
 
-Every other feature lives in its own module, and we add only the modules we use. Each codec module already depends on `zio-schema-derivation`, so adding a codec also brings in schema derivation:
+Every other feature lives in its own module, and we add only the modules we use. All modules share the core module's version. Each codec module already depends on `zio-schema-derivation`, so adding a codec also brings in schema derivation.
 
-| Artifact                | What it gives                                                      | Platforms             |
-| ----------------------- | ------------------------------------------------------------------ | --------------------- |
-| `zio-schema`            | `Schema`, `DynamicValue`, diff and patch, migration, validation    | JVM, Scala.js, Native |
-| `zio-schema-derivation` | `DeriveSchema.gen` and the `Deriver` API for your own type classes | JVM, Scala.js, Native |
-| `zio-schema-json`       | JSON codec                                                         | JVM, Scala.js, Native |
-| `zio-schema-protobuf`   | Protocol Buffers codec                                             | JVM, Scala.js, Native |
-| `zio-schema-xml`        | XML codec                                                          | JVM, Scala.js, Native |
-| `zio-schema-avro`       | Apache Avro codec                                                  | JVM only              |
-| `zio-schema-bson`       | BSON codec for MongoDB                                             | JVM only              |
-| `zio-schema-msg-pack`   | MessagePack codec                                                  | JVM only              |
-| `zio-schema-thrift`     | Apache Thrift codec                                                | JVM only              |
-| `zio-schema-optics`     | Lenses, prisms, and traversals derived from a schema               | JVM, Scala.js, Native |
-| `zio-schema-zio-test`   | ZIO Test generators (`Gen`) derived from a schema                  | JVM, Scala.js, Native |
-
-Each module uses the same version as the core module. For example, to add JSON support:
+On the JVM, every module is available. Copy the block and delete the lines you don't need:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-json" % "@VERSION@"
+libraryDependencies ++= Seq(
+  // Schema, DynamicValue, diff and patch, migration, validation (JVM, Scala.js, Native)
+  "dev.zio" %% "zio-schema"            % "@VERSION@",
+  // DeriveSchema.gen and the Deriver API for your own type classes (JVM, Scala.js, Native)
+  "dev.zio" %% "zio-schema-derivation" % "@VERSION@",
+  // JSON codec (JVM, Scala.js, Native)
+  "dev.zio" %% "zio-schema-json"       % "@VERSION@",
+  // Protocol Buffers codec (JVM, Scala.js, Native)
+  "dev.zio" %% "zio-schema-protobuf"   % "@VERSION@",
+  // XML codec (JVM, Scala.js, Native)
+  "dev.zio" %% "zio-schema-xml"        % "@VERSION@",
+  // Apache Avro codec (JVM only)
+  "dev.zio" %% "zio-schema-avro"       % "@VERSION@",
+  // BSON codec for MongoDB (JVM only)
+  "dev.zio" %% "zio-schema-bson"       % "@VERSION@",
+  // MessagePack codec (JVM only)
+  "dev.zio" %% "zio-schema-msg-pack"   % "@VERSION@",
+  // Apache Thrift codec (JVM only)
+  "dev.zio" %% "zio-schema-thrift"     % "@VERSION@",
+  // Lenses, prisms, and traversals derived from a schema (JVM, Scala.js, Native)
+  "dev.zio" %% "zio-schema-optics"     % "@VERSION@",
+  // ZIO Test generators (Gen) derived from a schema (JVM, Scala.js, Native)
+  "dev.zio" %% "zio-schema-zio-test"   % "@VERSION@"
+)
 ```
 
-In a Scala.js or Scala Native project, replace the `%%` operator with `%%%` for every module. The JVM-only modules have no Scala.js or Scala Native artifacts.
+In a Scala.js or Scala Native project, the dependencies use the `%%%` operator, and only the cross-platform modules are available. The Avro, BSON, MessagePack, and Thrift codecs have no Scala.js or Scala Native artifacts:
+
+```scala
+libraryDependencies ++= Seq(
+  // Schema, DynamicValue, diff and patch, migration, validation
+  "dev.zio" %%% "zio-schema"            % "@VERSION@",
+  // DeriveSchema.gen and the Deriver API for your own type classes
+  "dev.zio" %%% "zio-schema-derivation" % "@VERSION@",
+  // JSON codec
+  "dev.zio" %%% "zio-schema-json"       % "@VERSION@",
+  // Protocol Buffers codec
+  "dev.zio" %%% "zio-schema-protobuf"   % "@VERSION@",
+  // XML codec
+  "dev.zio" %%% "zio-schema-xml"        % "@VERSION@",
+  // Lenses, prisms, and traversals derived from a schema
+  "dev.zio" %%% "zio-schema-optics"     % "@VERSION@",
+  // ZIO Test generators (Gen) derived from a schema
+  "dev.zio" %%% "zio-schema-zio-test"   % "@VERSION@"
+)
+```
 
 On Scala 2, schema derivation uses macros that need `scala-reflect` at compile time. Scala 3 has no `scala-reflect` artifact, so a build that cross-compiles adds it only for Scala 2:
 
