@@ -5,7 +5,7 @@ title: "Schema Migration"
 
 ## Automatic Migration
 
-With ZIO Schema, we can automatically migrate data from one version of a schema to another. As software evolves, we often need to add, change or remove old fields. ZIO Schema provides two methods called `migrate` and `coerce` which help migrate the old schema to the new one:
+With ZIO Schema, we can automatically migrate data from one version of a schema to another. As software evolves, we often need to add, change or remove old fields. `Schema#migrate` and `Schema#coerce` help migrate data from the old schema to the new one:
 
 ```scala
 sealed trait Schema[A] {
@@ -17,7 +17,7 @@ sealed trait Schema[A] {
 
 The `Schema#migrate` method compares the structure of the two schemas and derives the migration steps between them. When the two structures can be matched, it returns a `Right` with a function that converts values of the old type into values of the new type. It returns a `Left` only when a part of the old structure cannot be mapped to the new one at all, for example a record that becomes a primitive. `Schema#coerce` calls `Schema#migrate` in both directions and returns a schema for the new type that reads and writes through the old one.
 
-The conversion function turns the old value into a `DynamicValue`, applies the steps, and reads the result with the new schema. The following example removes a field and makes another field optional:
+The conversion function turns the old value into a [`DynamicValue`](../reference/dynamic-value.md), applies the steps, and reads the result with the new schema. The following example removes a field and makes another field optional:
 
 ```scala mdoc:silent
 import zio.schema._
@@ -56,12 +56,12 @@ object UserV3 {
 UserV2.schema.migrate(UserV3.schema).map(migrateUser => migrateUser(UserV2("John", Some(42))))
 ```
 
-The outer `Right` says that the migration was derived, and the inner `Left` says that applying it failed. Today, the changes that work are removing fields, making a field optional, and making an optional field required, which fails for a value that is `None`. For an added field, give the field a default value in the new case class, for example `role: String = "member"`, and decode the old data with a codec, which fills in the default, or write the conversion by hand.
+The outer `Right` says that the migration was derived, and the inner `Left` says that applying it failed. The changes that apply to values are removing a field, adding a case to an enumeration, making a field optional, and making an optional field required, which fails for a value that is `None`. For an added field, give the field a default value in the new case class, for example `role: String = "member"`, and decode the old data with a codec, which fills in the default, or write the conversion by hand.
 :::
 
 ## Manual Migration
 
-By having `DynamicValue` which its type information embedded in the data itself, we can perform migrations of the data easily by applying a sequence of migration steps to the data with `DynamicValue#transform`:
+Because a `DynamicValue` carries its type information inside the data, we can migrate it by applying a sequence of migration steps with `DynamicValue#transform`:
 
 ```scala
 sealed trait DynamicValue {
@@ -86,7 +86,7 @@ object Migration {
 }
 ```
 
-Using the `Migration` ADT we can describe the migration steps and then we can apply them to the `DynamicValue`. Let's try a simple example:
+With the `Migration` steps we describe the change and then apply it to a `DynamicValue`. The following example deletes the `age` field from a `Person1` value and reads the result as a `Person2`:
 
 ```scala mdoc:compile-only
 import zio.Chunk
