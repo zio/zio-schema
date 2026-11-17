@@ -12,7 +12,7 @@ keywords:
 
 In this guide, we write a codec for a simple `key=value` text format, one entry per line, that works for any type with a schema. We write it once, by pattern matching on the cases of `Schema`, and then use it for an order with nested records, a list, an optional field, and a sealed trait, and for an unrelated configuration type, without writing anything per type.
 
-This is how the built-in codecs work: each one walks the schema of a type and reads or writes the matching shape. The [How to Write a Custom Codec](custom-codec.md) guide writes a codec for one fixed type instead, and [How to Write a Custom Deriver](custom-deriver.md) shows a macro-based alternative that builds a type class instance for each type at compile time.
+This is how the built-in codecs work: each one walks the schema of a type and reads or writes the matching shape. The [Write a Custom Codec](custom-codec.md) guide writes a codec for one fixed type instead, and [Write a Custom Deriver](custom-deriver.md) shows a macro-based alternative that builds a type class instance for each type at compile time.
 
 ## The Problem
 
@@ -267,7 +267,7 @@ def decode[A](text: String)(implicit schema: Schema[A]): Either[String, A] =
   read("", schema, parse(text)).map(_.asInstanceOf[A])
 ```
 
-The new calls are the constructors on the schema: `Schema.Sequence#fromChunk` builds the collection from its elements, `Schema.Record#construct` builds a case class from its field values in field order, and `Schema.Case#construct` turns a case value into the sealed trait. `Schema.Record#construct` takes an implicit `Unsafe`, because it does not check the types of the values it receives; the decoder guarantees them by reading each field with the field's own schema. `Schema.Enum#caseOf` finds a case by the name the encoder wrote.
+The new calls are the constructors on the schema: `Schema.Sequence#fromChunk` builds the collection from its elements, `Schema.Record#construct` builds a case class from its field values in field order, and `Schema.Case#construct` turns a case value into the sealed trait. `Schema.Record#construct` takes an implicit `Unsafe`, because it receives the field values untyped, as a `Chunk[Any]`; the decoder makes sure each value has the right type by reading each field with the field's own schema. `Schema.Enum#caseOf` finds a case by the name the encoder wrote.
 
 The decoder reads the encoded order back:
 
@@ -312,7 +312,7 @@ decode[Order](encode(order.copy(note = None, delivery = Delivery.Pickup)))
 
 ## Package It as a Codec
 
-To plug the format into code that expects ZIO Schema's `Codec` interface, we wrap the two functions in a class that takes the schema implicitly. The stream methods treat each element as one whole encoded value, like the hand-written codec in [How to Write a Custom Codec](custom-codec.md):
+To plug the format into code that expects ZIO Schema's `Codec` interface, we wrap the two functions in a class that takes the schema implicitly. The stream methods treat each element as one whole encoded value, like the hand-written codec in [Write a Custom Codec](custom-codec.md):
 
 ```scala mdoc:silent
 final class KeyValueCodec[A](implicit schema: Schema[A]) extends Codec[String, String, A] {
@@ -366,11 +366,11 @@ It produces the same entries for the order:
 dynamicEntries("", Order.schema.toDynamic(order)) == entries("", Order.schema, order)
 ```
 
-The `DynamicValue` route is shorter and fine for tools, logs, and debugging output. Walking the schema directly avoids building the intermediate tree for every value, which matters in a codec on a hot path, and it is the only way to decode: a decoder has no value to convert, only the schema to follow.
+The `DynamicValue` route is shorter and fine for tools, logs, and debugging output. Walking the schema directly avoids building the intermediate tree for every value, which matters in a codec on a hot path. A decoder follows the schema in either case, because it starts from text and has no value to convert: only the schema says which primitive type each entry holds.
 
 ## Where to Go Next
 
 - [Schema Data Types](../reference/schema-data-types.md) documents every case of `Schema` with its fields, including the ones this codec leaves to the fallback branch.
 - [How to Define Schemas for Recursive Types](recursive-schemas.md) explains the `Schema.Lazy` nodes that the codec unwraps.
 - [Codec Core Types](../reference/codec-core.md) describes the `Codec`, `Encoder`, and `Decoder` traits.
-- [How to Write a Custom Deriver](custom-deriver.md) builds a type class instance per type at compile time instead of interpreting the schema at runtime.
+- [Write a Custom Deriver](custom-deriver.md) builds a type class instance per type at compile time instead of interpreting the schema at runtime.
