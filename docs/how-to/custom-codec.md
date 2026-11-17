@@ -9,7 +9,7 @@ keywords:
   - "How-to"
 ---
 
-The format modules cover JSON, Protobuf, Avro, and other common formats. When you need a different format, such as one line of text per record, you can implement the `Codec` trait yourself. A codec has four methods: `encode`, `decode`, `streamEncoder`, and `streamDecoder`. The [Codec Core Types](../reference/codec-core.md) page describes each trait.
+The format modules cover JSON, Protobuf, Avro, and other common formats. When you need a different format, such as one line of text per record, you can implement the `Codec` trait yourself. A codec has four methods: `Codec#encode`, `Codec#decode`, `Codec#streamEncoder`, and `Codec#streamDecoder`. The [Codec Core Types](../reference/codec-core.md) page describes each trait.
 
 This guide writes a codec that stores a `Person` as one line, `name,age`, and reads it back.
 
@@ -58,7 +58,7 @@ final class PersonLineCodec extends Codec[String, String, Person] {
 }
 ```
 
-The `decode` method returns a `Left` for input that does not match the format, so the caller decides how to report the error. The stream methods reuse the single-value methods: `ZPipeline.map` applies `encode` to each element, and `ZPipeline.mapZIO` applies `decode` and turns a `Left` into a failure of the stream.
+The `PersonLineCodec#decode` method returns a `Left` for input that does not match the format, so the caller decides how to report the error. The stream methods reuse the single-value methods: `ZPipeline.map` applies `PersonLineCodec#encode` to each element, and `ZPipeline.mapZIO` applies `PersonLineCodec#decode` and turns a `Left` into a failure of the stream.
 
 This codec writes its own format and does not read the schema. Use it when the format is fixed by another system. For a format that should follow the model automatically, use one of the built-in codecs instead.
 
@@ -69,6 +69,8 @@ We create the codec and encode a value:
 ```scala mdoc:silent
 val lineCodec = new PersonLineCodec
 ```
+
+Encoding a person joins the name and the age with a comma:
 
 ```scala mdoc
 lineCodec.encode(Person("John", 42))
@@ -96,6 +98,8 @@ val roundTrip: ZIO[Any, DecodeError, Chunk[Person]] =
     .runCollect
 ```
 
+Running the program gives both people back:
+
 ```scala mdoc
 Unsafe.unsafe { implicit unsafe =>
   Runtime.default.unsafe.run(roundTrip).getOrThrowFiberFailure()
@@ -105,5 +109,5 @@ Unsafe.unsafe { implicit unsafe =>
 ## Where to Go Next
 
 - [Codec Core Types](../reference/codec-core.md) describes the traits this guide implements.
-- [Integration with ZIO Streams](../integration-with-zio-streams.md) shows the built-in streaming codecs.
+- [How to Encode and Decode Streams](../integration-with-zio-streams.md) shows how to stream values with the built-in codecs.
 - [Write a Custom Deriver](./custom-deriver.md) shows how to derive your own type class from a schema.
