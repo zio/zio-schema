@@ -36,9 +36,6 @@ sealed trait PaymentMethod
 
 object PaymentMethod {
 
-  implicit val schema: Schema[PaymentMethod] =
-    DeriveSchema.gen[PaymentMethod]
-
   final case class CreditCard(
       number: String,
       expirationMonth: Int,
@@ -47,6 +44,9 @@ object PaymentMethod {
 
   final case class WireTransfer(accountNumber: String, bankCode: String)
       extends PaymentMethod
+
+  implicit val schema: Schema[PaymentMethod] =
+    DeriveSchema.gen[PaymentMethod]
 }
 
 final case class Customer(person: Person, paymentMethod: PaymentMethod)
