@@ -67,7 +67,7 @@ object MainApp extends ZIOAppDefault {
       |{
       |   "firstName": "John",
       |   "lastName": "Doe",
-      |   "birthday": [[1981, 07], 13]
+      |   "birthday": [[1981, 7], 13]
       |}
       |""".stripMargin
 
@@ -96,7 +96,7 @@ object MainApp extends ZIOAppDefault {
 
 ```
 
-As we can see in the example above, the second approach is much simpler and more convenient than the first one.
+The second approach is simpler than the first one: a single decode call produces a `Person`, with no hand-written conversion step.
 
 The problem we solved in previous example is common in microservices architecture, where we transfer DTOs across the network. So we need to serialize and deserialize the data transfer objects.
 
