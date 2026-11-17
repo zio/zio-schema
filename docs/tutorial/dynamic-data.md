@@ -1,6 +1,6 @@
 ---
 id: dynamic-data
-title: "Tutorial: Working with Dynamic Data"
+title: "Working with Dynamic Data"
 description: "Learn to turn a typed value into a DynamicValue, inspect and change it, convert it back, and read JSON whose shape is unknown."
 keywords:
   - "ZIO Schema"
@@ -10,7 +10,7 @@ keywords:
   - "Pattern matching"
 ---
 
-Welcome to the third ZIO Schema tutorial! It is for Scala developers who have finished [Your First Schema](first-schema.md), so you already know how to derive a schema and encode a value as JSON. You don't need any prior experience with dynamic data to follow along.
+Welcome to the third ZIO Schema tutorial! It is for Scala developers who have finished [Your First Schema](first-schema.md) and [Evolve a Data Model Safely](evolve-a-data-model.md), so you already know how to derive a schema, encode a value as JSON, and run migration steps on a `DynamicValue`. This tutorial looks inside that `DynamicValue`. You don't need any prior experience with dynamic data to follow along, and the same project setup, the core module plus `zio-schema-json`, covers every example.
 
 ## Learning Objectives
 
@@ -289,11 +289,11 @@ In this tutorial, you learned:
 - How to change one field of a record and turn the tree back into a typed value with `Schema#fromDynamic`
 - How to encode a `DynamicValue` as self-describing JSON, and how `directDynamicMapping` reads plain JSON of unknown shape
 
-You now have the tools to write code that works with any value that has a schema. The next step is to use those tools for data that changes over time.
+You now have the tools to write code that works with any value that has a schema. This completes the tutorial series. The next step is to apply these tools to a real task, such as handling webhook events whose shape varies from one event to the next.
 
 ## Where to Go Next
 
-- **Change stored data safely:** [Evolve a Data Model Safely](evolve-a-data-model.md) applies migration steps to `DynamicValue` trees.
+- **Apply it to a real task:** [How to Work with Schemaless Data](../how-to/dynamic-data.md) decodes webhook events of unknown shape, redacts fields, and stores them in a binary format.
 - **Look up every case and operation:** the [DynamicValue](../reference/dynamic-value.md) reference lists all cases, the conversions, and the round-trip limits.
 - **Rewrite trees with ready-made steps:** [Migration Operations](../reference/migration-operations.md) describes the `Migration` steps that `DynamicValue#transform` applies.
 - **Convert values between versions:** [Schema Migration](../operations/schema-migration.md) shows how `Schema#migrate` uses `DynamicValue` under the hood.
