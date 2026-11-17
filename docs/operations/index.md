@@ -4,15 +4,15 @@ title: "ZIO Schema Operations"
 sidebar_label: "Operations"
 ---
 
-Once we have defined our schemas, we can use them to perform a variety of operations. Every operation is a method on `Schema[A]`, so it works the same way for any type that has a schema. The pages in this section cover the most common operations:
+Once we define our schemas, we can use them to perform a variety of operations. Every operation is a method on `Schema[A]`, so it works the same way for any type that has a schema. The pages in this section cover the most common operations:
 
-- [Getting The Default Value](the-default-value.md) describes `defaultValue` and `default`.
-- [Transforming Schemas](transforming-schemas.md) describes `transform` and `transformOrFail`.
-- [Validation](validating-types.md) describes `validate` and the `Validation` rules.
-- [Diffing and Patching](diffing-and-patching.md) describes `diff` and `patch`.
-- [Dynamic Data Representation](dynamic-data-representation.md) describes `toDynamic` and `fromDynamic`.
-- [Schema Migration](schema-migration.md) describes `migrate` and `coerce`.
-- [Serialization of the Schema Itself](serialization-of-the-schema-itself.md) describes `ast` and `serializable`.
+- [Getting The Default Value](the-default-value.md) describes `Schema#defaultValue` and `Schema#default`.
+- [Transforming Schemas](transforming-schemas.md) describes `Schema#transform` and `Schema#transformOrFail`.
+- [Validation](validating-types.md) describes `Schema#validate` and the `Validation` rules.
+- [Diffing and Patching](diffing-and-patching.md) describes `Schema#diff` and `Schema#patch`.
+- [Dynamic Data Representation](dynamic-data-representation.md) describes `Schema#toDynamic` and `Schema#fromDynamic`.
+- [Schema Migration](schema-migration.md) describes `Schema#migrate` and `Schema#coerce`.
+- [Serialization of the Schema Itself](serialization-of-the-schema-itself.md) describes `Schema#ast` and `Schema#serializable`.
 
 The [Schema Methods](../reference/schema-methods.md) reference page shows each method with a short example.
 
