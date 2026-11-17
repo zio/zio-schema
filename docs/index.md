@@ -42,7 +42,7 @@ In order to use this library, we need to add the core module to our `build.sbt` 
 libraryDependencies += "dev.zio" %% "zio-schema" % "@VERSION@"
 ```
 
-ZIO Schema is published for Scala 2.12, 2.13, and 3. Every other feature lives in its own module, and we add only the modules we use. Each codec module already depends on `zio-schema-derivation`, so adding a codec also brings in schema derivation:
+ZIO Schema is published for Scala 2.12, 2.13, and 3 (Scala 3.9 or later, because the Scala 3 artifacts are compiled with Scala 3.9). Every other feature lives in its own module, and we add only the modules we use. Each codec module already depends on `zio-schema-derivation`, so adding a codec also brings in schema derivation:
 
 | Artifact                | What it gives                                                      | Platforms             |
 | ----------------------- | ------------------------------------------------------------------ | --------------------- |
