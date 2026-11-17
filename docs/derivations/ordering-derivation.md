@@ -3,7 +3,7 @@ id: ordering-derivation
 title: "Ordering Derivation"
 ---
 
-Standard Scala library provides a type class called `Ordering[A]` that allows us to compare values of type `A`. ZIO Schema provides a method called `ordering` that generates an `Ordering[A]` instance for the underlying type described by the schema:
+The Scala standard library provides a type class called `Ordering[A]` that compares values of type `A`. Every schema has a `Schema#ordering` method that builds an `Ordering[A]` from the structure the schema describes, so a type with a derived schema gets an ordering without a hand-written instance:
 
 ```scala
 sealed trait Schema[A] {
@@ -44,7 +44,7 @@ The ordering follows the structure of the schema:
 - Tuples compare by their first element, then their second.
 - Sequences such as `List`, `Vector`, and `Chunk` compare element by element, and a shorter sequence comes before a longer one that starts with it.
 
-Each comparison converts both values to `DynamicValue` first, so a derived ordering is slower than a hand-written one. For sorting large collections in a hot path, a hand-written `Ordering` is faster.
+Each comparison converts both values to [`DynamicValue`](../reference/dynamic-value.md) first, so a derived ordering is slower than a hand-written one. For sorting large collections in a hot path, a hand-written `Ordering` is faster.
 
 :::caution
 `Schema#ordering` returns 0 (equal) for any two `Set`, `Map`, `NonEmptyChunk`, `NonEmptyMap`, or `Fallback` values, whatever their contents. A record that contains such a field ignores that field when comparing. A binary primitive (`StandardType.BinaryType`) compares by the sum of its bytes, so two different byte chunks with the same sum are equal. To order by one of these types, write the `Ordering` yourself. For a `Set`, one way is to sort its elements and compare them as a `List`:
