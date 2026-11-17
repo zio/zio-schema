@@ -132,7 +132,7 @@ Field numbers that are not set explicitly default to the field's position, start
 
 ### Transient Fields and Sealed Traits
 
-A field marked with `@transientField` is not written, and the decoder fills it from its default value.
+A field marked with `@transientField` is not written, and the decoder fills it from its default value, so the field needs a Scala default parameter or `@fieldDefaultValue`.
 
 :::caution
 Put transient fields after all other fields. The encoder numbers the remaining fields as if the transient field did not exist, while the decoder counts it, so a `@transientField` placed before another field makes decoding fail.
@@ -143,37 +143,7 @@ The cases of a sealed trait are numbered by position, starting at 1, and `@caseN
 ## Streaming
 
 :::caution
-`ProtobufCodec#streamDecoder` decodes each upstream chunk as exactly one message. Protobuf messages carry no length prefix, so when several encoded values arrive in one chunk, or one value is split across chunks, the decoder merges or fails them. Stream Protobuf values only over a transport that keeps message boundaries, and decode each message with `BinaryCodec#decode`.
+The `BinaryCodec#streamDecoder` of the Protobuf codec decodes each upstream chunk as exactly one message. Protobuf messages carry no length prefix, so when several encoded values arrive in one chunk, or one value is split across chunks, the decoder merges or fails them. Send each value as its own message over a transport that keeps message boundaries, or add your own framing, and decode each message with `BinaryCodec#decode`.
 :::
 
-The following program encodes each `Person` into its own `Chunk[Byte]`, the unit a message transport such as Kafka or a WebSocket carries, and decodes each message on its own:
-
-```scala mdoc:compile-only
-import zio._
-import zio.schema.codec.{BinaryCodec, DecodeError, ProtobufCodec}
-import zio.schema.{DeriveSchema, Schema}
-import zio.stream.ZStream
-
-case class Person(name: String, age: Int)
-
-object Person {
-  implicit val schema: Schema[Person] =
-    DeriveSchema.gen
-  implicit val protobufCodec: BinaryCodec[Person] =
-    ProtobufCodec.protobufCodec(schema)
-}
-
-object Main extends ZIOAppDefault {
-
-  val messages: ZStream[Any, Nothing, Chunk[Byte]] =
-    ZStream(Person("John", 42), Person("Jane", 34)).map(Person.protobufCodec.encode)
-
-  val decoded: ZStream[Any, DecodeError, Person] =
-    messages.mapZIO(bytes => ZIO.fromEither(Person.protobufCodec.decode(bytes)))
-
-  def run: ZIO[Any, DecodeError, Chunk[Person]] =
-    decoded.runCollect.debug("decoded people")
-}
-```
-
-The [How to Encode and Decode Streams](../../integration-with-zio-streams.md) guide covers framing for all binary codecs.
+The [How to Encode and Decode Streams](../../integration-with-zio-streams.md) guide shows how to send one value per message, the unit a message transport such as Kafka or a WebSocket carries, and how to frame many Protobuf values in one byte stream.
