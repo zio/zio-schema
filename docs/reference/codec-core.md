@@ -13,7 +13,7 @@ Every format module, such as JSON or Protobuf, builds on the same small set of t
 
 ## Encoder and Decoder
 
-`Encoder[Whole, Element, A]` turns a value of type `A` into the whole output, such as a `Chunk[Byte]`. It also provides `streamEncoder`, which turns a stream of values into a stream of elements. `Decoder[Whole, Element, A]` is the reverse: it turns the whole input into an `A` or a `DecodeError`, and `streamDecoder` does the same for a stream of elements.
+`Encoder[Whole, Element, A]` turns a value of type `A` into the whole output, such as a `Chunk[Byte]`. It also provides `Encoder#streamEncoder`, which turns a stream of values into a stream of elements. `Decoder[Whole, Element, A]` is the reverse: it turns the whole input into an `A` or a `DecodeError`, and `Decoder#streamDecoder` does the same for a stream of elements. Both traits have two abstract methods:
 
 ```scala
 trait Encoder[Whole, Element, -A] {
@@ -55,7 +55,7 @@ object Person {
 val codec: BinaryCodec[Person] = JsonCodec.schemaBasedBinaryCodec[Person]
 ```
 
-`encode` produces the bytes, and `decode` reads them back:
+`Encoder#encode` produces the bytes, and `Decoder#decode` reads them back:
 
 ```scala mdoc
 val bytes: Chunk[Byte] = codec.encode(Person("John", 42))
@@ -63,7 +63,7 @@ val bytes: Chunk[Byte] = codec.encode(Person("John", 42))
 codec.decode(bytes)
 ```
 
-Calling `streamEncoder` and `streamDecoder` on the same codec gives the stream versions. [Integration with ZIO Streams](../integration-with-zio-streams.md) shows them in a complete program.
+Calling `Encoder#streamEncoder` and `Decoder#streamDecoder` on the same codec gives the stream versions. [Integration with ZIO Streams](../integration-with-zio-streams.md) shows them in a complete program.
 
 The `BinaryCodec` companion object defines type aliases for the separate parts, which are convenient in signatures:
 
@@ -78,7 +78,7 @@ object BinaryCodec {
 
 ## DecodeError
 
-`DecodeError` is the failure type of every decoder in this library. It is a sealed trait that extends `Exception`, so it can be printed and logged like any exception. Its `message` method, which `getMessage` also returns, describes the problem. The cases describe what went wrong:
+`DecodeError` is the failure type of every decoder in this library. It is a sealed trait that extends `Exception`, so it can be printed and logged like any exception. Its `DecodeError#message` method, which `DecodeError#getMessage` also returns, describes the problem. The cases describe what went wrong:
 
 | Case                                          | Meaning                                                                               |
 | --------------------------------------------- | ------------------------------------------------------------------------------------- |
@@ -86,7 +86,7 @@ object BinaryCodec {
 | `ReadErrorWithPath(path, cause, message)`     | A read error together with the path to the failing value                              |
 | `MissingField(schema, message)`               | A required field is absent                                                            |
 | `RecordMissingField(record, field, message)`  | A required field of a specific record is absent                                       |
-| `MalformedField(schema, message)`             | A field has a value of the wrong shape, or a `transformOrFail` conversion rejected it |
+| `MalformedField(schema, message)`             | A field has a value of the wrong shape, or a `Schema#transformOrFail` conversion rejected it |
 | `MalformedFieldWithPath(path, message)`       | A malformed field together with the path to it from the root                          |
 | `ExtraFields(fieldName, message)`             | The input has a field the schema does not know, when the codec rejects extra fields   |
 | `EmptyContent(message)`                       | The input has no content                                                              |
