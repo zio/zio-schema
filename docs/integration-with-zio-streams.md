@@ -79,13 +79,17 @@ val arrayBytes: Chunk[Byte] =
   runNow(ZStream.fromChunk(people).via(arrayCodec.streamEncoder).runCollect)
 ```
 
-The output is one array, and decoding it in small chunks gives the people back:
+The output is one array, and decoding it gives the people back:
 
 ```scala mdoc
 println(new String(arrayBytes.toArray, "UTF-8"))
 
-runNow(ZStream.fromChunk(arrayBytes).rechunk(5).via(arrayCodec.streamDecoder).runCollect)
+runNow(ZStream.fromChunk(arrayBytes).via(arrayCodec.streamDecoder).runCollect)
 ```
+
+:::caution
+With `treatStreamsAsArrays = true`, the stream decoder dies with an `ArrayIndexOutOfBoundsException` when the array arrives split across chunks of more than one byte, as it usually does when read from a socket or a file. Until you can rely on the whole array arriving in one chunk, collect the bytes first (for example with `ZStream#runCollect`) and decode them as one chunk, or use the default newline-delimited format, whose decoder handles any chunking.
+:::
 
 ## Stream Values of a Binary Format
 
