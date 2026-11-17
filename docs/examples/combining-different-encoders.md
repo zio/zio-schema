@@ -3,40 +3,87 @@ id: combining-different-encoders
 title: "Combining Different Encoders"
 ---
 
-Let's take a look at a round-trip converting an object to JSON and back, then converting it to a protobuf and back. This is a simple example, but it shows how to combine different encoders to achieve a round-trip.
+Because every codec is derived from the same `Schema`, one data model can move between formats without any conversion code. This example takes a value on a round trip through JSON and back, then through Protobuf and back, first for a single value and then for a stream of values. It also shows how to convert JSON input straight into Protobuf bytes.
 
-```scala
-object CombiningExample extends zio.App {
-  import zio.schema.codec.JsonCodec
-  import zio.schema.codec.ProtobufCodec
-  import ManualConstruction._
-  import zio.stream.ZStream
+## Define the Model and the Codecs
 
-  override def run(args: List[String]): UIO[ExitCode] = for {
-    _ <- ZIO.unit
-    _ <- ZIO.debug("combining roundtrip")
-    person = Person("Michelle", 32)
+We start with a case class, derive its schema once, and derive a JSON codec and a Protobuf codec from that schema:
 
-    personToJson = JsonCodec.encoder[Person](schemaPerson)
-    jsonToPerson = JsonCodec.decoder[Person](schemaPerson)
+```scala mdoc:silent
+import zio._
+import zio.schema.codec.{BinaryCodec, DecodeError, JsonCodec, ProtobufCodec}
+import zio.schema.{DeriveSchema, Schema}
+import zio.stream.ZStream
 
-    personToProto = ProtobufCodec.encoder[Person](schemaPerson)
-    protoToPerson = ProtobufCodec.decoder[Person](schemaPerson)
+final case class Person(name: String, age: Int)
 
-    newPerson <- ZStream(person)
-      .tap(v => ZIO.debug("input object is: " + v))
-      .transduce(personToJson)
-      .transduce(jsonToPerson)
-      .tap(v => ZIO.debug("object after json roundtrip: " + v))
-      .transduce(personToProto)
-      .transduce(protoToPerson)
-      .tap(v => ZIO.debug("person after protobuf roundtrip: " + v))
-      .runHead
-      .some
-      .catchAll(error => ZIO.debug(error))
-    _ <- ZIO.debug("is old person the new person? " + (person == newPerson).toString)
-    _ <- ZIO.debug("old person: " + person)
-    _ <- ZIO.debug("new person: " + newPerson)
-  } yield ExitCode.success
+object Person {
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+}
+
+val jsonCodec: BinaryCodec[Person]     = JsonCodec.schemaBasedBinaryCodec[Person]
+val protobufCodec: BinaryCodec[Person] = ProtobufCodec.protobufCodec[Person]
+```
+
+Both codecs have the same type, `BinaryCodec[Person]`, so code that works with one works with the other.
+
+## Round-Trip a Single Value
+
+`BinaryCodec#encode` returns bytes, and `BinaryCodec#decode` returns an `Either[DecodeError, Person]`, so the two round trips chain in a for-comprehension:
+
+```scala mdoc
+val michelle = Person("Michelle", 32)
+
+val roundTrip: Either[DecodeError, Person] =
+  for {
+    fromJson     <- jsonCodec.decode(jsonCodec.encode(michelle))
+    fromProtobuf <- protobufCodec.decode(protobufCodec.encode(fromJson))
+  } yield fromProtobuf
+
+roundTrip == Right(michelle)
+```
+
+## Convert JSON to Protobuf
+
+The same chaining converts data between formats. To turn a JSON payload into Protobuf bytes, decode it with the JSON codec and encode the result with the Protobuf codec:
+
+```scala mdoc:silent
+def jsonToProtobuf(json: Chunk[Byte]): Either[DecodeError, Chunk[Byte]] =
+  jsonCodec.decode(json).map(protobufCodec.encode)
+
+val incoming: Chunk[Byte] = Chunk.fromArray("""{"name":"Michelle","age":32}""".getBytes("UTF-8"))
+```
+
+Decoding the converted bytes with the Protobuf codec gives the person back:
+
+```scala mdoc
+jsonToProtobuf(incoming).flatMap(protobufCodec.decode)
+```
+
+## Round-Trip a Stream
+
+For a stream of values, the JSON codec's `BinaryCodec#streamEncoder` and `BinaryCodec#streamDecoder` pipelines keep the values apart. The Protobuf codec's stream decoder reads each chunk as one message, so the stream encodes and decodes each value on its own with `ZStream#map` and `ZStream#mapZIO`. The following program prints each step and checks that the people survive both round trips:
+
+```scala mdoc:compile-only
+object CombiningExample extends ZIOAppDefault {
+
+  val people: Chunk[Person] = Chunk(Person("Michelle", 32), Person("John", 42))
+
+  def run =
+    for {
+      result <- ZStream
+                  .fromChunk(people)
+                  .tap(person => ZIO.debug(s"input object is: $person"))
+                  .via(jsonCodec.streamEncoder)
+                  .via(jsonCodec.streamDecoder)
+                  .tap(person => ZIO.debug(s"object after json roundtrip: $person"))
+                  .map(protobufCodec.encode)
+                  .mapZIO(bytes => ZIO.fromEither(protobufCodec.decode(bytes)))
+                  .tap(person => ZIO.debug(s"person after protobuf roundtrip: $person"))
+                  .runCollect
+      _      <- ZIO.debug(s"are the old people the new people? ${result == people}")
+    } yield ()
 }
 ```
+
+The [How to Encode and Decode Streams](../integration-with-zio-streams.md) guide explains why the Protobuf step works per value, and shows a framing scheme for sending many Protobuf values over a plain byte stream.
