@@ -5,7 +5,7 @@ title: "Manual Schema Construction"
 
 Assume we have a domain containing following models:
 
-```scala
+```scala mdoc:compile-only
 object Domain {
   final case class Person(name: String, age: Int)
 
@@ -160,7 +160,7 @@ Now that we have written all the required schemas, we can proceed to create enco
 Let's start with writing protobuf codecs. We need to add the following line to our `build.sbt`:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % @VERSION@
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
 ```
 
 Here's an example that demonstrates a roundtrip test for protobuf codecs:
