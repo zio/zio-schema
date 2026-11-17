@@ -37,7 +37,7 @@ On Scala 2, `DeriveSchema` also needs `scala-reflect` at compile time; the [Inst
 
 ## Derive a Schema for a Tree
 
-`DeriveSchema.gen` detects the recursion and wraps every reference back to the type in `Schema.defer`, so a recursive case class needs nothing special. We declare the schema as an `implicit lazy val` anyway, because a `lazy val` never reads another schema before it is initialized:
+`DeriveSchema.gen` detects the recursion and wraps every reference back to the type in `Schema.defer`, so a recursive case class needs nothing special. We still declare the schema as an `implicit lazy val`, the safe default for any schema in a cycle: unlike a strict `val`, it is never read as `null`, whatever order the objects that hold the schemas initialize in:
 
 ```scala mdoc:silent
 import zio.schema._
@@ -198,7 +198,7 @@ Schema.force(authorSchema)
 
 Only unwrap a `Lazy` when you are about to use the schema inside it. A function that forces every nested schema up front, instead of one level at a time, loops forever on a recursive type. The [How to Write a Schema-Driven Codec](generic-codec.md) guide shows a codec that unwraps one level at a time.
 
-## Where to Go Next
+## Going Further
 
 - [Schema Data Types](../reference/schema-data-types.md) documents `Schema.Lazy`, `Schema.defer`, and `Schema.force` with every other schema case.
 - [Manual Schema Construction](../manual-schema-construction.md) covers the record and enum constructors used in the hand-written example.
