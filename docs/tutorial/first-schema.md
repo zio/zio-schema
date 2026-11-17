@@ -19,7 +19,7 @@ By the end of this tutorial, you will understand:
 - What a `Schema` is and how `DeriveSchema` creates one from a case class
 - How a schema drives encoding to and decoding from JSON
 - How validation rules attached to a schema reject bad values
-- How `diff` and `patch` describe and apply changes between two values
+- How `Schema#diff` and `Schema#patch` describe and apply changes between two values
 
 We will learn these concepts through five sections:
 
@@ -29,7 +29,20 @@ We will learn these concepts through five sections:
 4. Comparing Values with Diff and Patch
 5. Putting the Pieces Together
 
-We recommend reading from top to bottom, because each section builds on the previous one.
+We recommend reading from top to bottom, because each section builds on the previous one. This is the first of three tutorials: [Evolve a Data Model Safely](evolve-a-data-model.md) and [Working with Dynamic Data](dynamic-data.md) continue from where this one ends.
+
+## Setting Up the Project
+
+The examples need the core module and the JSON codec. Add both to your `build.sbt`:
+
+```scala
+libraryDependencies ++= Seq(
+  "dev.zio" %% "zio-schema"      % "@VERSION@",
+  "dev.zio" %% "zio-schema-json" % "@VERSION@"
+)
+```
+
+The JSON module already brings in `zio-schema-derivation`, which provides `DeriveSchema`. On Scala 2, derivation also needs `scala-reflect` at compile time, as the [Installation](../index.md#installation) section shows.
 
 ## 1. Describing a Model with a Schema
 
@@ -67,22 +80,26 @@ Once we have a schema, a codec turns values into bytes and back. The `JsonCodec`
 val codec = JsonCodec.schemaBasedBinaryCodec[Person]
 ```
 
-Next, we encode a `Person` into JSON bytes and convert those bytes to text to read them:
+Next, we encode a `Person` into JSON bytes:
 
-```scala mdoc
+```scala mdoc:silent
 val john  = Person("John", 42)
 val bytes = codec.encode(john)
-
-new String(bytes.toArray, "UTF-8")
 ```
 
-The `encode` method returns a `Chunk[Byte]`, which is ZIO's immutable byte sequence. To go back, we decode the same bytes:
+`BinaryCodec#encode` returns a `Chunk[Byte]`, which is ZIO's immutable byte sequence. To read the JSON, we turn the bytes into text and print it:
+
+```scala mdoc
+println(new String(bytes.toArray, "UTF-8"))
+```
+
+To go back, we decode the same bytes:
 
 ```scala mdoc
 codec.decode(bytes)
 ```
 
-The result is `Right(Person("John", 42))`, so the round trip returns the original value. Decoding can also fail, for example when the input is not valid JSON for this type. In that case `decode` returns a `Left` containing a `DecodeError` instead of throwing an exception.
+The result is `Right(Person("John", 42))`, so the round trip returns the original value. Decoding can also fail, for example when the input is not valid JSON for this type. In that case `BinaryCodec#decode` returns a `Left` containing a `DecodeError` instead of throwing an exception.
 
 ## 3. Checking Values with Validation
 
@@ -104,7 +121,7 @@ The count of 3 is the number of failed checks across both fields: one for the na
 
 ## 4. Comparing Values with Diff and Patch
 
-Sometimes we need to know how two values differ, for example to send only the changes over a network. The `diff` method compares two values of the same type and returns a `Patch[A]`. The `patch` method applies that `Patch` to an old value to produce the new one.
+Sometimes we need to know how two values differ, for example to send only the changes over a network. `Schema#diff` compares two values of the same type and returns a `Patch[A]`. `Schema#patch` applies that `Patch` to an old value to produce the new one.
 
 We first make a copy of `john` with a new age, then compute the difference:
 
@@ -132,12 +149,12 @@ def sendPerson(updated: Person): Either[String, Chunk[Byte]] = {
 
   if (problems.nonEmpty) Left(s"invalid person: ${problems.size} problem(s)")
   else {
-    Right(JsonCodec.schemaBasedBinaryCodec[Person].encode(updated))
+    Right(codec.encode(updated))
   }
 }
 ```
 
-The `sendPerson` function checks the value first and returns a `Left` when a rule fails. Otherwise it encodes the whole value. JSON decoding does not check the rules, so a receiver that wants the same guarantee calls `Schema#validate` again after decoding.
+The `sendPerson` function checks the value first and returns a `Left` when a rule fails. Otherwise it encodes the whole value with the `codec` from section 2. JSON decoding does not check the rules, so a receiver that wants the same guarantee calls `Schema#validate` again after decoding.
 
 The valid person is encoded, and the invalid one is rejected:
 
@@ -155,10 +172,11 @@ In this tutorial, you learned:
 - How `@validate` rules become part of a schema and how `Schema#validate` reports failures
 - How `Schema#diff` and `Schema#patch` describe and apply changes
 
-You now have a foundation for the rest of the library. The next step is to see how the same schema supports other formats and more complex models.
+You now have a foundation for the rest of the library. The next step is to change a stored model over time without breaking the JSON that older versions of it wrote.
 
 ## Where to Go Next
 
+- **Continue the tutorial series:** [Evolve a Data Model Safely](evolve-a-data-model.md) changes a stored case class step by step and shows which changes old JSON survives.
 - **Explore the reference pages:** [Basic Building Blocks](../basic-building-blocks.md) describes the kinds of schemas, and [Standard Type Reference](../standard-type-reference.md) lists the built-in primitive types.
 - **Learn how to write schemas by hand:** [Manual Schema Construction](../manual-schema-construction.md) shows how to build a schema without deriving it.
 - **Choose a codec:** [Codecs](../derivations/codecs/index.md) compares JSON, Protobuf, Avro, and the other formats.
