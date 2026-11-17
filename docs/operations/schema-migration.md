@@ -15,19 +15,63 @@ sealed trait Schema[A] {
 }
 ```
 
-The `migrate` method takes a new schema and returns a function that can migrate values of the old schema to values of the new schema as a `Right` value of `Either`. If the schemas have unambiguous transformations or are incompatible, the method returns a `Left` value containing an error message.
+The `Schema#migrate` method compares the structure of the two schemas and derives the migration steps between them. When the two structures can be matched, it returns a `Right` with a function that converts values of the old type into values of the new type. It returns a `Left` only when a part of the old structure cannot be mapped to the new one at all, for example a record that becomes a primitive. `Schema#coerce` calls `Schema#migrate` in both directions and returns a schema for the new type that reads and writes through the old one.
+
+The conversion function turns the old value into a `DynamicValue`, applies the steps, and reads the result with the new schema. The following example removes a field and makes another field optional:
+
+```scala mdoc:silent
+import zio.schema._
+
+case class UserV1(name: String, age: Int, email: String)
+
+object UserV1 {
+  implicit val schema: Schema[UserV1] = DeriveSchema.gen[UserV1]
+}
+
+case class UserV2(name: String, age: Option[Int])
+
+object UserV2 {
+  implicit val schema: Schema[UserV2] = DeriveSchema.gen[UserV2]
+}
+```
+
+Migrating a `UserV1` drops `email` and wraps `age` in `Some`:
+
+```scala mdoc
+UserV1.schema.migrate(UserV2.schema).map(migrateUser => migrateUser(UserV1("John", 42, "john@example.com")))
+```
+
+The `zio.schema.syntax` object also provides `MigrationOps#migrate` as a method on any value that has an implicit schema, as in `UserV1("John", 42, "john@example.com").migrate[UserV2]`.
+
+:::caution
+`Schema#migrate` and `Schema#coerce` return `Right` even for changes that the library cannot apply to values. Adding a field, or changing the type of a primitive field (for example from `Int` to `Double`), produces a step that fails on every value, so the returned function always returns `Left`. The following migration adds a `role` field:
+
+```scala mdoc
+case class UserV3(name: String, age: Option[Int], role: String)
+
+object UserV3 {
+  implicit val schema: Schema[UserV3] = DeriveSchema.gen[UserV3]
+}
+
+UserV2.schema.migrate(UserV3.schema).map(migrateUser => migrateUser(UserV2("John", Some(42))))
+```
+
+The outer `Right` says that the migration was derived, and the inner `Left` says that applying it failed. Today, the changes that work are removing fields, making a field optional, and making an optional field required, which fails for a value that is `None`. For an added field, give the field a default value in the new case class, for example `role: String = "member"`, and decode the old data with a codec, which fills in the default, or write the conversion by hand.
+:::
 
 ## Manual Migration
 
-By having `DynamicValue` which its type information embedded in the data itself, we can perform migrations of the data easily by applying a sequence of migration steps to the data.
+By having `DynamicValue` which its type information embedded in the data itself, we can perform migrations of the data easily by applying a sequence of migration steps to the data with `DynamicValue#transform`:
 
 ```scala
-trait DynamicValue {
+sealed trait DynamicValue {
   def transform(transforms: Chunk[Migration]): Either[String, DynamicValue]
 }
 ```
 
-The `Migration` is a sealed trait with several subtypes:
+`DynamicValue#transform` applies the steps from the last one in the chunk to the first one, and stops at the first step that fails. The order matters only when two steps touch the same node.
+
+The `Migration` is a sealed trait with several subtypes. The [Migration Operations](../reference/migration-operations.md) page describes each of them:
 
 ```scala
 sealed trait Migration
@@ -77,7 +121,7 @@ assert(person2 == Right(Person2("John Doe")))
 
 ## Deriving Migrations
 
-ZIO Schema provides a way to derive migrations automatically using the `Migration.derive` operation:
+ZIO Schema provides a way to derive migrations automatically using the `Migration.derive` operation, which is what `Schema#migrate` uses:
 
 ```scala
 object Migration {
@@ -85,10 +129,9 @@ object Migration {
 }
 ```
 
-It takes two `MetaSchema` values, the old and the new schema, and returns a `Chunk[Migration]` that describes the migrations steps. The following example derives the steps between two versions of a `Person` model and prints them:
+It takes two `MetaSchema` values, the old and the new schema, and returns a `Chunk[Migration]` that describes the migration steps. The following example derives the steps between two versions of a `Person` model and prints them:
 
 ```scala mdoc
-import zio.schema._
 import zio.schema.meta._
 
 case class Person1(name: String, age: Int, language: String, height: Int)
@@ -116,4 +159,4 @@ val migrations = Migration.derive(
 println(migrations)
 ```
 
-The output lists the steps in the order they must be applied to the old values. Here, `language` changes from a `String` to a `Set[String]`, so the migration adds a dimension to it. The `height` field changes type, `role` is added, and `age` is removed.
+The output lists the steps that turn the old structure into the new one. Here, `language` changes from a `String` to a `Set[String]`, so the migration adds a dimension to it. The `height` field changes type, `role` is added, and `age` is removed. Deriving these steps succeeds, but applying them to a `Person1` value fails, because the `ChangeType` step for `height` and the `AddNode` step for `role` cannot be applied, as described in the caution above.
