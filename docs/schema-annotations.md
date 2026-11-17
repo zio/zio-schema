@@ -11,7 +11,7 @@ Annotations attach extra information to a case class, a field, or a case of a se
 - Directly on the definition, as in `case class User(@fieldName("user_name") username: String)`.
 - With `Schema#annotate`, when you cannot edit the source, as in `User.schema.annotate(rejectExtraFields())`.
 
-Each annotation below shows the JSON that the codec produces. The JSON codec is the main consumer of these annotations; other codecs may ignore some of them.
+Each annotation below shows the JSON that the codec produces. The JSON codec is the main consumer of these annotations; other codecs ignore some of them, as listed in [Annotation Support by Codec](derivations/codecs/index.md#annotation-support-by-codec).
 
 ## Renaming Fields and Cases
 
@@ -151,7 +151,7 @@ These annotations decide whether a field or case is written, and what happens wh
 
 ### Transient Fields and Cases
 
-To skip a field during encoding, apply `transientField`. When decoding, the field takes the default value of its schema, which is an empty string for `String`:
+To skip a field during encoding, apply `transientField`. The field must have a default value, given as a Scala default parameter or with `fieldDefaultValue`; otherwise `DeriveSchema.gen` fails to compile. When decoding, the field takes that default value:
 
 ```scala mdoc:silent:reset
 import zio.schema.{DeriveSchema, Schema}
@@ -169,6 +169,12 @@ The `cache` field is absent from the output:
 
 ```scala mdoc
 println(JsonCodec.jsonCodec(Session.schema).encodeJson(Session("abc", "warm"), None).toString)
+```
+
+Decoding the same output fills `cache` with its declared default, `"none"`:
+
+```scala mdoc
+println(JsonCodec.jsonCodec(Session.schema).decodeJson("""{"token":"abc"}""").toString)
 ```
 
 `transientCase` applies the same idea to a whole case of a sealed trait. The codec writes an empty object, `{}`, in place of that case.
@@ -197,7 +203,7 @@ println(JsonCodec.jsonCodec(Page.schema).decodeJson("""{"items":["a","b"]}""").t
 
 ### Default Values
 
-`optionalField` uses the value that the field's schema computes. To choose the value yourself, apply `fieldDefaultValue`, which takes the value to use when the field is missing:
+`optionalField` uses the value that the field's schema computes. To choose the value yourself, give the field a Scala default parameter, or apply `fieldDefaultValue`, which takes the value to use when the field is missing. `DeriveSchema.gen` turns each Scala default parameter into a `fieldDefaultValue` annotation, so both forms behave the same. The annotation also makes the field optional, so `optionalField` is not needed with it:
 
 ```scala mdoc:silent:reset
 import zio.schema.{DeriveSchema, Schema}
@@ -240,8 +246,21 @@ A payload with an undeclared `email` field now fails to decode:
 println(JsonCodec.jsonCodec(Person.schema).decodeJson("""{"name":"bob","age":4,"email":"x"}""").toString)
 ```
 
-You can also turn this on for every type at once with `JsonCodec.Configuration(rejectExtraFields = true)`. An annotation on a type overrides the configuration for that type.
+You can also turn this on for every type at once with `JsonCodec.Configuration(rejectExtraFields = true)`. The JSON codec rejects extra fields when either the annotation or the configuration asks for it, so the annotation can turn rejection on for one type, but it cannot turn it off for a type when the configuration turns it on.
+
+## Other Annotations
+
+The `zio.schema.annotation` package has a few more annotations. Most of them are added by derivation or used by a single codec:
+
+| Annotation             | Purpose                                                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `simpleEnum`           | `DeriveSchema.gen` adds it to a sealed trait whose cases have no fields. The JSON codec then encodes each case as a plain string, as in the `Status` example above |
+| `genericTypeInfo`      | `DeriveSchema.gen` adds it to a generic type to record the types its type parameters were applied to                                                               |
+| `directDynamicMapping` | On a `Schema.Dynamic`, it tells the JSON codec to write a `DynamicValue` record as a plain JSON object instead of its tagged structure                             |
+| `recordName`           | Stores an alternative name for a record. No built-in codec reads it                                                                                                |
 
 ## Validation and Descriptions
 
-`Schema#validation` attaches a rule to a schema, and `Schema#validate` checks a value against that rule. The `description` annotation attaches documentation text to a type. Both are covered on [Validating Types](./operations/validating-types.md).
+The `validate` annotation attaches a `Validation` rule to a case class field, and `Schema#validate` checks a value against the rules of its fields. Rules attached to a whole schema with `Schema#validation` are not checked by `Schema#validate`. [Validation](./operations/validating-types.md) covers the rules and what `Schema#validate` checks.
+
+The `description` annotation attaches documentation text to a type or a field, as in `@description("The user's login name")`. The Scala 3 derivation also adds it automatically from the Scaladoc comment of a type. The built-in codecs do not read it; it is available to your own code through `Schema#annotations`.
