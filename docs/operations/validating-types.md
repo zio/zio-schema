@@ -3,7 +3,7 @@ id: validation
 title: "Validation"
 ---
 
-Validation rules describe which values of a type are acceptable, such as a non-empty name or an age between 0 and 120. ZIO Schema stores these rules inside the schema, so any codec or application code that uses the schema can check values in the same way.
+Validation rules describe which values of a type are acceptable, such as a non-empty name or an age between 0 and 120. ZIO Schema stores these rules inside the schema, so application code can check any value of the type in the same way. The built-in codecs do not check the rules when they decode, so call `Schema#validate` yourself after decoding untrusted input.
 
 ## Attaching Rules to Fields
 
@@ -48,7 +48,22 @@ To print the individual failures, we iterate over the result:
 problems.foreach(problem => println(problem))
 ```
 
-Each printed entry names the failed rule and the values it compared. For example, `MinLength(1,0,)` means the name needs at least one character and had none. Validation never changes the value; the calling code decides what to do with the failures.
+Each printed entry names the failed check and the values it compared. For example, `MinLength(1,0,)` means the name needs at least one character and had none. The result has three entries for two broken rules, because `Validation.between(0, 120)` is built from smaller checks: "greater than 0 or equal to 0" and "less than 120 or equal to 120". An age of 130 fails both the less-than check and the equal-to check of the second part, so it reports two entries. Validation never changes the value; the calling code decides what to do with the failures.
+
+## What `Schema#validate` Checks
+
+`Schema#validate` walks the whole value. It checks the rule of each record field, and it also descends into nested records, the elements of collections, the keys and values of maps, the content of `Some`, and the active side of an `Either`. A rule on a field of a nested case class is therefore checked when we validate the outer value.
+
+`Schema#validate` checks the value with the implicit `Schema[A]` that is in scope at the call, not with the schema on which it is called. In the common case, where the schema is the implicit value in the companion object, the two are the same.
+
+:::caution
+Only rules attached to record fields are checked, either with `@validate` or with the `validation0` parameter of `Schema.Field`. The following rules are not reported by `Schema#validate`:
+
+- A rule attached with `Schema#validation`, which stores it as an annotation on the schema. `Schema#validate` never reads that annotation.
+- `Validation.fail`, and rules that fail through it, such as the default `onLeft` of `Validation#right` and the default `onRight` of `Validation#left`. These rules fail with an empty list of errors, and `Schema#validate` treats an empty list as success.
+
+For a rule on a whole value, call `Validation#validate` on the value directly, as in the next section.
+:::
 
 ## Combining Rules
 
