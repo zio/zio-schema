@@ -9,11 +9,11 @@ keywords:
   - "Reference"
 ---
 
-`Differ[A]` computes the difference between two values of type `A`, and `Patch[A]` describes that difference so it can be applied to an old value. Most code uses the `diff` and `patch` methods on a schema, which are described in [Diffing and Patching](../operations/diffing-and-patching.md). This page covers the types themselves, for code that builds or combines patches directly.
+`Differ[A]` computes the difference between two values of type `A`, and `Patch[A]` describes that difference so it can be applied to an old value. Most code uses `Schema#diff` and `Schema#patch`, which are described in [Diffing and Patching](../operations/diffing-and-patching.md). This page covers the types themselves, for code that builds or combines patches directly.
 
 ## Differ
 
-A `Differ[A]` has one abstract method, `apply`, which takes the old and new values and returns a `Patch[A]`. `Schema#diff` builds its differ from the schema through `Differ.fromSchema`. The `Differ` trait also has combinators:
+A `Differ[A]` has one abstract method, `Differ#apply`, which takes the old and new values and returns a `Patch[A]`. `Schema#diff` builds its differ from the schema through `Differ.fromSchema`. The `Differ` trait also has combinators:
 
 - `Differ#zip`, written `<*>`, combines two differs into one for a pair.
 - `Differ#transform` adapts a differ to a related type, given conversions in both directions.
@@ -23,7 +23,7 @@ A `Differ[A]` has one abstract method, `apply`, which takes the old and new valu
 
 The `Differ` companion object also provides ready-made differs, such as `Differ.either`, `Differ.record` for a `GenericRecord`, `Differ.enumN` for the cases of an enumeration, and one differ for each standard type.
 
-The following example diffs two chunks. The patch records that the element `2` was removed, and applying it to the old chunk gives the new one:
+The following example diffs two chunks. The patch records that the element `2` is removed, and applying it to the old chunk gives the new one:
 
 ```scala mdoc:silent
 import zio.Chunk
@@ -31,6 +31,8 @@ import zio.schema._
 
 val listDiffer: Differ[Chunk[Int]] = Differ.fromSchema(Schema[Int]).chunk
 ```
+
+Calling the differ on the old and new chunks returns the patch, which we then apply to the old chunk:
 
 ```scala mdoc
 val patch = listDiffer(Chunk(1, 2, 3), Chunk(1, 3))
@@ -42,13 +44,13 @@ patch.patch(Chunk(1, 2, 3))
 
 A `Patch[A]` is a sealed trait with these operations:
 
-- `patch` applies the patch to a value and returns `Either[String, A]`.
-- `invert` returns a patch that goes in the opposite direction. For most patches, applying the inverse to the new value gives the old value. The exceptions are listed below.
-- `zip`, written `<*>`, combines a patch for `A` with a patch for `B` into one for `(A, B)`.
-- `isIdentical` is `true` when the patch changes nothing.
-- `isComparable` is `false` for the patch returned by `Patch.notComparable`, which reports that two values cannot be compared.
+- `Patch#patch` applies the patch to a value and returns `Either[String, A]`.
+- `Patch#invert` returns a patch that goes in the opposite direction. For most patches, applying the inverse to the new value gives the old value. The exceptions are listed below.
+- `Patch#zip`, written `<*>`, combines a patch for `A` with a patch for `B` into one for `(A, B)`.
+- `Patch#isIdentical` is `true` when the patch changes nothing.
+- `Patch#isComparable` is `false` for the patch returned by `Patch.notComparable`, which reports that two values cannot be compared, and for a record, `Either`, `Fallback`, or transform patch that contains one. A `Patch.Tuple` always reports `true`, even when one side is not comparable, so applying it can still fail.
 
-The `Patch` companion object provides `identical` and `notComparable`, which build the two special patches. Use them when you write your own differ and need to report no change or an incomparable pair.
+The `Patch` companion object provides `Patch.identical` and `Patch.notComparable`, which build the two special patches. Use them when you write your own differ and need to report no change or an incomparable pair.
 
 The following example shows the inverse. Applying the inverted patch to the newer value restores the older one:
 
@@ -63,9 +65,13 @@ val john  = Person("John", 42)
 val older = john.copy(age = 43)
 ```
 
+The forward patch turns `john` into `older`:
+
 ```scala mdoc:silent
 val forward = Person.schema.diff(john, older)
 ```
+
+Applying its inverse to `older` gives back `john`:
 
 ```scala mdoc
 Person.schema.patch(older, forward.invert) == Right(john)
@@ -81,7 +87,7 @@ Patch.identical[Person].isIdentical
 
 ## Patches That Cannot Be Inverted
 
-`invert` cannot restore the old value when the patch does not record it. This is the case for the following patches:
+`Patch#invert` cannot restore the old value when the patch does not record it. This is the case for the following patches:
 
 - `Patch.Total` replaces the whole value with a new one. The differ for `Option` produces it for a change between `Some` and `None`, and its inverse is the same patch.
 - `Patch.NotComparable` reports two values that cannot be compared, and its inverse is itself. Applying it always fails.
