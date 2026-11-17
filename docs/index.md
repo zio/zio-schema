@@ -28,21 +28,27 @@ With schema descriptions that can be automatically derived for case classes and 
     1. Diffing: diffing between two values of the same type
     2. Patching: applying a diff to a value to update it
     3. Migration: migrating values from one type to another
-3. Computations as data: Not only we can turn types into values, but we can also turn computations into values. This opens up a whole new world of possibilities concerning distributed computing.
+3. Computations as data: Not only can we turn types into values, but we can also turn computations into values. This opens up a whole new world of possibilities concerning distributed computing.
 
 When our data structures need to be serialized, deserialized, persisted, or transported across the wire, then _ZIO Schema_ lets us focus on data modeling and automatically tackle all the low-level, messy details for us.
 
-_ZIO Schema_ is used by a growing number of ZIO libraries, including [ZIO Flow](https://zio.dev/zio-flow), [ZIO Redis](https://zio.dev/zio-redis), [ZIO SQL](https://zio.dev/zio-sql) and [ZIO DynamoDB](https://zio.dev/zio-dynamodb).
+A growing number of ZIO libraries build on _ZIO Schema_, including [ZIO Flow](https://zio.dev/zio-flow), [ZIO Redis](https://zio.dev/zio-redis), [ZIO SQL](https://zio.dev/zio-sql) and [ZIO DynamoDB](https://zio.dev/zio-dynamodb).
 
 ## Installation
 
-In order to use this library, we need to add the core module to our `build.sbt` file:
+To use ZIO Schema, we add the core module to our `build.sbt` file:
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-schema" % "@VERSION@"
 ```
 
-ZIO Schema is published for Scala 2.12, 2.13, and 3 (Scala 3.9 or later, because the Scala 3 artifacts are compiled with Scala 3.9). Every other feature lives in its own module, and we add only the modules we use. Each codec module already depends on `zio-schema-derivation`, so adding a codec also brings in schema derivation:
+ZIO Schema is published for Scala 2.12, 2.13, and 3.
+
+:::caution[Scala 3 Projects Need Scala 3.9 or Later]
+The Scala 3 artifacts are compiled with Scala 3.9, so a Scala 3 project must use Scala 3.9 or later to depend on them.
+:::
+
+Every other feature lives in its own module, and we add only the modules we use. Each codec module already depends on `zio-schema-derivation`, so adding a codec also brings in schema derivation:
 
 | Artifact                | What it gives                                                      | Platforms             |
 | ----------------------- | ------------------------------------------------------------------ | --------------------- |
