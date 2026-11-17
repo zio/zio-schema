@@ -211,23 +211,11 @@ The same `ErrorResponse` type works for any model, because `fieldErrors` only ne
 
 ## Rules That Are Silently Skipped
 
-Validation fails open in a few cases: the rule exists, but `Schema.validate` reports no error. Each case below has a working alternative.
+Validation fails open in a few cases: the rule exists, but `Schema.validate` reports no error. Each case below has a working alternative, and the [Validation](../reference/validation.md) reference shows each one with a runnable example.
 
 ### Rules Added with `Schema#validation`
 
-`Schema#validation(v)` returns a schema that carries the rule `v`, but `Schema.validate` only reads the rules of record fields, so it never checks this one:
-
-```scala mdoc:silent
-val shortName: Schema[String] = Schema[String].validation(Validation.maxLength(5))
-```
-
-Checking a long string with `shortName` reports nothing, while the same rule run directly fails:
-
-```scala mdoc
-Schema.validate("far too long")(shortName)
-
-Validation.maxLength(5).validate("far too long")
-```
+`Schema#validation(v)` stores the rule `v` as an annotation on the schema, but `Schema.validate` only reads the rules of record fields, so it never checks this one. [Rules on a Whole Schema](../reference/validation.md#rules-on-a-whole-schema) shows a value that breaks such a rule and still passes.
 
 :::caution[`Schema#validation` Is Not Checked]
 `Schema.validate` ignores a rule added with `Schema#validation`. Put the rule on a record field with `@validate` (or the `validation0` parameter of `Schema.Field.apply` in a hand-written schema), or call `Validation#validate` on the value directly.
@@ -235,26 +223,10 @@ Validation.maxLength(5).validate("far too long")
 
 ### Rules That Fail Without an Error
 
-`Validation.fail` always fails, but it fails with an empty list of errors. `Schema.validate` turns that empty list into "no errors", so the failure disappears. The same happens with the default `onLeft` of `Validation#right` and the default `onRight` of `Validation#left`, which are `Validation.fail`:
-
-```scala mdoc:silent
-final case class Ticket(@validate(Validation.fail[Int]) seat: Int)
-
-object Ticket {
-  implicit val schema: Schema[Ticket] = DeriveSchema.gen[Ticket]
-}
-```
-
-`Schema.validate` accepts every ticket, while `Validation#validate` reports the failure as a `Left`:
-
-```scala mdoc
-Schema.validate(Ticket(1))
-
-Validation.fail[Int].validate(1).isLeft
-```
+`Validation.fail` always fails, but it fails with an empty list of errors. `Schema.validate` turns that empty list into "no errors", so a field annotated with `@validate(Validation.fail[Int])` passes. The same happens with the default `onLeft` of `Validation#right` and the default `onRight` of `Validation#left`, which are `Validation.fail`. [Constant Rules](../reference/validation.md#constant-rules) shows the effect.
 
 :::caution[A Rule That Fails with No Error Reports Nothing]
-Through `@validate`, `Validation.fail` (and every rule that fails without an error, such as the default branch of `Validation#right` and `Validation#left`) is reported as valid. Check such a rule with `Validation#validate` and test for `Left`, instead of relying on an empty `Schema.validate` result.
+Through `@validate`, a rule that fails without an error is reported as valid. Check such a rule with `Validation#validate` and test for `Left`, instead of relying on an empty `Schema.validate` result.
 :::
 
 ### Case Classes with More Than 22 Fields on Scala 2
