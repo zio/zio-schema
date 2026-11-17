@@ -163,7 +163,7 @@ object emails {
 
 ## Turn Scaladoc into Descriptions
 
-On Scala 3, derivation copies the Scaladoc comment of a type into a `description` annotation of its schema. This applies to case classes, objects, and enums. Comments on fields are not read, and the comment of an enum case does not reliably land on the schema of that case, so give a case whose description matters an explicit `@description` annotation. The annotation holds the comment exactly as written, including the `/**` and `*/` delimiters:
+On Scala 3, derivation copies the Scaladoc comment of a type into a `description` annotation of its schema. This applies to case classes, objects, and enums. Comments on fields are not read. Comments on enum cases are not kept per case: every case without fields receives the comments of all the enum's cases, and a case with fields receives none. Give a case whose description matters an explicit `@description` annotation. The annotation holds the comment exactly as written, including the `/**` and `*/` delimiters:
 
 ```scala
 import zio.schema._
