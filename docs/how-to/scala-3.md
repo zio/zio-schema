@@ -27,7 +27,11 @@ libraryDependencies ++= Seq(
 )
 ```
 
-Scala 3 needs no `scala-reflect` dependency, because derivation uses inline methods and quoted macros instead of Scala 2 macros. Every example imports `zio.schema._`, which brings `Schema`, `DeriveSchema`, and the `Schema.derived` extension method into scope. The documentation build compiles snippets with Scala 2.13 only, so the Scala 3 snippets on this page are shown without compile checks.
+Scala 3 needs no `scala-reflect` dependency, because derivation uses inline methods and quoted macros instead of Scala 2 macros. Every example imports `zio.schema._`, which brings `Schema`, `DeriveSchema`, and the `Schema.derived` extension method into scope. The documentation build compiles its snippets with Scala 2.13, so the Scala 3 snippets on this page are plain code blocks.
+
+:::note
+The Scala 3 artifacts of ZIO Schema are compiled with Scala 3.9, so your project needs Scala 3.9 or later. An older Scala 3 compiler cannot read them and reports errors such as `Not found: type Schema`.
+:::
 
 ## Derive a Schema with `derives Schema`
 
