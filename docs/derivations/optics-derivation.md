@@ -9,11 +9,7 @@ Optics are a way of accessing and manipulating data in a functional way. They ca
 
 Before we dive into auto-derivation of optics and how we can derive optics from a ZIO Schema, let's take a look at the pure optics and how we can create them manually using [ZIO Optics](https://zio.dev/zio-optics) library.
 
-First, we should add `zio-optics` to our `build.sbt` file:
-
-```scala
-libraryDependencies += "dev.zio" %% "zio-optics" % "<version>"
-```
+The `zio-schema-optics` module, described in the [Installation](#installation) section below, depends on ZIO Optics, so adding it also brings in `zio-optics`. To use ZIO Optics on its own, follow the installation steps in the [ZIO Optics](https://zio.dev/zio-optics) documentation.
 
 Now let's define a simple data type called `User` and create two optics for its `name` and `age` fields:
 
@@ -35,7 +31,7 @@ val ageLens = Lens[User, Int](
 val ageAndNameLens = nameLens.zip(ageLens)
 ```
 
-Now we can use these optics to get, set, and update values in the `Person` data structure:
+Now we can use these optics to get, set, and update values in the `User` data structure:
 
 ```scala mdoc:silent
 import zio._
@@ -111,14 +107,16 @@ Let's take a look at how we can derive optics using ZIO Schema Optics.
 To be able to derive optics from a ZIO Schema, we need to add the following line to our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-optics" % @VERSION@
+libraryDependencies += "dev.zio" %% "zio-schema-optics" % "@VERSION@"
 ```
 
 This package contains a `ZioOpticsBuilder` which is an implementation of the `AccessorBuilder` interface based on ZIO Optics library.
 
-Now we are ready to try any of the following examples:
+Now we are ready to try the following examples.
 
 ### Examples
+
+The examples below derive each kind of optic in turn.
 
 #### Lens
 
@@ -134,20 +132,20 @@ case class User(name: String, age: Int)
 
 object User {
   implicit val schema: CaseClass2[String, Int, User] =
-    DeriveSchema.gen[User].asInstanceOf[CaseClass2[String, Int, User]]
+    DeriveSchema.gen[User]
 
   val (nameLens, ageLens) = schema.makeAccessors(ZioOpticsBuilder)
 }
 ```
 
-Based on the type of the schema, the `makeAccessors` method will derive the proper optics for us.
+`DeriveSchema.gen` returns the precise schema type, here `CaseClass2[String, Int, User]`, so we can declare that type without a cast. Based on the type of the schema, `Schema#makeAccessors` derives the proper optics for us: one lens per field of a case class.
 
 Now we can use these optics to update values in the `User` data structure:
 
 ```scala mdoc:compile-only
 object MainApp extends ZIOAppDefault {
   def run = for {
-    _ <- ZIO.debug("Auto-derivation of Optics")
+    _ <- ZIO.debug("Auto-derivation of Lens Optics:")
     user = User("John", 42)
 
     updatedUser1 = User.nameLens.set("Jane")(user)
@@ -165,7 +163,7 @@ object MainApp extends ZIOAppDefault {
 
 Output:
 
-```scala
+```text
 Auto-derivation of Lens Optics:
 Name of user updated: Right(User(Jane,42))
 Age of user updated: Right(User(John,32))
@@ -173,6 +171,8 @@ Name and age of the user updated: Right(User(Jane,32))
 ```
 
 #### Prism
+
+For a sealed trait, `Schema#makeAccessors` derives one prism per case. The following example uses the prism for `Rectangle` to replace a `Circle` with a rectangle:
 
 ```scala mdoc:compile-only
 import zio._
@@ -192,7 +192,7 @@ case class Rectangle(width: Double, height: Double) extends Shape {
 
 object Shape {
   implicit val schema: Enum2[Circle, Rectangle, Shape] =
-    DeriveSchema.gen[Shape].asInstanceOf[Enum2[Circle, Rectangle, Shape]]
+    DeriveSchema.gen[Shape]
 
   val (circlePrism, rectanglePrism) =
     schema.makeAccessors(ZioOpticsBuilder)
@@ -200,7 +200,7 @@ object Shape {
 
 object MainApp extends ZIOAppDefault {
   def run = for {
-    _ <- ZIO.debug("Auto-derivation of Prism Optics")
+    _ <- ZIO.debug("Auto-derivation of Prism Optics:")
     shape = Circle(1.2)
     _ <- ZIO.debug(s"Original shape: $shape")
     updatedShape <- ZIO.fromEither(
@@ -214,13 +214,15 @@ object MainApp extends ZIOAppDefault {
 
 Output:
 
-```scala
+```text
 Auto-derivation of Prism Optics:
 Original shape: Circle(1.2)
 Updated shape: Rectangle(2.0,3.0)
 ```
 
 #### Traversal
+
+For a collection schema, `Schema#makeAccessors` derives a traversal over its elements. The following example builds a `List[Int]` schema and uses its traversal to replace the first three elements:
 
 ```scala mdoc:compile-only
 import zio._
@@ -255,7 +257,7 @@ object MainApp extends ZIOAppDefault {
 
 Output:
 
-```scala
+```text
 Auto-derivation of Traversal Optic:
 Original list: List(1, 2, 3, 4, 5)
 Updated list: List(1, 5, 7, 4, 5)
