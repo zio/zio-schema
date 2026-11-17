@@ -272,7 +272,7 @@ In direct mode, the JSON encoder throws for `Enumeration`, `Dictionary`, `Tuple`
 
 ### DynamicValue.schema
 
-`DynamicValue.schema` is an explicit enum schema that describes the structure of `DynamicValue` itself, with one case per `DynamicValue` case and one case per standard type of `Primitive` except `Byte`. Codecs use it to write a `DynamicValue` in a self-describing form. `DynamicValue.typeId` is the `TypeId` of that enum:
+`DynamicValue.schema` is an explicit enum schema that describes the structure of `DynamicValue` itself, with one case per `DynamicValue` case except `BothValue`, and one case per standard type of `Primitive` except `Byte`. Codecs use it to write a `DynamicValue` in a self-describing form. `DynamicValue.typeId` is the `TypeId` of that enum:
 
 ```scala
 object DynamicValue {
@@ -309,7 +309,7 @@ Each `DynamicValue` case mirrors one kind of schema node. The table lists which 
 | `Singleton`   | `instance: A`                                         | Nothing; build it by hand                                                              |
 | `DynamicAst`  | `ast: MetaSchema`                                     | Nothing; build it by hand to carry a schema as data                                    |
 
-A case object of a sealed trait becomes an `Enumeration` whose value is a `Record` with no fields. `DynamicAst` holds a [MetaSchema](meta-schema.md), the serializable description of a schema. A `Tuple` whose right side is a `DynamicAst` decodes against any schema into a pair of the left value and the schema rebuilt from the `MetaSchema`.
+A case object of a sealed trait becomes an `Enumeration` whose value is a `Record` with no fields. `DynamicAst` holds a [MetaSchema](meta-schema.md), the serializable description of a schema. When no other decoding rule matches the schema, a `Tuple` whose right side is a `DynamicAst` decodes into a pair of the left value and the schema rebuilt from the `MetaSchema`.
 
 Code that processes a `DynamicValue` usually matches on these cases. The following function renders any tree as text:
 
