@@ -6,7 +6,7 @@ sidebar_label: "What's New Since 1.7.5"
 
 ## Overview
 
-This site's documentation currently reflects ZIO Schema 1.7.5. The releases from 1.8.0 through 1.9.0 add one new module and change the behavior of several codecs and derivation macros. Most of the commits in that range update dependencies or fix the build, so this page lists only the changes that affect how your code behaves. If you upgrade from 1.7.5, read the behavior changes below before you rely on error handling in your decoders.
+This site documents ZIO Schema 1.9.1. The releases from 1.8.0 through 1.9.0 add one new module and change the behavior of several codecs and derivation macros; 1.9.1 only updates dependencies. Most of the commits in that range update dependencies or fix the build, so this page lists only the changes that affect how your code behaves. If you upgrade from 1.7.5, read the behavior changes below before you rely on error handling in your decoders.
 
 ## New XML Codec Module
 
