@@ -150,7 +150,6 @@ object Schema {
 It stores the key and value schemas. Like `Sequence`, instead of using `Map` directly, we can use the `Schema.map[K, V]` constructor:
 
 ```scala mdoc:compile-only
-import zio._
 import zio.schema._
 import zio.schema.Schema._
   
@@ -182,7 +181,6 @@ object Schema {
 To create a `Schema` for a `Set[A]`, we can use the above case class directly or use the `Schema.set[A]` constructor:
 
 ```scala mdoc:compile-only
-import zio._
 import zio.schema._
 import zio.schema.Schema._
   
