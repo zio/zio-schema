@@ -1,6 +1,6 @@
 ---
 id: bson
-title: "Bson Codecs"
+title: "BSON Codecs"
 sidebar_label: "BSON"
 ---
 
@@ -70,15 +70,9 @@ In the example above, `DeriveSchema.gen` derives the schema for `Person`, and `B
 
 ## Configuration
 
-`BsonSchemaCodec.Config` controls how sealed traits are written. The `BsonSchemaCodec.Config` object is the default configuration, and you build a custom one by calling its `with` methods:
+`BsonSchemaCodec.Config` controls how sealed traits are written. The `BsonSchemaCodec.Config` object is the default configuration, and you build a custom one by calling its `with` methods. `Config#withSumTypeHandling` sets how the case of a sealed trait is recorded, as a `BsonSchemaCodec.SumTypeHandling` value, and `Config#withClassNameMapping` sets a `String => String` function that rewrites case names, for example to lower case.
 
-- `Config#withSumTypeHandling` sets how the case of a sealed trait is recorded, as a `BsonSchemaCodec.SumTypeHandling` value.
-- `Config#withClassNameMapping` sets a `String => String` function that rewrites case names, for example to lower case.
-
-`SumTypeHandling` has two forms:
-
-- `SumTypeHandling.WrapperWithClassNameField` wraps the case in a document with one field, named after the case. This is the default.
-- `SumTypeHandling.DiscriminatorField(name)` writes the case name into a field called `name` next to the case's own fields.
+`SumTypeHandling` has two forms. `SumTypeHandling.WrapperWithClassNameField`, the default, wraps the case in a document with one field, named after the case. `SumTypeHandling.DiscriminatorField(name)` writes the case name into a field called `name` next to the case's own fields.
 
 To compare the two forms, we define a sealed trait and derive an encoder for each configuration:
 
