@@ -270,17 +270,16 @@ object ShipmentRoundTripSpec extends ZIOSpecDefault {
 }
 ```
 
-Passing `DeriveGen.gen[Shipment]` instead throws an exception, as the next section describes.
+Passing `DeriveGen.gen[Shipment]` instead makes the test fail with an exception as soon as `check` samples the generator, as the next section describes.
 
 ## Knowing What the Derived Generator Covers
 
-A passing round trip only covers the values the generator produces. On ZIO Schema 1.9.1, the derived generator has the following gaps, and each one has a workaround shown above:
+A passing round trip only covers the values the generator produces. The [Limitations](../derivations/zio-test-gen-derivation.md#limitations) section of the `DeriveGen` page lists the gaps of the derived generator. This guide already works around two of them: `validLineItem` replaces the derived generator because it ignores `@validate` rules, and `Gen.listOfBounded` replaces the derived sequences and maps, which always have zero or two elements whatever the `Sized` setting. Two more gaps decide whether a spec runs at all:
 
 :::caution
-- `DeriveGen.gen` throws an exception with the message "Missing handler for generating value of schema ..." when the schema is, or contains, a `NonEmptyChunk`, a `NonEmptyMap`, or a `Fallback`. Write the generator for that type by hand, as `shipmentGen` does.
-- Generated sequences and maps have either zero or two elements, whatever the `Sized` setting. Strings and sets do follow `Sized`. To test larger collections, generate them with `Gen.listOfBounded` or a similar ZIO Test generator.
-- Generated values ignore `@validate` rules. Use a hand-written generator, or `Gen#filter` with `Schema.validate`, when a property needs valid values.
-- A `Transform` schema, such as one built with `Schema#transformOrFail`, generates a value of the underlying type and then applies the transformation. When the transformation fails, that sample is dropped. A transformation that rejects most inputs makes the property slow, and one that rejects every input leaves `check` without a single sample: ZIO Test logs a warning that the generator did not produce any test cases, and the test does not finish. Give such types a hand-written generator that produces only accepted values.
+`DeriveGen.gen` throws an exception with the message "Missing handler for generating value of schema ..." for a schema that is, or contains, a `NonEmptyChunk`, a `NonEmptyMap`, or a `Fallback`. For a field of one of these types, the exception comes when `check` samples the generator, so the test fails instead of running. Write the generator for that type by hand, as `shipmentGen` does.
+
+A `Transform` schema, such as one built with `Schema#transformOrFail`, generates a value of the underlying type and then applies the transformation, and a sample whose transformation fails is dropped. A transformation that rejects most inputs makes the property slow, and one that rejects every input leaves `check` without a single sample: ZIO Test logs a warning that the generator did not produce any test cases, and the test may hang. Give such types a hand-written generator that produces only accepted values.
 :::
 
 ## Going Further
