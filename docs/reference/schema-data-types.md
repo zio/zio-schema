@@ -400,7 +400,9 @@ object Shape {
   final case class Circle(radius: Double) extends Shape
   final case class Square(side: Double)   extends Shape
 
-  implicit val schema: Schema[Shape] = DeriveSchema.gen[Shape]
+  implicit val circleSchema: Schema[Circle] = DeriveSchema.gen[Circle]
+  implicit val squareSchema: Schema[Square] = DeriveSchema.gen[Square]
+  implicit val schema: Schema[Shape]        = DeriveSchema.gen[Shape]
 }
 
 val shapeEnum: Option[Schema.Enum[Shape]] =
@@ -474,9 +476,6 @@ object Schema {
 
 ```scala mdoc:silent
 import zio.schema.CaseSet.caseOf
-
-implicit val circleSchema: Schema[Shape.Circle] = DeriveSchema.gen[Shape.Circle]
-implicit val squareSchema: Schema[Shape.Square] = DeriveSchema.gen[Shape.Square]
 
 val manualShape: Schema[Shape] =
   Schema.enumeration[Shape, CaseSet.Aux[Shape]](
