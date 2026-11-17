@@ -147,19 +147,11 @@ The [How to Work with Schemaless Data](dynamic-data.md) guide shows how to read 
 
 ## Know What the Schema Leaves Behind
 
-A `MetaSchema` describes structure only. Everything in the original schema that is code or metadata stays with the sender:
-
-| Part of the sender's schema                           | What the receiver gets                                       |
-| ----------------------------------------------------- | ------------------------------------------------------------ |
-| `Schema#transform` and `Schema#transformOrFail`       | The underlying schema, without the functions                 |
-| Annotations, such as `@caseName` or `@transientField` | Nothing                                                      |
-| Field validations and `@validate`                     | Nothing                                                      |
-| `Set`, `NonEmptyChunk`, and other sequences           | A `Chunk`                                                    |
-| Recursive references                                  | A reference to the earlier node, rebuilt with `Schema.defer` |
+A `MetaSchema` describes structure only. Everything in the original schema that is code or metadata stays with the sender: the functions of `Schema#transform` and `Schema#transformOrFail`, every annotation, and every field validation. [What the Round Trip Loses](../reference/meta-schema.md#what-the-round-trip-loses) lists each part and what the receiver gets instead.
 
 The receiver therefore accepts any value of the underlying type: an `Email` that the sender builds with `Schema#transformOrFail` and a validating function arrives as a plain string, and the receiver does not run the check. Codec behaviour that comes from annotations, such as a case renamed with `@caseName`, is not applied on the receiving side either, so a receiver may fail to read data written with such annotations. Keep the types you send this way free of annotations that change the encoded form, or apply the same settings on the receiver.
 
-## Where to Go Next
+## Going Further
 
 - [MetaSchema](../reference/meta-schema.md) documents every node of the tree, `NodePath`, and how to extend the built-in types.
 - [Serialization of the Schema Itself](../operations/serialization-of-the-schema-itself.md) explains why a schema is worth serializing.
