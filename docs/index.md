@@ -48,6 +48,23 @@ ZIO Schema is published for Scala 2.12, 2.13, and 3.
 The Scala 3 artifacts are compiled with Scala 3.9, so a Scala 3 project must use Scala 3.9 or later to depend on them.
 :::
 
+Every other feature lives in its own module; the [Modules](#modules) section lists them all, ready to copy into `build.sbt`.
+
+On Scala 2, schema derivation uses macros that need `scala-reflect` at compile time. Scala 3 has no `scala-reflect` artifact, so a build that cross-compiles adds it only for Scala 2:
+
+```scala
+libraryDependencies ++= {
+  CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((2, _)) => Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided)
+    case _            => Seq.empty
+  }
+}
+```
+
+[Getting Started](getting-started.md) walks through a first program: deriving a schema, encoding JSON, and validating values.
+
+## Modules
+
 Every other feature lives in its own module, and we add only the modules we use. All modules share the core module's version. Each codec module already depends on `zio-schema-derivation`, so adding a codec also brings in schema derivation.
 
 On the JVM, every module is available. Copy the block and delete the lines you don't need:
@@ -108,19 +125,6 @@ Each add-on module has its own page:
 - Derivation: [Automatic Schema Derivation](automatic-schema-derivation.md)
 - Optics: [Optics Derivation](derivations/optics-derivation.md)
 - ZIO Test: [Derivation of ZIO Test Generators](derivations/zio-test-gen-derivation.md)
-
-On Scala 2, schema derivation uses macros that need `scala-reflect` at compile time. Scala 3 has no `scala-reflect` artifact, so a build that cross-compiles adds it only for Scala 2:
-
-```scala
-libraryDependencies ++= {
-  CrossVersion.partialVersion(scalaVersion.value) match {
-    case Some((2, _)) => Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided)
-    case _            => Seq.empty
-  }
-}
-```
-
-[Getting Started](getting-started.md) walks through a first program: deriving a schema, encoding JSON, and validating values.
 
 ## Example
 
