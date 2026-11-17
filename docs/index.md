@@ -100,6 +100,15 @@ libraryDependencies ++= Seq(
 )
 ```
 
+The build also publishes `zio-schema-macros`, an internal helper that the other modules pull in, so you never add it yourself.
+
+Each add-on module has its own page:
+
+- Codecs: [JSON](derivations/codecs/json.md), [Protocol Buffers](derivations/codecs/protobuf.md), [XML](derivations/codecs/xml.md), [Apache Avro](derivations/codecs/avro.md), [BSON](derivations/codecs/bson.md), [MessagePack](derivations/codecs/message-pack.md), [Apache Thrift](derivations/codecs/thrift.md)
+- Derivation: [Automatic Schema Derivation](automatic-schema-derivation.md)
+- Optics: [Optics Derivation](derivations/optics-derivation.md)
+- ZIO Test: [Derivation of ZIO Test Generators](derivations/zio-test-gen-derivation.md)
+
 On Scala 2, schema derivation uses macros that need `scala-reflect` at compile time. Scala 3 has no `scala-reflect` artifact, so a build that cross-compiles adds it only for Scala 2:
 
 ```scala
