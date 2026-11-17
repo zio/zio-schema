@@ -195,7 +195,14 @@ object ApiProblem {
   implicit val schema: Schema[ApiProblem] = DeriveSchema.gen[ApiProblem]
 
   def fromValidationErrors(errors: Chunk[ValidationError]): ApiProblem =
-    ApiProblem("validation_failed", errors.map(_.message).toList)
+    ApiProblem(
+      "validation_failed",
+      errors.map {
+        // the default RegexMatch message prints the whole regular expression
+        case ValidationError.RegexMatch(value, _) => s"'$value' has an invalid format"
+        case other                                => other.message
+      }.toList
+    )
 }
 ```
 
@@ -294,7 +301,14 @@ object ApiProblem {
   implicit val schema: Schema[ApiProblem] = DeriveSchema.gen[ApiProblem]
 
   def fromValidationErrors(errors: Chunk[ValidationError]): ApiProblem =
-    ApiProblem("validation_failed", errors.map(_.message).toList)
+    ApiProblem(
+      "validation_failed",
+      errors.map {
+        // the default RegexMatch message prints the whole regular expression
+        case ValidationError.RegexMatch(value, _) => s"'$value' has an invalid format"
+        case other                                => other.message
+      }.toList
+    )
 }
 
 object UserApi extends ZIOAppDefault {
