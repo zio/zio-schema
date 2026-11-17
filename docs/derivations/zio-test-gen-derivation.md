@@ -6,7 +6,7 @@ sidebar_label: "ZIO Test Gen Derivation"
 
 ## Introduction
 
-ZIO Test supports property-based testing via the `Gen` type. `Gen[R, A]` is a random generator of values of type `A`. Such a generator can be used to produce test cases for a property, which can then be checked for validity. The `zio-schema-zio-test` module provides a way to derive a `Gen[R, A]` from a `Schema[A]`, so we do not have to write a generator for each type by hand.
+ZIO Test supports property-based testing with the `Gen` type. A `Gen[R, A]` is a random generator of values of type `A`, and a property test checks that a property holds for many values that the generator produces. The `zio-schema-zio-test` module provides a way to derive a `Gen[R, A]` from a `Schema[A]`, so we do not have to write a generator for each type by hand.
 
 ## Installation
 
@@ -59,7 +59,7 @@ object PersonRoundTripSpec extends ZIOSpecDefault {
 }
 ```
 
-The `check` operator runs the property with many generated values. If any value fails the assertion, ZIO Test reports the smallest failing input it finds.
+The `check` operator runs the property with many generated values. If any value fails the assertion, ZIO Test reports the smallest failing input it finds. [How to Property-Test Codecs with DeriveGen](../how-to/property-test-codecs.md) applies the same pattern to round trips through JSON and Protobuf, and shows how to generate values that pass validation.
 
 ## Limitations
 
@@ -68,6 +68,7 @@ The derived generator follows the structure of the schema, not its rules, so a f
 - Generated values ignore `@validate` rules. Filter them with `Gen#filter` and `Schema.validate` when a property needs valid values.
 - A `Transform` schema generates a value of the underlying type and then applies the transformation. When the transformation fails, that sample is dropped instead of reported, so a transformation that rejects most inputs can leave `check` with few or no samples.
 - Sequences and maps have zero or two elements, as described above. Write a generator by hand when a property depends on larger collections.
+- A `Schema.Fail` schema generates no values at all.
 
 :::caution
 `DeriveGen.gen` throws an exception with the message "Missing handler for generating value of schema ..." when the schema is, or contains, a `NonEmptyChunk`, a `NonEmptyMap`, or a `Fallback`. For a type that contains one of these, write its generator by hand and derive generators for the other parts. For example, `Gen.chunkOf1(DeriveGen.gen[Int])` generates `NonEmptyChunk[Int]` values.
