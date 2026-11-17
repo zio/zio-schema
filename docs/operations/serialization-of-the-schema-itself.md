@@ -8,7 +8,7 @@ In distributed systems, we often move computation to the data instead of moving 
 
 ## Turning a Schema into Data
 
-A `Schema[A]` contains functions, such as the constructor of a case class, and functions cannot be serialized. The `Schema#ast` method returns a `MetaSchema` instead: a plain tree that describes only the structure of the schema, such as its records, fields, cases, and primitive types. `MetaSchema` has its own schema, `MetaSchema.schema`, so any codec can encode it:
+A `Schema[A]` contains functions, such as the constructor of a case class, and functions cannot be serialized. The `Schema#ast` method returns a [`MetaSchema`](../reference/meta-schema.md) instead: a plain tree that describes only the structure of the schema, such as its records, fields, cases, and primitive types. `MetaSchema` has its own schema, `MetaSchema.schema`, so any codec can encode it:
 
 ```scala
 sealed trait Schema[A] {
@@ -83,12 +83,7 @@ The same idea works with any other codec, such as Protobuf, because `MetaSchema.
 
 ## What the Tree Keeps
 
-A `MetaSchema` records structure only, so some information does not survive the trip:
-
-- A `Transform` is replaced by the schema it wraps, so a newtype such as `Schema[BigDecimal]` arrives as its underlying primitive.
-- Annotations, such as `fieldName` or `validate`, are not part of the tree.
-- Every sequence, including a `Set` and a non-empty collection, arrives as a `Chunk`, and a `NonEmptyMap` arrives as a plain `Map`.
-- Records and enumerations keep their `TypeId`, field names, and case names, and recursive types are kept as references.
+A `MetaSchema` records structure only. Records and enumerations keep their `TypeId`, field names, and case names, and recursive types are kept as references. A `Transform` is replaced by the schema it wraps, so a newtype such as `Schema[BigDecimal]` arrives as its underlying primitive. Annotations, such as `fieldName` or `validate`, are not part of the tree, and every sequence, including a `Set` and a non-empty collection, arrives as a `Chunk`. The [What the Round Trip Loses](../reference/meta-schema.md#what-the-round-trip-loses) section of the `MetaSchema` reference lists every case.
 
 ## The `Schema#serializable` Method
 
@@ -101,5 +96,5 @@ sealed trait Schema[A] {
 ```
 
 :::caution
-`Schema#serializable` does not work in the current version. It builds the schema of the *values* of `A` and treats it as the schema of a `Schema`. For a primitive schema such as `Schema[Int]`, calling `toDynamic` on the result returns a meaningless value, and for a case class it throws a `ClassCastException`. Use `Schema#ast` with `MetaSchema.schema`, and `MetaSchema#toSchema` on the receiving side, as shown above.
+`Schema#serializable` does not work in the current version. It builds the schema of the *values* of `A` and treats it as the schema of a `Schema`. For a primitive schema such as `Schema[Int]`, calling `Schema#toDynamic` on the result returns a meaningless value, and for a case class it throws a `ClassCastException`. Use `Schema#ast` with `MetaSchema.schema`, and `MetaSchema#toSchema` on the receiving side, as shown above.
 :::
