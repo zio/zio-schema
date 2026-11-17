@@ -3,7 +3,7 @@ id: dynamic-data-representation
 title: "Dynamic Data Representation"
 ---
 
-`DynamicValue` is a way to describe the entire universe of possibilities for schema values. It does that in a way that we can interact with and introspect the data with its structure (type information). The structure of the data is baked into the data itself.
+[`DynamicValue`](../reference/dynamic-value.md) is a way to describe the entire universe of possibilities for schema values. It does that in a way that we can interact with and introspect the data with its structure (type information). The structure of the data is baked into the data itself.
 
 We can create a `DynamicValue` from a schema and a value using `DynamicValue.fromSchemaAndValue` (or `Schema#toDynamic`). We can turn it back into a typed value using `DynamicValue#toTypedValue`, which reports a failure as a message, or `DynamicValue#toValue`, which reports it as a `DecodeError`:
 
@@ -20,7 +20,7 @@ object DynamicValue {
 }
 ```
 
-Let's create a simple instance of `Person("John Doe", 42)` and convert it to `DynamicValue`:
+To convert `Person("John Doe", 42)` to a `DynamicValue`, we pass it to `DynamicValue.fromSchemaAndValue` together with its schema:
 
 ```scala mdoc:silent
 import zio.schema._
@@ -47,23 +47,7 @@ However, when we switch to document-based database models, such as JSON or XML, 
 
 ## The Cases of `DynamicValue`
 
-`DynamicValue` is a sealed trait, and each case mirrors one kind of schema:
-
-| Case                                    | Holds                                                    |
-| --------------------------------------- | -------------------------------------------------------- |
-| `Primitive(value, standardType)`        | A value of a standard type, such as a `String` or `Int`  |
-| `Record(id, values)`                    | The fields of a record, by name                          |
-| `Enumeration(id, (caseName, value))`    | The case of a sealed trait and its value                 |
-| `Sequence(values)`                      | The elements of a list, vector, chunk, or other sequence |
-| `SetValue(values)`                      | The elements of a set                                    |
-| `Dictionary(entries)`                   | The key and value pairs of a map                         |
-| `SomeValue(value)`, `NoneValue`         | An optional value                                        |
-| `LeftValue(value)`, `RightValue(value)` | A side of an `Either`                                    |
-| `BothValue(left, right)`                | Both sides of a `Fallback`                               |
-| `Tuple(left, right)`                    | A pair                                                   |
-| `Singleton(instance)`                   | A single fixed value                                     |
-| `DynamicAst(ast)`                       | A `MetaSchema` that describes a schema                   |
-| `Error(message)`                        | A value that could not be produced                       |
+`DynamicValue` is a sealed trait, and each case mirrors one kind of schema: `Record` and `Enumeration` hold case classes and sealed traits, `Primitive` holds a value of a standard type, `Sequence`, `SetValue`, and `Dictionary` hold collections, and further cases hold optionals, `Either` and `Fallback` sides, tuples, and errors. The [Cases](../reference/dynamic-value.md#cases) section of the `DynamicValue` reference lists every case with its fields and the schemas that produce it.
 
 ## Schema: Converting to/from DynamicValue
 
@@ -79,7 +63,7 @@ sealed trait Schema[A] {
 
 The `Schema#toDynamic` operation erases the type information of the value and places it into the value (the dynamic value) itself. The `Schema#fromDynamic` operation does the opposite: it takes the type information from the dynamic value and uses it to reconstruct the original value.
 
-`fromDynamic` matches a record by its field names and the shape of their values, and ignores the `TypeId` stored in the dynamic value. So if two case classes have the same field names and field types, we can convert a dynamic value of one into a typed value of the other:
+`Schema#fromDynamic` matches a record by its field names and the shape of their values, and ignores the `TypeId` stored in the dynamic value. So if two case classes have the same field names and field types, we can convert a dynamic value of one into a typed value of the other:
 
 ```scala mdoc:silent
 case class User(name: String, age: Int)
@@ -108,9 +92,9 @@ dynamicPerson.toTypedValue[Customer].isLeft
 ```
 
 :::caution
-`fromDynamic` cannot read back the dynamic value of a `NonEmptyChunk`, `NonEmptySet`, `NonEmptyMap`, or `Fallback`: the round trip returns `Left` with a cast error. The same failure affects every operation that goes through `DynamicValue`, such as `Schema#migrate`, `Schema#coerce`, and applying a record patch, when the value contains one of these types. To keep a non-empty collection that round-trips, describe it as a transformed `Chunk`, for example `Schema[Chunk[Int]].transformOrFail(c => NonEmptyChunk.fromChunk(c).toRight("empty chunk"), nec => Right(nec.toChunk))`.
+`Schema#fromDynamic` cannot read back the dynamic value of a `NonEmptyChunk`, `NonEmptySet`, `NonEmptyMap`, or `Fallback`: the round trip returns `Left` with a cast error. The same failure affects every operation that goes through `DynamicValue`, such as `Schema#migrate`, `Schema#coerce`, and applying a record patch, when the value contains one of these types. To keep a non-empty collection that round-trips, describe it as a transformed `Chunk`, for example `Schema[Chunk[Int]].transformOrFail(c => NonEmptyChunk.fromChunk(c).toRight("empty chunk"), nec => Right(nec.toChunk))`.
 :::
 
 ## Manipulating Dynamic Values
 
-When we turn a typed value `A` into a `DynamicValue`, we can manipulate its structure and data dynamically. For example, we can remove a field from a record or make a field optional. This process is called dynamic value migration, which we will discuss in the [schema migration](schema-migration.md) section.
+When we turn a typed value `A` into a `DynamicValue`, we can manipulate its structure and data dynamically. For example, we can remove a field from a record or make a field optional. This process is called dynamic value migration, and the [Schema Migration](schema-migration.md) page describes it.
