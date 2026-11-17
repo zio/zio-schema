@@ -3,8 +3,7 @@ id: basic-building-blocks
 title: "Basic Building Blocks"
 ---
 
-To get started, first we need to understand that a ZIO Schema is basically built-up from these three
-sealed traits: `Record[R]`, `Enum[A]` and `Sequence[Col, Elem]`, along with the case class `Primitive[A]`. Every other type is just a specialisation of one of these (or not relevant to get you started).
+To get started, first we need to understand that a ZIO Schema is built up from a few kinds of schemas: records (the sealed trait `Record[R]`), enumerations (the sealed trait `Enum[A]`), collections (case classes such as `Sequence[Col, Elem, I]`, `Map[K, V]`, and `Set[A]`), and primitives (the case class `Primitive[A]`). Most other schemas, such as `Optional` and `Tuple2`, combine these, and the rest are covered at the end of this page.
 
 The core data type of ZIO Schema is a `Schema[A]` which is **invariant in `A`** by necessity, because a Schema allows us to derive operations that produce an `A` but also operations that consume an `A` and that imposes limitations on the types of **transformation operators** and **composition operators** that we can provide based on a `Schema`.
 
@@ -14,7 +13,7 @@ It looks kind of like this (simplified):
 sealed trait Schema[A] { self =>
   def zip[B](that: Schema[B]): Schema[(A, B)]
 
-  def transform[B](f: A => B, g: B => A): Schema[B]
+  def transform[B](f: A => B, g: B => A)(implicit loc: SourceLocation): Schema[B]
 }
 ```
 
@@ -23,13 +22,17 @@ sealed trait Schema[A] { self =>
 To describe scalar data type `A`, we use the `Primitive[A]` data type which basically is a wrapper around `StandardType`:
 
 ```scala
-case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
+object Schema {
+  final case class Primitive[A](
+    standardType: StandardType[A],
+    annotations: Chunk[Any] = Chunk.empty
+  ) extends Schema[A]
+}
 ```
 
-Primitive values are represented using the `Primitive[A]` type class and represent the elements that we cannot further define through other means. If we visualize our data structure as a tree, primitives are the leaves.
+Primitive values are represented using the `Primitive[A]` case class and represent the elements that we cannot further define through other means. If we visualize our data structure as a tree, primitives are the leaves.
 
-For a list of all standard types (and therefore primitive types) with built-in support, please see the [standard type reference](standard-type-reference.md)
-
+For a list of all standard types (and therefore primitive types) with built-in support, please see the [standard type reference](standard-type-reference.md).
 
 Inside `Schema`'s companion object, we have an implicit conversion from `StandardType[A]` to `Schema[A]`:
 
@@ -41,9 +44,11 @@ object Schema {
 
 So we can easily create a `Schema` for a primitive type `A` either by calling `Schema.primitive[A]` or by calling `Schema.apply[A]`:
 
-```scala
+```scala mdoc:compile-only
+import zio.schema._
+
 val intSchema1: Schema[Int] = Schema[Int]
-val intSchema2: Schema[Int] = Schema.primitive[Int] 
+val intSchema2: Schema[Int] = Schema.primitive[Int]
 ```
 
 ## Fail
@@ -52,18 +57,22 @@ To represents the absence of schema information for the given `A` type, we can u
 
 ```scala
 object Schema {
-  case class Fail[A](
+  final case class Fail[A](
     message: String,
     annotations: Chunk[Any] = Chunk.empty
   ) extends Schema[A]
 }
 ```
 
+The default value of a `Fail` schema is a `Left` with the message.
+
 ## Collections
+
+Collection schemas describe types that hold many values of the same type. ZIO Schema has one case class for each family of collections.
 
 ### Sequence
 
-Often we have a type that is a collection of elements. For example, we might have a `List[User]`. This is called a `Sequence` and is represented using the `Sequence[Col, Elem, I]` type class:
+Often we have a type that is a collection of elements. For example, we might have a `List[User]`. This is called a `Sequence` and is represented using the `Sequence[Col, Elem, I]` case class:
 
 ```scala
 object Schema {
@@ -79,7 +88,7 @@ object Schema {
 }
 ```
 
-The `Sequence` can be anything that can be isomorphic to a list. 
+The `Sequence` can be anything that can be isomorphic to a list. The `identity` value tells sequences of different collection types apart, for example `"List"` and `"Vector"`.
 
 Here is an example schema for list of `Person`s:
 
@@ -124,13 +133,13 @@ object Person {
 
 ### Map
 
-Likewise, we can have a type that is a map of keys to values. ZIO Schema represents this using the following type class:
+Likewise, we can have a type that is a map of keys to values. ZIO Schema represents this using the following case class:
 
 ```scala
 object Schema {
   sealed trait Collection[Col, Elem] extends Schema[Col]
 
-  case class Map[K, V](
+  final case class Map[K, V](
     keySchema: Schema[K],
     valueSchema: Schema[V],
     override val annotations: Chunk[Any] = Chunk.empty
@@ -157,20 +166,20 @@ object Person {
 
 ### Set
 
-The `Set` type class is similar to `Sequence` and `Map`. It is used to represent a schema for a set of elements:
+The `Set` case class is similar to `Sequence` and `Map`. It is used to represent a schema for a set of elements:
 
 ```scala
 object Schema {
   sealed trait Collection[Col, Elem] extends Schema[Col]
 
-  case class Set[A](
+  final case class Set[A](
     elementSchema: Schema[A],
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Collection[scala.collection.immutable.Set[A], A]
 }
 ```
 
-To create a `Schema` for a `Set[A]`, we can use the above type class directly or use the `Schema.set[A]` constructor:
+To create a `Schema` for a `Set[A]`, we can use the above case class directly or use the `Schema.set[A]` constructor:
 
 ```scala mdoc:compile-only
 import zio._
@@ -189,7 +198,7 @@ object Person {
 
 ## Records
 
-Our data structures usually are composed of a lot of types. For example, we might have a `User` type that has a `name` field, an `age` field, an `address` field, and a `friends` field.
+Our data structures usually are composed of a lot of types. For example, we might have a `User` type that has a `name` field, an `age` field, an `address` field, and a `friends` field:
 
 ```scala
 case class User(name: String, age: Int, address: Address, friends: List[User])
@@ -197,7 +206,7 @@ case class User(name: String, age: Int, address: Address, friends: List[User])
 
 This is called a **product type** in functional programming. The equivalent of a product type in ZIO Schema is called a record.
 
-In ZIO Schema such a record would be represented using the `Record[R]` typeclass:
+In ZIO Schema such a record would be represented using the `Record[R]` sealed trait:
 
 ```scala
 object Schema {
@@ -205,17 +214,24 @@ object Schema {
     type Field <: Singleton with String
     def name: Field
     def schema: Schema[A]
+    def annotations: Chunk[Any]
+    def validation: Validation[A]
+    def get: R => A
+    def set: (R, A) => R
   }
 
   sealed trait Record[R] extends Schema[R] {
     def id: TypeId
-    def fields: Chunk[Field[_]]
-    def construct(fieldValues: Chunk[Any]): Either[String, R]
+    val fields: Chunk[Field[R, _]]
+    def construct(fieldValues: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, R]
+    def deconstruct(value: R)(implicit unsafe: Unsafe): Chunk[Option[Any]]
   }
 }
 ```
 
-ZIO Schema has specialized record types for case classes, called `CaseClass1[A, Z]`, `CaseClass2[A1, A2, Z]`, ..., `CaseClass22`. Here is the definition of `apply` method of `CaseClass1` and `CaseClass2`:
+A `Field[R, A]` describes a field of type `A` in a record of type `R`: its name, its schema, its annotations, its validation rule, and the functions that read and update it. `construct` builds a record from its field values, and `deconstruct` returns them. Both take an implicit `zio.Unsafe`, because they skip the type checks that the compiler would normally do.
+
+ZIO Schema has specialized record types for case classes, called `CaseClass0[Z]`, `CaseClass1[A, Z]`, `CaseClass2[A1, A2, Z]`, ..., `CaseClass22`. `CaseClass0` describes a case object or a case class with no fields. Here is the definition of `apply` method of `CaseClass1` and `CaseClass2`:
 
 ```scala
 sealed trait CaseClass1[A, Z] extends Record[Z]
@@ -272,7 +288,7 @@ object Person {
 }
 ```
 
-There is also the `GenericRecord` which is used to either ad-hoc records or records that have more than 22 fields:
+There is also the `GenericRecord`, which is used for ad-hoc records, whose values are a `ListMap[String, _]` of field names to values, and for case classes with more than 22 fields:
 
 ```scala
 object Schema {
@@ -288,8 +304,8 @@ object Schema {
 
 Other times, you might have a type that represents a list of different types. For example, we might have a type, like this:
 
-```scala
-sealed trait PaymentMethod 
+```scala mdoc:compile-only
+sealed trait PaymentMethod
 
 object PaymentMethod {
   final case class CreditCard(number: String, expirationMonth: Int, expirationYear: Int) extends PaymentMethod
@@ -301,7 +317,7 @@ In functional programming, this kind of type is called a **sum type**:
 - In Scala 2, this is called a **sealed trait**.
 - In Scala3, this is called an **enum**.
 
-In ZIO Schema we call these types `enumeration` types, and they are represented using the `Enum[A]` type class.
+In ZIO Schema we call these types `enumeration` types, and they are represented using the `Enum[A]` sealed trait:
 
 ```scala
 object Schema {
@@ -311,7 +327,8 @@ object Schema {
 
 It has specialized types `Enum1[A, Z]`, `Enum2[A1, A2, Z]`, ..., `Enum22[A1, A2, ..., A22, Z]` for enumerations with 1, 2, ..., 22 cases. Here is the definition of `Enum1` and `Enum2`:
 
-```scala 
+```scala
+object Schema {
   sealed case class Enum1[A, Z](
     id: TypeId,
     case1: Case[Z, A],
@@ -329,7 +346,7 @@ It has specialized types `Enum1[A, Z]`, `Enum2[A1, A2, Z]`, ..., `Enum22[A1, A2,
 }
 ```
 
-If the enumeration has more than 22 cases, we can use the `EnumN` type class:
+Each `Case[Z, A]` describes one case of the enumeration `Z` whose value has type `A`: its name, its schema, and the functions that build and take apart a value of the case. If the enumeration has more than 22 cases, we can use the `EnumN` case class:
 
 ```scala
 object Schema {
@@ -345,26 +362,38 @@ It has a simple constructor called `Schema.enumeration`:
 
 ```scala
 object Schema {
-  def enumeration[A, C <: CaseSet.Aux[A]](id: TypeId, caseSet: C): Schema[A] = ???
+  def enumeration[A, C <: CaseSet.Aux[A]](
+    id: TypeId,
+    caseSet: C,
+    annotations: Chunk[Any] = Chunk.empty
+  ): Schema[A] = ???
 }
 ```
 
 ## Optionals
 
-To create a `Schema` for optional values, we can use the `Optional` type class:
+To create a `Schema` for optional values, we can use the `Optional` case class:
 
 ```scala
 object Schema {
-  case class Optional[A](
+  final case class Optional[A](
     schema: Schema[A],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Schema[Option[A]]
 }
 ```
 
-Using the `Schema.option[A]` constructor, makes it easier to do so:
+Using the `Schema.option[A]` constructor makes it easier to do so:
 
-```scala
+```scala mdoc:compile-only
+import zio.schema._
+
+case class Person(name: String, age: Int)
+
+object Person {
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+}
+
 val option: Schema[Option[Person]] = Schema.option[Person]
 ```
 
@@ -374,7 +403,7 @@ Here is the same but for `Either`:
 
 ```scala
 object Schema {
-  case class Either[A, B](
+  final case class Either[A, B](
     left: Schema[A],
     right: Schema[B],
     annotations: Chunk[Any] = Chunk.empty
@@ -384,8 +413,16 @@ object Schema {
 
 We can use `Schema.either[A, B]` to create a `Schema` for `scala.util.Either[A, B]`:
 
-```scala
-val eitherPersonSchema: Schema[scala.util.Either[String, Person]] = 
+```scala mdoc:compile-only
+import zio.schema._
+
+case class Person(name: String, age: Int)
+
+object Person {
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+}
+
+val eitherPersonSchema: Schema[scala.util.Either[String, Person]] =
   Schema.either[String, Person]
 ```
 
@@ -394,26 +431,25 @@ val eitherPersonSchema: Schema[scala.util.Either[String, Person]] =
 Each schema has a `Schema#zip` operator that allows us to combine two schemas and create a schema for a tuple of the two types:
 
 ```scala
-object Schema {
-  def zip[B](that: Schema[B]): Schema[(A, B)] = 
+sealed trait Schema[A] { self =>
+  def zip[B](that: Schema[B]): Schema[(A, B)] =
     Schema.Tuple2(self, that)
 }
 ```
 
-It is implemented using the `Schema.Tuple2` type class:
+It is implemented using the `Schema.Tuple2` case class:
 
 ```scala
 object Schema {
   final case class Tuple2[A, B](
     left: Schema[A],
-    right: Schema[B], 
-    annotations: Chunk[Any] = Chunk.em
-    pty
-  ) extends Schema[(A, B)] 
+    right: Schema[B],
+    annotations: Chunk[Any] = Chunk.empty
+  ) extends Schema[(A, B)]
 }
 ```
 
-ZIO Schema also provides implicit conversions for tuples of arity 2, 3, ..., 22:
+ZIO Schema also provides implicit schemas for tuples of arity 2, 3, ..., 22:
 
 ```scala
 object Schema {
@@ -423,7 +459,7 @@ object Schema {
   implicit def tuple3[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
     c1.zip(c2).zip(c3).transform({ case ((a, b), c) => (a, b, c) }, { case (a, b, c) => ((a, b), c) })
 
-  // tuple3, tuple4, ..., tuple22
+  // tuple4, tuple5, ..., tuple22
 }
 ```
 
@@ -436,3 +472,43 @@ val tuple2: Schema[(String, Int)]          = Schema[(String, Int)]
 val tuple3: Schema[(String, Int, Boolean)] = Schema[(String, Int, Boolean)]
 // ...
 ```
+
+## Other Schema Types
+
+A few more schema types complete the picture. The following list describes what each one is for:
+
+- `Transform[A, B, I]` describes a type `B` in terms of a schema for `A` and two conversions. `Schema#transform` and `Schema#transformOrFail` create it, as described in [Transforming Schemas](operations/transforming-schemas.md).
+- `Lazy[A]` delays building a schema until it is first used. `Schema.defer` creates it, and it is needed to write a schema for a recursive type by hand.
+- `NonEmptySequence[Col, Elem, I]` and `NonEmptyMap[K, V]` describe collections that cannot be empty, such as `NonEmptyChunk`, `NonEmptySet`, and `NonEmptyMap` from ZIO Prelude. `Schema.nonEmptyChunk`, `Schema.nonEmptySet`, and `Schema.nonEmptyMap` create them.
+- `Fallback[A, B]` describes a `zio.schema.Fallback[A, B]`, which holds a left value, a right value, or both. `Schema.fallback` creates it.
+- `Dynamic` describes a `DynamicValue`, a value whose structure is only known at runtime. `Schema.dynamicValue` is its implicit instance.
+
+The following example writes a schema for a recursive tree by hand. The `children` field refers to the schema being defined, so it is wrapped in `Schema.defer`:
+
+```scala mdoc:compile-only
+import zio.schema._
+
+final case class Tree(value: Int, children: List[Tree])
+
+object Tree {
+  implicit lazy val schema: Schema[Tree] =
+    Schema.CaseClass2[Int, List[Tree], Tree](
+      id0 = TypeId.fromTypeName("Tree"),
+      field01 = Schema.Field(
+        name0 = "value",
+        schema0 = Schema[Int],
+        get0 = _.value,
+        set0 = (tree, value) => tree.copy(value = value)
+      ),
+      field02 = Schema.Field(
+        name0 = "children",
+        schema0 = Schema.defer(Schema.list(schema)),
+        get0 = _.children,
+        set0 = (tree, children) => tree.copy(children = children)
+      ),
+      construct0 = (value, children) => Tree(value, children)
+    )
+}
+```
+
+`DeriveSchema.gen` handles recursive types on its own, so `Schema.defer` is only needed when you write the schema yourself.
