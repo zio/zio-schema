@@ -69,7 +69,7 @@ object CombiningExample extends ZIOAppDefault {
 
   val people: Chunk[Person] = Chunk(Person("Michelle", 32), Person("John", 42))
 
-  def run =
+  def run: ZIO[Any, DecodeError, Unit] =
     for {
       result <- ZStream
                   .fromChunk(people)
