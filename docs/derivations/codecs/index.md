@@ -102,30 +102,30 @@ The Avro, BSON, MessagePack, and Thrift modules depend on Java libraries and are
 
 The annotations in `zio.schema.annotation`, described on the [Schema Annotations](../../schema-annotations.md) page, are hints that each codec may or may not read. A format that identifies fields and cases by number or by position has no use for names, and some codecs ignore an annotation that their format could support. The following table shows what each codec does with each annotation:
 
-| Annotation          | JSON   | XML     | BSON    | Avro    | MessagePack | Protobuf | Thrift  |
-| ------------------- | ------ | ------- | ------- | ------- | ----------- | -------- | ------- |
-| `fieldName`         | Yes    | Yes     | Yes (1) | Yes (1) | Yes (1)     | -        | -       |
-| `fieldNameAliases`  | Decode | No      | Decode  | No      | No          | -        | -       |
-| `caseName`          | Yes    | Yes     | Yes     | No      | -           | -        | -       |
-| `caseNameAliases`   | Decode | Decode  | Decode  | No      | -           | -        | -       |
-| `discriminatorName` | Yes    | Yes (2) | Yes     | No      | No          | No       | No      |
-| `noDiscriminator`   | Yes    | Yes     | Yes     | No      | No          | No       | No      |
-| `simpleEnum`        | Yes    | Yes     | Yes (3) | No (4)  | No          | No       | No      |
-| `transientField`    | Yes    | Yes     | Yes     | No      | No          | Yes (5)  | Yes (5) |
-| `transientCase`     | Yes    | Decode  | Yes     | No      | No          | No       | No      |
-| `optionalField`     | Yes    | Decode  | Decode  | No      | No          | No       | Decode  |
-| `fieldDefaultValue` | Decode | Decode  | Decode  | No (6)  | No          | Decode   | Decode  |
-| `rejectExtraFields` | Yes    | No      | Yes     | No      | Always (7)  | No (8)   | No      |
+| Annotation          | JSON   | XML     | BSON    | Avro    | MessagePack | Protobuf | Thrift     |
+| ------------------- | ------ | ------- | ------- | ------- | ----------- | -------- | ---------- |
+| `fieldName`         | Yes    | Yes     | Yes (1) | Yes (1) | Yes (1)     | -        | -          |
+| `fieldNameAliases`  | Decode | No      | Decode  | No      | No          | -        | -          |
+| `caseName`          | Yes    | Yes     | Yes     | No      | -           | -        | -          |
+| `caseNameAliases`   | Decode | Decode  | Decode  | No      | -           | -        | -          |
+| `discriminatorName` | Yes    | Yes (2) | Yes     | No      | No          | No       | No         |
+| `noDiscriminator`   | Yes    | Yes     | Yes     | No      | No          | No       | No         |
+| `simpleEnum`        | Yes    | Yes     | Yes (3) | No (4)  | No          | No       | No         |
+| `transientField`    | Yes    | Yes     | Yes     | No      | No          | Yes (5)  | Yes (5)    |
+| `transientCase`     | Yes    | Decode  | Yes     | No      | No          | No       | No         |
+| `optionalField`     | Yes    | Decode  | Decode  | No      | No          | No       | Decode     |
+| `fieldDefaultValue` | Decode | Decode  | Decode  | No (6)  | No          | Decode   | Decode     |
+| `rejectExtraFields` | Yes    | No      | Yes     | No      | Always (7)  | No (8)   | Always (7) |
 
-In the table, "Yes" means the codec honours the annotation when it encodes and when it decodes, "Decode" means only the decoder reads it, "No" means the codec ignores it, and "-" means the format never writes that name, because it identifies fields or cases by number or position. The numbered notes explain the special cases:
+In the table, "Yes" means the codec honours the annotation when it encodes and when it decodes, "Decode" means only the decoder reads it, "No" means the codec ignores it, "Always" means the codec behaves that way whether or not the annotation is present, and "-" means the format never writes that name, because it identifies fields or cases by number or position. The numbered notes explain the special cases:
 
 1. These codecs use the field name that `DeriveSchema` stores in the schema, which is the `fieldName` value. A schema built by hand that only carries the annotation keeps the original name.
 2. The XML codec writes the discriminator as a child element, not as an attribute.
 3. The BSON codec writes any sealed trait whose cases are all case objects as a string, with or without the annotation.
 4. Use `@AvroAnnotations.avroEnum` to write an Avro enum.
-5. The field must come after all non-transient fields. A `transientField` placed before another field shifts the field numbers, so the value no longer decodes.
+5. The field must come after all non-transient fields. A `transientField` placed before another field shifts the field numbers, so the value no longer decodes. The Protobuf decoder fills the field only from a Scala default parameter or `@fieldDefaultValue`, so the field needs one of them.
 6. Use `@AvroAnnotations.default` to put a default into the Avro schema.
-7. The MessagePack decoder always fails on a field the type does not declare, and on a missing field.
+7. The MessagePack decoder always fails on a field the type does not declare, and on a missing field. The Thrift decoder fails on a field id higher than the number of fields in the type.
 8. The Protobuf decoder skips field numbers it does not know, which keeps old readers working with newer writers.
 
 The JSON codec has one more interaction to keep in mind: `JsonCodec.Configuration#fieldNameFormat` is applied to every field, including fields renamed with `@fieldName`. The [JSON](json.md) page explains how to keep an explicit name in that case.
@@ -134,4 +134,4 @@ None of the codecs runs the validation rules attached with `@validate` while dec
 
 ## Streaming
 
-Every `BinaryCodec` has a `streamEncoder` and a `streamDecoder`, but only the JSON codec splits a byte stream into separate values reliably. The binary codecs decode each upstream chunk as one complete message. The [How to Encode and Decode Streams](../../integration-with-zio-streams.md) guide shows how to stream each format safely.
+Every `BinaryCodec` has a `BinaryCodec#streamEncoder` and a `BinaryCodec#streamDecoder`, but only the JSON codec, in its default newline-delimited format, splits a byte stream into separate values reliably. The binary codecs decode each upstream chunk as one complete message. The [How to Encode and Decode Streams](../../integration-with-zio-streams.md) guide shows how to stream each format safely.
