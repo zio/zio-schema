@@ -60,6 +60,8 @@ TypeId.fromTypeName("Person").name
 TypeId.parse("com.example.Outer.Person")
 ```
 
+`TypeId.parse` cannot know which parts of a dotted name are packages and which are objects, so it guesses from the case of the first letter. Reading from the right, the last part is the type name, the parts before it that start with an upper-case letter are object names, and everything to their left is the package. A package name that starts with an upper-case letter is therefore read as an object name. An empty string parses to `TypeId.Structural`.
+
 The `fullyQualified` method on a `Nominal` value joins its parts back into a dotted name:
 
 ```scala mdoc
@@ -69,4 +71,18 @@ TypeId.parse("com.example.Outer.Person") match {
 }
 ```
 
-Derived schemas get their `TypeId` from the type they describe, so you rarely build one by hand.
+Derived schemas get their `TypeId` from the type they describe, so you rarely build one by hand. To read the identifier of any schema, call `Schema.getTypeId`. It returns the `TypeId` of a record or an enumeration, the identifier of the Scala or Java type for standard types and built-in collections, the identifier of the underlying schema for a transformed schema, and `TypeId.Structural` for a schema created with `Schema.fail`:
+
+```scala mdoc
+import zio.schema.{DeriveSchema, Schema}
+
+case class Person(name: String, age: Int)
+
+object Person {
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+}
+
+Schema.getTypeId(Person.schema).name
+```
+
+`TypeId` has its own schema, `TypeId.schema`, which encodes an identifier as its fully qualified name and reads it back with `TypeId.parse`. This lets a `TypeId` be stored or sent like any other value.
