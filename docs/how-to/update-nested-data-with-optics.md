@@ -238,7 +238,7 @@ Order.items.update(order)(_ :+ LineItem("SKU-3", 1)).map(_.items)
 ```
 
 :::note
-`ZioOpticsBuilder` implements every get and set by converting the value to a `DynamicValue` and back, so a derived optic is much slower than the equivalent `copy` call. Use derived optics where the convenience of a reusable path matters more than speed, not in tight loops.
+`ZioOpticsBuilder` implements every lens get and set by converting the whole value to a `DynamicValue` and back, so a derived lens, and every optic composed from one, is much slower than the equivalent `copy` call. Use derived optics where the convenience of a reusable path matters more than speed, not in tight loops.
 :::
 
 ## Going Further
