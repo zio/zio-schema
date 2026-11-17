@@ -3,7 +3,7 @@ id: diffing-and-patching
 title: "Diffing and Patching"
 ---
 
-ZIO Schema provides two methods called `diff` and `patch`:
+A schema can compute the difference between two values of its type and apply that difference to a value later. `Schema#diff` and `Schema#patch` provide these two operations:
 
 ```scala
 sealed trait Schema[A] {
@@ -13,7 +13,7 @@ sealed trait Schema[A] {
 }
 ```
 
-The `diff` method takes two values of the same type `A` and returns a `Patch[A]` value that describes the differences between the two values. Conversely, the `patch` method takes a value of type `A` and a `Patch[A]` value and returns a new value of type `A` that is the result of applying the patch to the original value. The [Patch and Differ](../reference/patch-and-differ.md) reference page describes the `Patch` and `Differ` types in detail.
+`Schema#diff` takes two values of the same type `A` and returns a `Patch[A]` value that describes the differences between the two values. Conversely, `Schema#patch` takes a value of type `A` and a `Patch[A]` value and returns a new value of type `A` that is the result of applying the patch to the original value. The [Patch and Differ](../reference/patch-and-differ.md) reference page describes the `Patch` and `Differ` types in detail.
 
 ## Diffing Two Records
 
@@ -42,7 +42,7 @@ Person.schema.patch(oldValue, personPatch) == Right(newValue)
 
 A record patch holds one entry for every field, and the entry for an unchanged field is an identical patch. Applying the patch converts the whole record through `DynamicValue`, so the cost grows with the size of the record, not with the number of changed fields.
 
-The `zio.schema.syntax` object adds the same operations as methods on any value that has an implicit schema. `DiffOps#diffEach` is an alias of `DiffOps#diff` that does not clash with the `diff` method of Scala collections:
+The `zio.schema.syntax` object adds the same operations as methods on any value that has an implicit schema. `DiffOps#diffEach` is an alias of `DiffOps#diff` that does not clash with `Seq#diff` from the Scala collections:
 
 ```scala mdoc
 import zio.schema.syntax._
@@ -57,7 +57,7 @@ Some pairs of values cannot be described as a change of one into the other. For 
 - Two values of a sealed trait or enumeration are different cases.
 - One `Either` is a `Left` and the other is a `Right`.
 - The values are `DynamicValue`s, which are never compared.
-- A `transformOrFail` schema cannot convert one of the values back to its underlying type.
+- A `Schema#transformOrFail` schema cannot convert one of the values back to its underlying type.
 
 When such a pair appears inside a record, for example as one field of a case class, the record patch contains the failing entry, so applying the whole patch fails. The following sealed trait shows the first case:
 
