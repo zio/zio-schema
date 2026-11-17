@@ -1,6 +1,6 @@
 ---
 id: evolve-a-data-model
-title: "Tutorial: Evolve a Data Model Safely"
+title: "Evolve a Data Model Safely"
 description: "Learn to change a case class that is stored as JSON without breaking old data: defaults, optional fields, aliases, removals, and migrations."
 keywords:
   - "ZIO Schema"
@@ -10,7 +10,7 @@ keywords:
   - "Schema migration"
 ---
 
-Welcome to the second ZIO Schema tutorial! It is for Scala developers who have finished [Your First Schema](first-schema.md), so you already know how `DeriveSchema.gen` builds a schema and how `JsonCodec` turns a value into JSON. You don't need any prior experience with schema evolution to follow along.
+Welcome to the second ZIO Schema tutorial! It is for Scala developers who have finished [Your First Schema](first-schema.md), so you already know how `DeriveSchema.gen` builds a schema and how `JsonCodec` turns a value into JSON. You don't need any prior experience with schema evolution to follow along, and the project setup from the first tutorial, the core module plus `zio-schema-json`, covers every example.
 
 ## Learning Objectives
 
@@ -307,7 +307,7 @@ You can now change a stored model one safe step at a time. The next step is to l
 
 ## Where to Go Next
 
-- **Explore the tree behind migrations:** [Working with Dynamic Data](dynamic-data.md) shows how to inspect and change a `DynamicValue`.
+- **Continue the tutorial series:** [Working with Dynamic Data](dynamic-data.md), the third tutorial, shows how to inspect and change the `DynamicValue` tree that migrations work on.
 - **See every migration step:** [Migration Operations](../reference/migration-operations.md) describes each `Migration` case.
 - **Learn how steps are derived:** [Schema Migration](../operations/schema-migration.md) explains `Schema#migrate`, `Schema#coerce`, and `Migration.derive`.
 - **Look up the annotations:** [Schema Annotations](../schema-annotations.md) covers `@fieldNameAliases`, `@optionalField`, `@fieldDefaultValue`, and `@rejectExtraFields`.
