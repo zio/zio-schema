@@ -29,7 +29,7 @@ inThisBuild(
     ),
     scmInfo := Some(
       ScmInfo(
-        homepage.value.get,
+        url("https://github.com/zio/zio-schema"),
         "scm:git:git@github.com:zio/zio-schema.git"
       )
     ),
