@@ -94,12 +94,19 @@ import zio.schema.codec.{BinaryCodec, ProtobufCodec, fieldNumber}
 import zio.schema.{DeriveSchema, Schema}
 
 final case class RecordV1(x: Int, y: Int)
-final case class RecordV2(x: Int = 100, y: Int, z: Int)
-final case class RecordV3(@fieldNumber(2) y: Int, @fieldNumber(4) extra: String = "unknown", @fieldNumber(3) z: Int)
+object RecordV1 {
+  implicit val schema: Schema[RecordV1] = DeriveSchema.gen[RecordV1]
+}
 
-implicit val schemaV1: Schema[RecordV1] = DeriveSchema.gen[RecordV1]
-implicit val schemaV2: Schema[RecordV2] = DeriveSchema.gen[RecordV2]
-implicit val schemaV3: Schema[RecordV3] = DeriveSchema.gen[RecordV3]
+final case class RecordV2(x: Int = 100, y: Int, z: Int)
+object RecordV2 {
+  implicit val schema: Schema[RecordV2] = DeriveSchema.gen[RecordV2]
+}
+
+final case class RecordV3(@fieldNumber(2) y: Int, @fieldNumber(4) extra: String = "unknown", @fieldNumber(3) z: Int)
+object RecordV3 {
+  implicit val schema: Schema[RecordV3] = DeriveSchema.gen[RecordV3]
+}
 
 val codecV1: BinaryCodec[RecordV1] = ProtobufCodec.protobufCodec[RecordV1]
 val codecV2: BinaryCodec[RecordV2] = ProtobufCodec.protobufCodec[RecordV2]
@@ -164,7 +171,8 @@ object Main extends ZIOAppDefault {
   val decoded: ZStream[Any, DecodeError, Person] =
     messages.mapZIO(bytes => ZIO.fromEither(Person.protobufCodec.decode(bytes)))
 
-  def run = decoded.runCollect.debug("decoded people")
+  def run: ZIO[Any, DecodeError, Chunk[Person]] =
+    decoded.runCollect.debug("decoded people")
 }
 ```
 
