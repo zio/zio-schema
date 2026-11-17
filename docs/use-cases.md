@@ -23,7 +23,7 @@ We can then use one of the available codecs (or [write our own](how-to/custom-co
 - MessagePack (`zio-schema-msg-pack`)
 - XML (`zio-schema-xml`)
 
-The [Installation](index.md#installation) section lists the platforms each module supports, and [Codecs](derivations/codecs/index.md) describes each codec. ZIO Schema has no CSV, YAML, or query-string codec; a custom codec can add one.
+The [Modules](index.md#modules) section lists the platforms each module supports, and [Codecs](derivations/codecs/index.md) describes each codec. ZIO Schema has no CSV, YAML, or query-string codec; a custom codec can add one.
 
 Because the schema is an ordinary value, the same description of a type supports many tasks beyond serialization:
 
