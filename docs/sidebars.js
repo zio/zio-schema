@@ -4,15 +4,21 @@ const sidebars = {
     "getting-started",
     {
       type: "category",
+      label: "Concepts",
+      collapsed: false,
+      link: { type: "doc", id: "explanation/index" },
+      items: [
+        "motivation",
+        "use-cases",
+        "basic-building-blocks",
+        "derivations/derivation-scala-versions",
+      ],
+    },
+    {
+      type: "category",
       label: "Reference",
       collapsed: false,
       items: [
-        {
-          type: "category",
-          label: "Concepts",
-          collapsed: false,
-          items: ["motivation", "use-cases", "basic-building-blocks"],
-        },
         {
           type: "category",
           label: "Writing Schemas",
@@ -20,7 +26,6 @@ const sidebars = {
           items: [
             "manual-schema-construction",
             "automatic-schema-derivation",
-            "derivations/derivation-scala-versions",
             "schema-annotations",
           ],
         },
