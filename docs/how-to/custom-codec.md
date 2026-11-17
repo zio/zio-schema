@@ -13,6 +13,17 @@ The format modules cover JSON, Protobuf, Avro, and other common formats. When yo
 
 This guide writes a codec that stores a `Person` as one line, `name,age`, and reads it back.
 
+## Prerequisites
+
+The `Codec` trait lives in the core module, and `DeriveSchema` in the derivation module:
+
+```scala
+libraryDependencies ++= Seq(
+  "dev.zio" %% "zio-schema"            % "@VERSION@",
+  "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
+)
+```
+
 ## Define the Model
 
 The model is an ordinary case class with a schema, so the rest of the library can use it:
@@ -64,7 +75,7 @@ This codec writes its own format and does not read the schema. Use it when the f
 
 ## Use the Codec
 
-We create the codec and encode a value:
+We create an instance of the codec:
 
 ```scala mdoc:silent
 val lineCodec = new PersonLineCodec
@@ -88,7 +99,7 @@ A line that does not match the format gives a `Left`:
 lineCodec.decode("John").left.map(_.getMessage)
 ```
 
-To process a stream of people, the streaming methods build a pipeline. The following program encodes two people, decodes the lines back, and collects the result. `Unsafe` runs the stream here so the example prints its result:
+To process a stream of people, the streaming methods build a pipeline. The following program encodes two people, decodes the lines back, and collects the result:
 
 ```scala mdoc:silent
 val roundTrip: ZIO[Any, DecodeError, Chunk[Person]] =
@@ -98,7 +109,7 @@ val roundTrip: ZIO[Any, DecodeError, Chunk[Person]] =
     .runCollect
 ```
 
-Running the program gives both people back:
+Running the program with `Unsafe`, so that the page can print its result, gives both people back:
 
 ```scala mdoc
 Unsafe.unsafe { implicit unsafe =>
