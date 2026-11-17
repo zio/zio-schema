@@ -62,77 +62,34 @@ object Point {
 
 All three spellings produce the same schema. Use whichever your team prefers.
 
+The documentation build compiles its snippets with Scala 2.13, so the Scala 3 snippets on this page are not compiled. The Scala 3 artifacts of ZIO Schema are compiled with Scala 3.9, so a Scala 3 project needs Scala 3.9 or later.
+
 ## Scala 3 Enums, Union Types, and Opaque Types
 
-Scala 3 adds kinds of types that Scala 2 does not have. Derivation handles each of them differently.
+Scala 3 adds kinds of types that Scala 2 does not have, and derivation treats each of them differently:
 
-### Enums
+- An `enum` derives like a sealed trait: each case becomes a case of the schema. When no case has fields and the enum itself has no parameters, derivation also adds the `simpleEnum` annotation, so the JSON codec encodes each case as a plain string.
+- A union type such as `Int | String` derives as an enum with one case per member. The cases are named `"1"`, `"2"`, and so on, in the order the members are written, and the schema carries the `noDiscriminator` annotation.
+- An opaque type is not derived: `DeriveSchema.gen` fails with the compile error "Deriving schema for ... is not supported". Write its schema by hand in the opaque type's companion object, and derivation of an enclosing case class picks it up.
 
-A Scala 3 `enum` derives like a sealed trait: each case becomes a case of the schema. When no case has fields and the enum itself has no parameters, derivation also adds the `simpleEnum` annotation, so the JSON codec encodes each case as a plain string:
+Scala 3 derivation also turns the Scaladoc comment of a type into a `description` annotation. The annotation holds the raw comment, including the `/**` and `*/` delimiters. Comments on enum cases are not kept per case: every case without fields receives the comments of all the enum's cases, and a case with fields receives none.
 
-```scala
-import zio.schema._
-
-enum Status derives Schema {
-  case Active, Suspended, Closed
-}
-
-enum Colour(val rgb: Int) derives Schema {
-  case Red   extends Colour(0xff0000)
-  case Green extends Colour(0x00ff00)
-}
-```
-
-Here `Status` gets `simpleEnum`, and `Colour` does not, because it has the `rgb` parameter. Scala 3 derivation also turns a Scaladoc comment on a type or enum case into a `description` annotation. The annotation holds the raw comment, including the `/**` and `*/` delimiters.
-
-### Union Types
-
-A union type such as `Int | String | Boolean` derives as an enum with one case per member. The cases are named `"1"`, `"2"`, `"3"`, and so on, in the order the members are written, and the schema carries the `noDiscriminator` annotation, so codecs that honor it write the value itself without a wrapper that names the case:
-
-```scala
-import zio.schema._
-
-val idSchema: Schema[Int | String] = DeriveSchema.gen[Int | String]
-```
-
-### Opaque Types
-
-`DeriveSchema.gen` cannot derive a schema for an opaque type; the compiler reports that deriving it is not supported. Define the schema yourself, usually by transforming the schema of the underlying type, and put it in the opaque type's companion object. Derivation of an enclosing case class then picks it up:
-
-```scala
-import zio.schema._
-
-object ids {
-  opaque type UserId = String
-
-  object UserId {
-    def apply(value: String): UserId = value
-
-    extension (id: UserId) def value: String = id
-
-    given Schema[UserId] = Schema[String].transform(UserId(_), _.value)
-  }
-}
-
-import ids.UserId
-
-final case class User(id: UserId, name: String) derives Schema
-```
+[How to Use ZIO Schema with Scala 3](../how-to/scala-3.md) shows each of these with examples, including a schema for an opaque type that checks its invariant.
 
 ## Choosing a Form
 
 The table summarizes the differences:
 
-| Aspect                                                 | Scala 2                                                             | Scala 3                                                                              |
-| ------------------------------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Mechanism                                              | Whitebox macro                                                      | Transparent inline method                                                            |
-| `DeriveSchema.gen`                                     | Implicit, but used by implicit search only where it is imported     | Not implicit                                                                         |
-| Extra entry points                                     | None                                                                | `Schema.derived[A]` and `derives Schema`                                             |
-| Typical use                                            | `implicit val schema = DeriveSchema.gen[T]` in the companion object | `derives Schema`, or `given Schema[T] = Schema.derived[T]` in the companion object   |
-| Enums, union types                                     | Not available in the language                                       | Supported                                                                            |
-| Opaque types                                           | Not available in the language                                       | Not derived; write the schema by hand                                                |
-| Scaladoc as `description`                              | No                                                                  | Yes                                                                                  |
-| `@validate` on case classes with more than 22 fields   | Dropped (see the caution below)                                     | Kept                                                                                 |
+| Aspect                                               | Scala 2                                                                        | Scala 3                                                                            |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Mechanism                                            | Whitebox macro                                                                 | Transparent inline method                                                          |
+| `DeriveSchema.gen`                                   | Implicit, but used by implicit search only where it is imported                | Not implicit                                                                       |
+| Extra entry points                                   | None                                                                           | `Schema.derived[A]` and `derives Schema`                                           |
+| Typical use                                          | `implicit val schema: Schema[T] = DeriveSchema.gen[T]` in the companion object | `derives Schema`, or `given Schema[T] = Schema.derived[T]` in the companion object |
+| Enums, union types                                   | Not available in the language                                                  | Supported                                                                          |
+| Opaque types                                         | Not available in the language                                                  | Not derived; write the schema by hand                                              |
+| Scaladoc as `description`                            | No                                                                             | Yes                                                                                |
+| `@validate` on case classes with more than 22 fields | Dropped (see the caution below)                                                | Kept                                                                               |
 
 Both forms need the `zio-schema-derivation` module on the classpath.
 
