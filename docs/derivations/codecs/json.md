@@ -199,7 +199,7 @@ JsonCodec.jsonDecoder(strictNulls)(Profile.schema).decodeJson("""{"userName":"al
 `fieldNameFormat` rewrites the name of every field when encoding, and the decoder expects the rewritten names. It is a quick way to match a snake-case or kebab-case API without annotating each field.
 
 :::caution
-`fieldNameFormat` also rewrites fields that you renamed with `@fieldName`. With `NameFormat.SnakeCase`, a field annotated `@fieldName("UserID")` is written as `user_id`, not `UserID`. To keep an explicit name, pass a `NameFormat.Custom` function that returns that name unchanged, or rename the fields with `@fieldName` and leave `fieldNameFormat` at `NameFormat.Identity`.
+`fieldNameFormat` also rewrites fields that you renamed with `@fieldName`, because derivation stores the `@fieldName` value as the field's name. With `NameFormat.SnakeCase`, a field annotated `@fieldName("UserID")` is written as `user_id`, not `UserID`. To keep an explicit name, pass a `NameFormat.Custom` function that returns that name unchanged, or rename the fields with `@fieldName` and leave `fieldNameFormat` at `NameFormat.Identity`.
 :::
 
 The following schema renames one field explicitly and formats every other field as snake case:
@@ -273,7 +273,11 @@ By default, the decoder skips fields that the type does not declare. `rejectExtr
 
 ## Streaming
 
-The binary codec from `JsonCodec.schemaBasedBinaryCodec` has a `streamEncoder` and a `streamDecoder`. By default, the encoder writes one JSON value per line (newline-delimited JSON). With `treatStreamsAsArrays = true`, it writes the whole stream as one JSON array. The decoder finds the boundaries between values itself, so it decodes correctly however the bytes are split into chunks. The JSON codec is the only built-in codec that streams several values reliably; the [How to Encode and Decode Streams](../../integration-with-zio-streams.md) guide has worked examples.
+The binary codec from `JsonCodec.schemaBasedBinaryCodec` has a `BinaryCodec#streamEncoder` and a `BinaryCodec#streamDecoder`. By default, the encoder writes one JSON value per line (newline-delimited JSON), and the decoder finds the boundaries between values itself, so it decodes correctly however the bytes are split into chunks. With `treatStreamsAsArrays = true`, the encoder writes the whole stream as one JSON array, and the decoder reads the elements of one. The JSON codec is the only built-in codec that streams several values reliably; the [How to Encode and Decode Streams](../../integration-with-zio-streams.md) guide has worked examples.
+
+:::caution
+With `treatStreamsAsArrays = true`, the stream decoder dies with an `ArrayIndexOutOfBoundsException` when the array arrives split across chunks of more than one byte. Use the default newline-delimited format for streams read from a socket or a file, or collect the bytes and decode them as one chunk.
+:::
 
 ## Annotations
 
