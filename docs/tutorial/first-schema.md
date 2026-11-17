@@ -92,7 +92,7 @@ The `@validate` annotations from section 1 become part of the schema. The `Schem
 Person.schema.validate(john).isEmpty
 ```
 
-An invalid value returns one entry for each rule it breaks. The following person has an empty name and an age above the allowed range:
+An invalid value returns one entry for each check that fails. The following person has an empty name and an age above the allowed range:
 
 ```scala mdoc
 val invalid = Person("", 130)
@@ -100,7 +100,7 @@ val invalid = Person("", 130)
 Person.schema.validate(invalid).size
 ```
 
-The count of 3 is the number of failed checks across both fields. Validation does not change the value. It only reports problems, so the calling code decides what to do with them.
+The count of 3 is the number of failed checks across both fields: one for the name, and two for the age, because `Validation.between` is built from a "less than" check and an "equal to" check that both fail for 130. Validation does not change the value. It only reports problems, so the calling code decides what to do with them.
 
 ## 4. Comparing Values with Diff and Patch
 
@@ -120,7 +120,7 @@ The `Patch` value is a detailed structure, so we do not print it. Instead, we ap
 Person.schema.patch(john, patch) == Right(olderJohn)
 ```
 
-The result is `true`, so the patch turns `john` into `olderJohn`. The patch marks `age` as the only field that changed, so it stays small even when the record is large.
+The result is `true`, so the patch turns `john` into `olderJohn`. The patch for a record holds one entry per field: a change for `age`, and an "identical" marker for `name`, which did not change.
 
 ## 5. Putting the Pieces Together
 
@@ -137,7 +137,9 @@ def sendPerson(updated: Person): Either[String, Chunk[Byte]] = {
 }
 ```
 
-The `sendPerson` function checks the value first and returns a `Left` when a rule fails. Otherwise it encodes the whole value. In a real system, you would send the patch from section 4 instead of the whole value when the receiver already has the old value.
+The `sendPerson` function checks the value first and returns a `Left` when a rule fails. Otherwise it encodes the whole value. JSON decoding does not check the rules, so a receiver that wants the same guarantee calls `Schema#validate` again after decoding.
+
+The valid person is encoded, and the invalid one is rejected:
 
 ```scala mdoc
 sendPerson(olderJohn).isRight
@@ -157,7 +159,7 @@ You now have a foundation for the rest of the library. The next step is to see h
 
 ## Where to Go Next
 
-- **Explore the reference pages:** [Basic Building Blocks](../basic-building-blocks.md) lists every schema type, and [Standard Type Reference](../standard-type-reference.md) lists the built-in types.
+- **Explore the reference pages:** [Basic Building Blocks](../basic-building-blocks.md) describes the kinds of schemas, and [Standard Type Reference](../standard-type-reference.md) lists the built-in primitive types.
 - **Learn how to write schemas by hand:** [Manual Schema Construction](../manual-schema-construction.md) shows how to build a schema without deriving it.
 - **Choose a codec:** [Codecs](../derivations/codecs/index.md) compares JSON, Protobuf, Avro, and the other formats.
 - **Work with changing models:** [Schema Migration](../operations/schema-migration.md) shows how to move data between two versions of a model.
