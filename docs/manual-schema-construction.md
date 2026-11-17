@@ -168,7 +168,6 @@ Here's an example that demonstrates a roundtrip test for protobuf codecs:
 ```scala mdoc:silent
 import zio.schema._
 import zio.schema.codec._
-import zio.schema.codec.ProtobufCodec._
 
 // Create a customer instance
 val customer =
