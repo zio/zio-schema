@@ -1,9 +1,26 @@
 ---
 id: combining-different-encoders
 title: "Combining Different Encoders"
+description: "Move one data model between JSON and Protobuf, for single values and for streams, using codecs derived from one schema."
+keywords:
+  - "Codecs"
+  - "JSON"
+  - "Protobuf"
+  - "BinaryCodec"
 ---
 
 Because every codec is derived from the same `Schema`, one data model can move between formats without any conversion code. This example takes a value on a round trip through JSON and back, then through Protobuf and back, first for a single value and then for a stream of values. It also shows how to convert JSON input straight into Protobuf bytes.
+
+## Prerequisites
+
+The example uses the JSON and Protobuf modules:
+
+```scala
+libraryDependencies ++= Seq(
+  "dev.zio" %% "zio-schema-json"     % "@VERSION@",
+  "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
+)
+```
 
 ## Define the Model and the Codecs
 
