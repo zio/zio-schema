@@ -9,9 +9,49 @@ keywords:
   - "How-to"
 ---
 
-A `Deriver` builds an instance of a type class for any type that has a schema. `DeriveSchema.gen` goes from a type to its schema; a deriver goes one step further, from the schema to something else, such as a pretty-printer, a validator, or a count of fields. You write one method for each kind of schema, and the `Derive.derive` macro walks the structure of the type and calls those methods. `DeriveSchema.gen` itself is a separate macro and does not use `Deriver`.
+In this guide, we write a `Deriver` for a type class that counts the primitive values inside a type, so that every type with a schema gets an instance without a hand-written one. A `Person` with a name and an age has two. We implement one method for each kind of schema, derive instances for nested types, replace the derived instance with a hand-written one where needed, cache instances, and call the deriver from generic code.
 
-This guide writes a deriver for a type class that counts the primitive values inside a type. A `Person` has two, its name and its age.
+## The Problem
+
+A type class needs an instance for every type that uses it. Written by hand, each instance repeats knowledge that the type definition already holds, and every new field means another edit:
+
+```scala mdoc:compile-only
+trait LeafCount[A] {
+  def count: Int
+}
+
+final case class Person(name: String, age: Int)
+final case class Team(members: List[Person], lead: Option[Person])
+
+object LeafCount {
+  def apply[A](n: Int): LeafCount[A] = new LeafCount[A] {
+    def count: Int = n
+  }
+
+  // name and age
+  implicit val person: LeafCount[Person] = LeafCount(2)
+
+  // the members and the lead each count as one Person
+  implicit val team: LeafCount[Team] = LeafCount(person.count + person.count)
+}
+```
+
+Nothing checks these numbers. Adding an `email` field to `Person` leaves both instances silently wrong, and with dozens of types the instances drift out of date one by one.
+
+A schema already describes the structure of each type. A `Deriver` builds the instances from that description: `DeriveSchema.gen` goes from a type to its schema, and a deriver goes one step further, from the schema to an instance of your type class, such as a pretty-printer, a validator, or a count of fields. You write one method for each kind of schema, and the `Derive.derive` macro walks the structure of the type and calls those methods. `DeriveSchema.gen` itself is a separate macro and does not use `Deriver`.
+
+## Prerequisites
+
+`Deriver`, `Derive`, and `Factory` live in the `zio-schema-derivation` module:
+
+```scala
+libraryDependencies ++= Seq(
+  "dev.zio" %% "zio-schema"            % "@VERSION@",
+  "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
+)
+```
+
+On Scala 2, the derivation macros also need `scala-reflect` at compile time, as the [Installation](../index.md#installation) section shows. The guide assumes you know how to derive a schema with `DeriveSchema.gen`, as [Automatic Schema Derivation](../automatic-schema-derivation.md) explains.
 
 ## Define the Type Class
 
@@ -130,7 +170,7 @@ A `Person` has two primitive values. A `Team` has the members, which are a list 
 
 `Derive.derive` follows the Scala type and expects the schema in scope to have the shape that `DeriveSchema.gen` produces for it. A type it does not recognize, such as a plain class with a hand-written schema, needs a summoned instance; without one, `Deriver#deriveUnknown` throws an `IllegalArgumentException` at runtime.
 
-On Scala 3, a deriver also has a `Deriver#derive` method, so `leafCounter.derive[Person]` is the same as `Derive.derive[LeafCount, Person](leafCounter)`.
+On Scala 3, a deriver also has a `Deriver#derive` method, so `leafCounter.derive[Person]` is the same as `Derive.derive[LeafCount, Person](leafCounter)`. [How to Use ZIO Schema with Scala 3](scala-3.md#derive-your-own-type-class-with-derives) shows how to let a type write `derives LeafCount`.
 
 ## Override the Optional Methods
 
@@ -139,7 +179,8 @@ Besides the seven abstract methods, a few methods have default implementations t
 - `deriveEither` handles `Either`. By default, it treats it as an enum with two cases and calls `deriveEnum`.
 - `deriveSet` handles `Set`. By default, it calls `deriveSequence`.
 - `deriveTupleN` handles tuples. By default, it treats the tuple as a record and calls `deriveRecord`.
-- `derivePrimitiveAlias` handles a Scala 3 opaque type whose underlying type is a primitive. By default, it returns the summoned instance and throws when there is none.
+- `derivePrimitiveAlias` handles a Scala 3 opaque type whose underlying type is a primitive. By default, it returns the summoned instance and throws an `IllegalArgumentException` when there is none.
+- `deriveUnknown` handles a type that `Derive.derive` does not recognize. By default, it returns the summoned instance and throws an `IllegalArgumentException` when there is none.
 
 ## Use Hand-Written Instances
 
@@ -218,5 +259,6 @@ On Scala 2, the code that the `Factory` macro generates refers to `Factory`, `De
 ## Where to Go Next
 
 - [Automatic Schema Derivation](../automatic-schema-derivation.md) describes the built-in derivation of schemas.
+- [How to Use ZIO Schema with Scala 3](scala-3.md) derives `LeafCount` with a `derives` clause and handles opaque types in a deriver.
 - [Write a Custom Codec](./custom-codec.md) shows the other common extension point.
 - [Schema Methods](../reference/schema-methods.md) lists what a derived schema can do.
