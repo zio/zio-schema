@@ -144,7 +144,7 @@ The same codec writes the changed tree back as plain JSON, with the fields in th
 println(anyJsonCodec.encodeJson(redacted, None))
 ```
 
-Plain JSON has no place for every kind of node, so in direct mode the JSON encoder throws for `Enumeration`, `Dictionary`, `Tuple`, `LeftValue`, `RightValue`, and `DynamicAst`. A tree decoded from JSON never contains them. A tree built from a typed value can, for example from a sealed trait or a `Map`; encode such a tree with the plain `Schema.dynamicValue` instead.
+Plain JSON has no place for some kinds of node, so in direct mode the JSON encoder throws for them; [Schema.Dynamic](../reference/dynamic-value.md#schemadynamic) lists which. A tree decoded from JSON never contains them. A tree built from a typed value can, for example from a sealed trait or a `Map`; encode such a tree with the plain `Schema.dynamicValue` instead.
 
 ## Convert Between Typed and Dynamic Values
 
@@ -166,8 +166,8 @@ Redacting the tree and converting it back gives a typed value with the masked fi
 Customer.schema.fromDynamic(redact(customerTree, Set("email")))
 ```
 
-:::caution[Types that do not convert back]
-For most types, `schema.fromDynamic(schema.toDynamic(x))` returns `Right(x)`. It returns a `Left` for `NonEmptyChunk`, ZIO Prelude's `NonEmptySet` and `NonEmptyMap`, and `Fallback`, including when they appear as fields of a case class. Keep such fields out of data that passes through `DynamicValue`, or model them as `Chunk`, `Set`, `Map`, or `Either` there and convert at the edges.
+:::caution[Types That Do Not Convert Back]
+For most types, `schema.fromDynamic(schema.toDynamic(x))` returns `Right(x)`. It returns a `Left` for `NonEmptyChunk`, ZIO Prelude's `NonEmptySet` and `NonEmptyMap`, and `Fallback`, including when they appear as fields of a case class. Keep such fields out of data that passes through `DynamicValue`, or model them as `Chunk`, `Set`, `Map`, or `Either` there and convert at the edges. [Round-Trip Limits](../reference/dynamic-value.md#round-trip-limits) shows the failure.
 :::
 
 ## Bind Dynamic JSON to a Case Class
@@ -211,11 +211,11 @@ storedCodec.decode(stored) == Right(event)
 storedCodec.decode(stored).foreach(tree => println(anyJsonCodec.encodeJson(tree, None)))
 ```
 
-:::caution[Byte values in the self-describing form]
+:::caution[Byte Values in the Self-Describing Form]
 The self-describing form, which every codec uses for the plain `Schema.dynamicValue`, has no case for a `Primitive` that holds a `Byte`. The value is lost: the JSON codec, for example, writes it as `{}`. A tree decoded from JSON never holds a `Byte`, but one built with `Schema#toDynamic` from a type with a `Byte` field does. Convert such fields to `Short` or `Int` before storing the tree, or, for JSON, use the annotated schema from the start of this guide, which writes a `Byte` as a number that reads back as a `BigDecimal`.
 :::
 
-## Where to Go Next
+## Going Further
 
 - [DynamicValue](../reference/dynamic-value.md) lists every case of the tree and the round-trip limits.
 - [Schema Migration](../operations/schema-migration.md) changes a `DynamicValue` from one schema version to another with migration steps.
