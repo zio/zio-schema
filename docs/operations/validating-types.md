@@ -3,7 +3,7 @@ id: validation
 title: "Validation"
 ---
 
-Validation rules describe which values of a type are acceptable, such as a non-empty name or an age between 0 and 120. ZIO Schema stores these rules inside the schema, so application code can check any value of the type in the same way. The built-in codecs do not check the rules when they decode, so call `Schema#validate` yourself after decoding untrusted input.
+Validation rules describe which values of a type are acceptable, such as a non-empty name or an age between 0 and 120. ZIO Schema stores these rules inside the schema, so application code can check any value of the type in the same way. The built-in codecs do not check the rules when they decode, so call `Schema#validate` yourself after decoding untrusted input. This page explains how rules are attached and checked; the [Validation](../reference/validation.md) reference page lists every rule constructor, combinator, predefined validator, and `ValidationError` case.
 
 ## Attaching Rules to Fields
 
@@ -24,7 +24,7 @@ object Person {
 }
 ```
 
-The `minLength(1)` rule rejects an empty name, and the `between(0, 120)` rule keeps the age in range. Both bounds are inclusive.
+The `Validation.minLength(1)` rule rejects an empty name, and the `Validation.between(0, 120)` rule keeps the age in range. Both bounds are inclusive.
 
 ## Validating a Value
 
@@ -107,14 +107,15 @@ maybeAge.validate(Some(130)).isLeft
 `Validation.anyOf` accepts a value when at least one of several rules passes. `Validation.allOf` is the same idea with every rule required:
 
 ```scala mdoc
-val evenOrSmall: Validation[Int] =
+val fourOrSmall: Validation[Int] =
   Validation.anyOf(Validation.equalTo(4), Validation.lessThan(3))
 
-evenOrSmall.validate(4).isRight
-evenOrSmall.validate(10).isLeft
+fourOrSmall.validate(4).isRight
+fourOrSmall.validate(10).isLeft
 ```
 
 ## Where to Go Next
 
+- The [Validation](../reference/validation.md) reference page covers the full `Validation` API, including the `Regex` DSL and the predefined validators for emails, times, and phone numbers.
 - The [Standard Type Reference](../standard-type-reference.md) lists the types that the rules apply to.
 - [Basic Building Blocks](../basic-building-blocks.md) shows how fields are declared in a schema.
