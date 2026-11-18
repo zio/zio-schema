@@ -56,7 +56,7 @@ object UserV3 {
 UserV2.schema.migrate(UserV3.schema).map(migrateUser => migrateUser(UserV2("John", Some(42))))
 ```
 
-The outer `Right` says that the migration was derived, and the inner `Left` says that applying it failed. The changes that apply to values are removing a field, adding a case to an enumeration, making a field optional, and making an optional field required, which fails for a value that is `None`. For an added field, give the field a default value in the new case class, for example `role: String = "member"`, and decode the old data with a codec, which fills in the default, or write the conversion by hand.
+The outer `Right` says that the migration was derived, and the inner `Left` says that applying it failed. The [Migration Operations](../reference/migration-operations.md) page lists which steps apply to values and which always fail. For an added field, give the field a default value in the new case class, for example `role: String = "member"`, and decode the old data with a codec, which fills in the default, or write the conversion by hand.
 :::
 
 ## Manual Migration
@@ -69,7 +69,7 @@ sealed trait DynamicValue {
 }
 ```
 
-`DynamicValue#transform` applies the steps from the last one in the chunk to the first one, and stops at the first step that fails. The order matters only when two steps touch the same node.
+[Running Several Steps](../reference/migration-operations.md#running-several-steps) describes the order in which `DynamicValue#transform` applies the steps and how it handles a failing step.
 
 The `Migration` is a sealed trait with several subtypes. The [Migration Operations](../reference/migration-operations.md) page describes each of them:
 
