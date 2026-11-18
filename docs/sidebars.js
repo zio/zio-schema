@@ -10,7 +10,6 @@ const sidebars = {
       items: [
         "motivation",
         "use-cases",
-        "basic-building-blocks",
         "derivations/derivation-scala-versions",
       ],
     },
@@ -34,6 +33,7 @@ const sidebars = {
           label: "Schema API",
           collapsed: false,
           items: [
+            "basic-building-blocks",
             "standard-type-reference",
             "reference/schema-methods",
             "reference/name-format-and-type-id",
