@@ -44,7 +44,7 @@ The examples only use the core module:
 libraryDependencies += "dev.zio" %% "zio-schema" % "@VERSION@"
 ```
 
-The examples derive schemas with `DeriveSchema`, from `zio-schema-derivation`, which on Scala 2 also needs `scala-reflect` at compile time. The [Installation](../index.md#installation) section shows both lines. The [Schema Data Types](../reference/schema-data-types.md) page lists every case of `Schema` that the codec matches on.
+The examples derive schemas with `DeriveSchema`, from `zio-schema-derivation`, which on Scala 2 also needs `scala-reflect` at compile time. The [Installation](../index.md#installation) section shows both lines. The [Schema Data Types](../basic-building-blocks.md) page lists every case of `Schema` that the codec matches on.
 
 ## Define the Model
 
@@ -370,7 +370,7 @@ The `DynamicValue` route is shorter and fine for tools, logs, and debugging outp
 
 ## Where to Go Next
 
-- [Schema Data Types](../reference/schema-data-types.md) documents every case of `Schema` with its fields, including the ones this codec leaves to the fallback branch.
+- [Schema Data Types](../basic-building-blocks.md) documents every case of `Schema` with its fields, including the ones this codec leaves to the fallback branch.
 - [How to Define Schemas for Recursive Types](recursive-schemas.md) explains the `Schema.Lazy` nodes that the codec unwraps.
 - [Codec Core Types](../reference/codec-core.md) describes the `Codec`, `Encoder`, and `Decoder` traits.
 - [Write a Custom Deriver](custom-deriver.md) builds a type class instance per type at compile time instead of interpreting the schema at runtime.

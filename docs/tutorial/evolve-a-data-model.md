@@ -311,4 +311,4 @@ You can now change a stored model one safe step at a time. The next step is to l
 - **See every migration step:** [Migration Operations](../reference/migration-operations.md) describes each `Migration` case.
 - **Learn how steps are derived:** [Schema Migration](../operations/schema-migration.md) explains `Schema#migrate`, `Schema#coerce`, and `Migration.derive`.
 - **Look up the annotations:** [Schema Annotations](../schema-annotations.md) covers `@fieldNameAliases`, `@optionalField`, `@fieldDefaultValue`, and `@rejectExtraFields`.
-- **Read about dynamic values:** the [DynamicValue](../reference/dynamic-value.md) reference lists every case and operation.
+- **Read about dynamic values:** the [DynamicValue](../operations/dynamic-data-representation.md) reference lists every case and operation.

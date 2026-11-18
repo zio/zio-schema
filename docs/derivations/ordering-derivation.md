@@ -44,7 +44,7 @@ The ordering follows the structure of the schema:
 - Tuples compare by their first element, then their second.
 - Sequences such as `List`, `Vector`, and `Chunk` compare element by element, and a shorter sequence comes before a longer one that starts with it.
 
-Each comparison converts both values to [`DynamicValue`](../reference/dynamic-value.md) first, so a derived ordering is slower than a hand-written one. For sorting large collections in a hot path, a hand-written `Ordering` is faster.
+Each comparison converts both values to [`DynamicValue`](../operations/dynamic-data-representation.md) first, so a derived ordering is slower than a hand-written one. For sorting large collections in a hot path, a hand-written `Ordering` is faster.
 
 :::caution
 `Schema#ordering` returns 0 (equal) for any two `Set`, `Map`, `NonEmptyChunk`, `NonEmptyMap`, or `Fallback` values, whatever their contents. A record that contains such a field ignores that field when comparing. A binary primitive (`StandardType.BinaryType`) compares by the sum of its bytes, so two different byte chunks with the same sum are equal. To order by one of these types, write the `Ordering` yourself. For a `Set`, one way is to sort its elements and compare them as a `List`:

@@ -47,7 +47,7 @@ libraryDependencies ++= Seq(
 )
 ```
 
-The [DynamicValue](../reference/dynamic-value.md) reference lists every case of the tree, and [Dynamic Data Representation](../operations/dynamic-data-representation.md) explains the idea behind it.
+The [DynamicValue](../operations/dynamic-data-representation.md) reference lists every case of the tree, and [Dynamic Data Representation](../operations/dynamic-data-representation.md) explains the idea behind it.
 
 ## Decode Unknown JSON into a DynamicValue
 
@@ -144,7 +144,7 @@ The same codec writes the changed tree back as plain JSON, with the fields in th
 println(anyJsonCodec.encodeJson(redacted, None))
 ```
 
-Plain JSON has no place for some kinds of node, so in direct mode the JSON encoder throws for them; [Schema.Dynamic](../reference/dynamic-value.md#schemadynamic) lists which. A tree decoded from JSON never contains them. A tree built from a typed value can, for example from a sealed trait or a `Map`; encode such a tree with the plain `Schema.dynamicValue` instead.
+Plain JSON has no place for some kinds of node, so in direct mode the JSON encoder throws for them; [Schema.Dynamic](../operations/dynamic-data-representation.md#schemadynamic) lists which. A tree decoded from JSON never contains them. A tree built from a typed value can, for example from a sealed trait or a `Map`; encode such a tree with the plain `Schema.dynamicValue` instead.
 
 ## Convert Between Typed and Dynamic Values
 
@@ -167,7 +167,7 @@ Customer.schema.fromDynamic(redact(customerTree, Set("email")))
 ```
 
 :::caution[Types That Do Not Convert Back]
-For most types, `schema.fromDynamic(schema.toDynamic(x))` returns `Right(x)`. It returns a `Left` for `NonEmptyChunk`, ZIO Prelude's `NonEmptySet` and `NonEmptyMap`, and `Fallback`, including when they appear as fields of a case class. Keep such fields out of data that passes through `DynamicValue`, or model them as `Chunk`, `Set`, `Map`, or `Either` there and convert at the edges. [Round-Trip Limits](../reference/dynamic-value.md#round-trip-limits) shows the failure.
+For most types, `schema.fromDynamic(schema.toDynamic(x))` returns `Right(x)`. It returns a `Left` for `NonEmptyChunk`, ZIO Prelude's `NonEmptySet` and `NonEmptyMap`, and `Fallback`, including when they appear as fields of a case class. Keep such fields out of data that passes through `DynamicValue`, or model them as `Chunk`, `Set`, `Map`, or `Either` there and convert at the edges. [Round-Trip Limits](../operations/dynamic-data-representation.md#round-trip-limits) shows the failure.
 :::
 
 ## Bind Dynamic JSON to a Case Class
@@ -217,7 +217,7 @@ The self-describing form, which every codec uses for the plain `Schema.dynamicVa
 
 ## Going Further
 
-- [DynamicValue](../reference/dynamic-value.md) lists every case of the tree and the round-trip limits.
+- [DynamicValue](../operations/dynamic-data-representation.md) lists every case of the tree and the round-trip limits.
 - [Schema Migration](../operations/schema-migration.md) changes a `DynamicValue` from one schema version to another with migration steps.
 - [How to Send a Schema over the Wire](send-schema-over-the-wire.md) sends the structure of a type along with the data, so the receiver can decode it without the class.
 - [JSON Codecs](../derivations/codecs/json.md) and [MessagePack Codecs](../derivations/codecs/message-pack.md) describe the codecs used here.

@@ -294,6 +294,6 @@ You now have the tools to write code that works with any value that has a schema
 ## Where to Go Next
 
 - **Apply it to a real task:** [How to Work with Schemaless Data](../how-to/dynamic-data.md) decodes webhook events of unknown shape, redacts fields, and stores them in a binary format.
-- **Look up every case and operation:** the [DynamicValue](../reference/dynamic-value.md) reference lists all cases, the conversions, and the round-trip limits.
+- **Look up every case and operation:** the [DynamicValue](../operations/dynamic-data-representation.md) reference lists all cases, the conversions, and the round-trip limits.
 - **Rewrite trees with ready-made steps:** [Migration Operations](../reference/migration-operations.md) describes the `Migration` steps that `DynamicValue#transform` applies.
 - **Convert values between versions:** [Schema Migration](../operations/schema-migration.md) shows how `Schema#migrate` uses `DynamicValue` under the hood.

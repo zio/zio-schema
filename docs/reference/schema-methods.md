@@ -51,7 +51,7 @@ For the default of each kind of schema, and for how to set a default on a case c
 
 ## Validation
 
-`Schema#validate` checks a value against the rules that its fields carry and returns the failed checks as a `Chunk`. An empty chunk means that the value passes. It checks the value with the implicit `Schema[A]` in scope, which is usually the schema you call it on. The [Validation](../operations/validating-types.md) page explains how rules are attached and checked, and the [Validation reference](validation.md) lists the rules and their combinators. The `Person` model has no rules, so `john` passes:
+`Schema#validate` checks a value against the rules that its fields carry and returns the failed checks as a `Chunk`. An empty chunk means that the value passes. It checks the value with the implicit `Schema[A]` in scope, which is usually the schema you call it on. The [Validation](../operations/validating-types.md) page explains how rules are attached and checked, and the [Validation reference](../operations/validating-types.md) lists the rules and their combinators. The `Person` model has no rules, so `john` passes:
 
 ```scala mdoc
 Person.schema.validate(john).isEmpty
@@ -77,7 +77,7 @@ nameOnly.defaultValue
 
 ## Conversion Through DynamicValue
 
-`Schema#toDynamic` turns a value into a `DynamicValue`, and `Schema#fromDynamic` turns it back. `DynamicValue` is covered in [Dynamic Data Representation](../operations/dynamic-data-representation.md) and in the [DynamicValue reference](dynamic-value.md). A round trip through `DynamicValue` gives back the original value:
+`Schema#toDynamic` turns a value into a `DynamicValue`, and `Schema#fromDynamic` turns it back. `DynamicValue` is covered in [Dynamic Data Representation](../operations/dynamic-data-representation.md) and in the [DynamicValue reference](../operations/dynamic-data-representation.md). A round trip through `DynamicValue` gives back the original value:
 
 ```scala mdoc
 val dynamic = Person.schema.toDynamic(john)
@@ -101,7 +101,7 @@ Person.schema.patch(john, Person.schema.diff(john, older)) == Right(older)
 
 ## Ordering and Structure
 
-`Schema#ordering` returns a Scala `Ordering` for the type, which is useful for sorting. Records compare field by field in declaration order, enumerations compare by the order of their cases, and sequences compare element by element. Each comparison converts both values to `DynamicValue` first. `Schema#ast` returns the [`MetaSchema`](meta-schema.md) tree that describes the structure of the schema. Sorting two people orders them by name, the first field:
+`Schema#ordering` returns a Scala `Ordering` for the type, which is useful for sorting. Records compare field by field in declaration order, enumerations compare by the order of their cases, and sequences compare element by element. Each comparison converts both values to `DynamicValue` first. `Schema#ast` returns the [`MetaSchema`](../operations/serialization-of-the-schema-itself.md) tree that describes the structure of the schema. Sorting two people orders them by name, the first field:
 
 ```scala mdoc
 List(john, Person("Ann", 30)).sorted(Person.schema.ordering).map(_.name)

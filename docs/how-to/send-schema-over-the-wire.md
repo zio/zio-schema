@@ -31,7 +31,7 @@ libraryDependencies ++= Seq(
 )
 ```
 
-The [MetaSchema](../reference/meta-schema.md) reference describes every node of the tree, and [DynamicValue](../reference/dynamic-value.md) describes the values the receiver works with.
+The [MetaSchema](../operations/serialization-of-the-schema-itself.md) reference describes every node of the tree, and [DynamicValue](../operations/dynamic-data-representation.md) describes the values the receiver works with.
 
 ## Define the Sender's Model
 
@@ -147,13 +147,13 @@ The [How to Work with Schemaless Data](dynamic-data.md) guide shows how to read 
 
 ## Know What the Schema Leaves Behind
 
-A `MetaSchema` describes structure only. Everything in the original schema that is code or metadata stays with the sender: the functions of `Schema#transform` and `Schema#transformOrFail`, every annotation, and every field validation. [What the Round Trip Loses](../reference/meta-schema.md#what-the-round-trip-loses) lists each part and what the receiver gets instead.
+A `MetaSchema` describes structure only. Everything in the original schema that is code or metadata stays with the sender: the functions of `Schema#transform` and `Schema#transformOrFail`, every annotation, and every field validation. [What the Round Trip Loses](../operations/serialization-of-the-schema-itself.md#what-the-round-trip-loses) lists each part and what the receiver gets instead.
 
 The receiver therefore accepts any value of the underlying type: an `Email` that the sender builds with `Schema#transformOrFail` and a validating function arrives as a plain string, and the receiver does not run the check. Codec behaviour that comes from annotations, such as a case renamed with `@caseName`, is not applied on the receiving side either, so a receiver may fail to read data written with such annotations. Keep the types you send this way free of annotations that change the encoded form, or apply the same settings on the receiver.
 
 ## Going Further
 
-- [MetaSchema](../reference/meta-schema.md) documents every node of the tree, `NodePath`, and how to extend the built-in types.
+- [MetaSchema](../operations/serialization-of-the-schema-itself.md) documents every node of the tree, `NodePath`, and how to extend the built-in types.
 - [Serialization of the Schema Itself](../operations/serialization-of-the-schema-itself.md) explains why a schema is worth serializing.
 - [Schema Migration](../operations/schema-migration.md) compares two `MetaSchema` values to move data between versions of a type.
 - [How to Work with Schemaless Data](dynamic-data.md) continues with the `DynamicValue` the receiver decodes.

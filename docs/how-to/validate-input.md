@@ -47,7 +47,7 @@ libraryDependencies ++= Seq(
 )
 ```
 
-On Scala 2, schema derivation also needs `scala-reflect` at compile time, as the [Installation](../index.md#installation) section shows. This guide assumes you know how to derive a schema; the [Validation](../reference/validation.md) reference describes every rule and error type in detail.
+On Scala 2, schema derivation also needs `scala-reflect` at compile time, as the [Installation](../index.md#installation) section shows. This guide assumes you know how to derive a schema; the [Validation](../operations/validating-types.md) reference describes every rule and error type in detail.
 
 ## Declare the Rules on the Model
 
@@ -84,7 +84,7 @@ object Signup {
 }
 ```
 
-`Address` has its own rules. `Signup` does not repeat them; checking a `Signup` also checks its address. The [Predefined Validators](../reference/validation.md#predefined-validators) section lists the other ready-made rules, such as `Validation.uuidV4`, `Validation.ipV4`, and `Validation.time`.
+`Address` has its own rules. `Signup` does not repeat them; checking a `Signup` also checks its address. The [Predefined Validators](../operations/validating-types.md#predefined-validators) section lists the other ready-made rules, such as `Validation.uuidV4`, `Validation.ipV4`, and `Validation.time`.
 
 ## Decode, Then Validate
 
@@ -211,11 +211,11 @@ The same `ErrorResponse` type works for any model, because `fieldErrors` only ne
 
 ## Rules That Are Silently Skipped
 
-Validation fails open in a few cases: the rule exists, but `Schema.validate` reports no error. Each case below has a working alternative, and the [Validation](../reference/validation.md) reference shows each one with a runnable example.
+Validation fails open in a few cases: the rule exists, but `Schema.validate` reports no error. Each case below has a working alternative, and the [Validation](../operations/validating-types.md) reference shows each one with a runnable example.
 
 ### Rules Added with `Schema#validation`
 
-`Schema#validation(v)` stores the rule `v` as an annotation on the schema, but `Schema.validate` only reads the rules of record fields, so it never checks this one. [Rules on a Whole Schema](../reference/validation.md#rules-on-a-whole-schema) shows a value that breaks such a rule and still passes.
+`Schema#validation(v)` stores the rule `v` as an annotation on the schema, but `Schema.validate` only reads the rules of record fields, so it never checks this one. [Rules on a Whole Schema](../operations/validating-types.md#rules-on-a-whole-schema) shows a value that breaks such a rule and still passes.
 
 :::caution[`Schema#validation` Is Not Checked]
 `Schema.validate` ignores a rule added with `Schema#validation`. Put the rule on a record field with `@validate` (or the `validation0` parameter of `Schema.Field.apply` in a hand-written schema), or call `Validation#validate` on the value directly.
@@ -223,7 +223,7 @@ Validation fails open in a few cases: the rule exists, but `Schema.validate` rep
 
 ### Rules That Fail Without an Error
 
-`Validation.fail` always fails, but it fails with an empty list of errors. `Schema.validate` turns that empty list into "no errors", so a field annotated with `@validate(Validation.fail[Int])` passes. The same happens with the default `onLeft` of `Validation#right` and the default `onRight` of `Validation#left`, which are `Validation.fail`. [Constant Rules](../reference/validation.md#constant-rules) shows the effect.
+`Validation.fail` always fails, but it fails with an empty list of errors. `Schema.validate` turns that empty list into "no errors", so a field annotated with `@validate(Validation.fail[Int])` passes. The same happens with the default `onLeft` of `Validation#right` and the default `onRight` of `Validation#left`, which are `Validation.fail`. [Constant Rules](../operations/validating-types.md#constant-rules) shows the effect.
 
 :::caution[A Rule That Fails with No Error Reports Nothing]
 Through `@validate`, a rule that fails without an error is reported as valid. Check such a rule with `Validation#validate` and test for `Left`, instead of relying on an empty `Schema.validate` result.
@@ -239,4 +239,4 @@ On Scala 2, `Schema.validate` reports no errors for the fields of a case class w
 
 ## Going Further
 
-The [Validation](../reference/validation.md) reference covers every rule constructor, the boolean combinators, the regular-expression DSL, and all `ValidationError` cases. [Validating Types](../operations/validating-types.md) gives a shorter overview of validation, and [Schema Annotations](../schema-annotations.md) lists the other annotations that shape decoding, such as `@fieldName` and `@fieldDefaultValue`. On Scala 3, [How to Use ZIO Schema with Scala 3](scala-3.md) shows how to derive the same schemas with `derives Schema`.
+The [Validation](../operations/validating-types.md) reference covers every rule constructor, the boolean combinators, the regular-expression DSL, and all `ValidationError` cases. [Validating Types](../operations/validating-types.md) gives a shorter overview of validation, and [Schema Annotations](../schema-annotations.md) lists the other annotations that shape decoding, such as `@fieldName` and `@fieldDefaultValue`. On Scala 3, [How to Use ZIO Schema with Scala 3](scala-3.md) shows how to derive the same schemas with `derives Schema`.

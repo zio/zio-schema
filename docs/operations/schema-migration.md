@@ -17,7 +17,7 @@ sealed trait Schema[A] {
 
 The `Schema#migrate` method compares the structure of the two schemas and derives the migration steps between them. When the two structures can be matched, it returns a `Right` with a function that converts values of the old type into values of the new type. It returns a `Left` only when a part of the old structure cannot be mapped to the new one at all, for example a record that becomes a primitive. `Schema#coerce` calls `Schema#migrate` in both directions and returns a schema for the new type that reads and writes through the old one.
 
-The conversion function turns the old value into a [`DynamicValue`](../reference/dynamic-value.md), applies the steps, and reads the result with the new schema. The following example removes a field and makes another field optional:
+The conversion function turns the old value into a [`DynamicValue`](dynamic-data-representation.md), applies the steps, and reads the result with the new schema. The following example removes a field and makes another field optional:
 
 ```scala mdoc:silent
 import zio.schema._

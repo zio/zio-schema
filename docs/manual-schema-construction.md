@@ -3,7 +3,7 @@ id: manual-schema-construction
 title: "Manual Schema Construction"
 ---
 
-`DeriveSchema.gen` writes schemas for us, but we can also build them by hand from the case classes described in [Basic Building Blocks](basic-building-blocks.md), with every constructor listed in the [Schema Data Types](reference/schema-data-types.md) reference. Hand-written schemas are useful when a type cannot be derived or when we want full control over names and identifiers. This page builds schemas for the following domain models:
+`DeriveSchema.gen` writes schemas for us, but we can also build them by hand from the case classes described in [Basic Building Blocks](basic-building-blocks.md), with every constructor listed in the [Schema Data Types](basic-building-blocks.md) reference. Hand-written schemas are useful when a type cannot be derived or when we want full control over names and identifiers. This page builds schemas for the following domain models:
 
 ```scala mdoc:compile-only
 object Domain {

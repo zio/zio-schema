@@ -33,7 +33,7 @@ libraryDependencies ++= Seq(
 )
 ```
 
-On Scala 2, `DeriveSchema` also needs `scala-reflect` at compile time; the [Installation](../index.md#installation) section shows the line to add. The [Schema Data Types](../reference/schema-data-types.md) page describes `Schema.Lazy` and the other schema cases this guide builds by hand.
+On Scala 2, `DeriveSchema` also needs `scala-reflect` at compile time; the [Installation](../index.md#installation) section shows the line to add. The [Schema Data Types](../basic-building-blocks.md) page describes `Schema.Lazy` and the other schema cases this guide builds by hand.
 
 ## Derive a Schema for a Tree
 
@@ -200,7 +200,7 @@ Only unwrap a `Lazy` when you are about to use the schema inside it. A function 
 
 ## Going Further
 
-- [Schema Data Types](../reference/schema-data-types.md) documents `Schema.Lazy`, `Schema.defer`, and `Schema.force` with every other schema case.
+- [Schema Data Types](../basic-building-blocks.md) documents `Schema.Lazy`, `Schema.defer`, and `Schema.force` with every other schema case.
 - [Manual Schema Construction](../manual-schema-construction.md) covers the record and enum constructors used in the hand-written example.
-- [MetaSchema](../reference/meta-schema.md) explains how a recursive schema is kept when it is turned into data: the repeated part becomes a reference to the earlier node.
+- [MetaSchema](../operations/serialization-of-the-schema-itself.md) explains how a recursive schema is kept when it is turned into data: the repeated part becomes a reference to the earlier node.
 - [How to Send a Schema over the Wire](send-schema-over-the-wire.md) sends such a schema to another service.

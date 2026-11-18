@@ -94,7 +94,7 @@ To derive optics from a ZIO Schema, we add the following line to our `build.sbt`
 libraryDependencies += "dev.zio" %% "zio-schema-optics" % "@VERSION@"
 ```
 
-This module contains `ZioOpticsBuilder`, an implementation of the `AccessorBuilder` interface based on the ZIO Optics library. Its lenses convert the whole record to and from [`DynamicValue`](../reference/dynamic-value.md) on each get and set, so a derived lens is slower than a hand-written one.
+This module contains `ZioOpticsBuilder`, an implementation of the `AccessorBuilder` interface based on the ZIO Optics library. Its lenses convert the whole record to and from [`DynamicValue`](../operations/dynamic-data-representation.md) on each get and set, so a derived lens is slower than a hand-written one.
 
 ### Examples
 

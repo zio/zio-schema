@@ -261,6 +261,6 @@ The `zio.schema.annotation` package has a few more annotations. Most of them are
 
 ## Validation and Descriptions
 
-The `@validate` annotation attaches a `Validation` rule to a case class field, and `Schema#validate` checks a value against the rules of its fields. Rules attached to a whole schema with `Schema#validation` are not checked by `Schema#validate`, and a field rule that fails through `Validation.fail` reports no error. [Validation](./operations/validating-types.md) covers what `Schema#validate` checks, and the [Validation reference](./reference/validation.md) lists the rules.
+The `@validate` annotation attaches a `Validation` rule to a case class field, and `Schema#validate` checks a value against the rules of its fields. Rules attached to a whole schema with `Schema#validation` are not checked by `Schema#validate`, and a field rule that fails through `Validation.fail` reports no error. [Validation](./operations/validating-types.md) covers what `Schema#validate` checks, and the [Validation reference](operations/validating-types.md) lists the rules.
 
 The `description` annotation attaches documentation text to a type or a field, as in `@description("The user's login name")`. The Scala 3 derivation also adds it automatically from the Scaladoc comment of a type. The built-in codecs do not read it; it is available to your own code through `Schema#annotations`.
