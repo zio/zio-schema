@@ -6,20 +6,24 @@ sidebar_label: "What's New Since 1.7.5"
 
 ## Overview
 
-This site's documentation currently reflects ZIO Schema 1.7.5. The releases from 1.8.0 through 1.9.0 add one new module and change the behavior of several codecs and derivation macros. Most of the commits in that range update dependencies or fix the build, so this page lists only the changes that affect how your code behaves. If you upgrade from 1.7.5, read the behavior changes below before you rely on error handling in your decoders.
+This site documents ZIO Schema 1.9.1. The releases from 1.8.0 through 1.9.0 add one new module, raise the minimum Scala 3 version, and change the behavior of several codecs and derivation macros; 1.9.1 only updates dependencies. Most of the commits in that range update dependencies or fix the build, so this page lists only the changes that affect how your code behaves. If you upgrade from 1.7.5, read the behavior changes below before you rely on error handling in your decoders.
 
 ## New XML Codec Module
 
 Version 1.8.4 adds the `zio-schema-xml` module, which derives XML codecs from a schema. The module builds for the JVM, Scala.js, and Scala Native. For setup, configuration, and the `@xmlAttribute` and `@xmlNamespace` annotations, read [XML Codecs](./derivations/codecs/xml.md).
 
+## Scala 3 Projects Need Scala 3.9
+
+Version 1.9.0 compiles the Scala 3 artifacts with Scala 3.9.0, so a Scala 3 project that uses ZIO Schema 1.9.0 or later needs Scala 3.9 or later. An older Scala 3 compiler cannot read these artifacts. Scala 2.12 and 2.13 projects are not affected. [How to Use ZIO Schema with Scala 3](./how-to/scala-3.md) covers Scala 3 derivation.
+
 ## Behavior Changes
 
-Several decoders return a `Left` value on malformed input, where earlier versions throw an exception. Code that wraps these decoders in a `try` block should match on the `Left` case instead.
+Several decoders return a `Left` value on malformed input, where earlier versions throw an exception. Code that wraps these decoders in a `try` block should match on the `Left` case instead. The list also includes two fixes that change what encoding and validation produce:
 
-- Version 1.8.6 makes the JSON codec return `Left` when a `NonEmptyChunk`, `Set`, or `Map` field is missing from the input.
-- Version 1.8.2 makes the codec return `Left` when it decodes an empty `NonEmptyChunk` or `Set`.
+- Version 1.8.6 makes the JSON codec return `Left` when a `NonEmptyChunk`, `NonEmptySet`, or `NonEmptyMap` field is missing from the input. With the default configuration, a missing `Set` or `Map` field still decodes as an empty collection.
+- Version 1.8.2 makes the JSON, Avro, BSON, and MessagePack codecs return `Left` when they decode an empty `NonEmptyChunk` or `NonEmptySet`.
 - Version 1.8.1 fixes a `ClassCastException` that the JSON codec threw when it encoded a hierarchical enum.
-- Version 1.8.2 allows email addresses whose local part starts with a digit, and top-level domains longer than the previous limit.
+- Version 1.8.2 makes `Validation.email` accept addresses whose local part starts with a digit, `_`, `+`, or `-`, and top-level domains of 2 to 63 characters instead of 2 to 4.
 
 The following example shows the `Left` case for a missing `NonEmptyChunk` field:
 

@@ -9,7 +9,7 @@ keywords:
   - "Reference"
 ---
 
-A `Migration` is one step that changes a `DynamicValue` so that it matches a new schema. Several steps can be combined in one `Chunk`. The [Schema Migration](../operations/schema-migration.md) page shows how to run them and how `Migration.derive` produces them. This page lists each operation and what it does to a value.
+A `Migration` is one step that changes a `DynamicValue` so that it matches a new schema. Several steps can be combined in one `Chunk`. The [Schema Migration](../operations/schema-migration.md) page shows how to run them and how `Migration.derive` produces them. This page lists each operation and what it does to a value. The examples apply steps to the same `Person1` value through a small `applied` helper:
 
 ```scala mdoc:silent
 import zio.Chunk
@@ -36,13 +36,13 @@ def applied(migrations: Migration*): Either[String, DynamicValue] =
 applied(Migration.DeleteNode(NodePath.root / "age"))
 ```
 
-`AddNode` adds a node with the shape given by a `MetaSchema`. The new node needs a default value, and the step fails when none is available. The following step tries to add a `nickname` field, and its result shows that error:
+`AddNode` describes a new node with the shape given by a `MetaSchema`. In the current version, applying `AddNode` always fails, because the step has no value to put in the new node. The following step tries to add a `nickname` field, and its result shows that error:
 
 ```scala mdoc
 applied(Migration.AddNode(NodePath.root / "nickname", MetaSchema.fromSchema(Schema[String])))
 ```
 
-`ChangeType` changes the standard type of the primitive at a path, but only for the conversions that the library supports. The following step tries to change `age` from an integer to a double, and the library reports that this conversion is not available:
+`ChangeType` describes a change of the standard type of the primitive at a path. In the current version, no type conversions are implemented, so applying `ChangeType` always fails. The following step tries to change `age` from an integer to a double, and the library reports that no conversion is available:
 
 ```scala mdoc
 applied(Migration.ChangeType(NodePath.root / "age", StandardType.DoubleType))
@@ -68,7 +68,7 @@ applied(Migration.Require(NodePath.root / "age"))
 applied(Migration.UpdateFail(NodePath.root / "age", "age can no longer be converted"))
 ```
 
-`AddCase` records that an enum has a new case. Applying it leaves the value unchanged, since an existing value never uses the new case. Its effect shows up when the schema itself is migrated.
+`AddCase` records that an enum has a new case. Applying it leaves the value unchanged, since an existing value never uses the new case.
 
 `IncrementDimensions` and `DecrementDimensions` add or remove a level of sequence nesting at a path. They are produced when a field changes from a single value to a collection, or back.
 
@@ -78,4 +78,14 @@ applied(Migration.UpdateFail(NodePath.root / "age", "age can no longer be conver
 
 ## Running Several Steps
 
-`DynamicValue#transform` takes a `Chunk[Migration]` and applies the steps to a value. The [Schema Migration](../operations/schema-migration.md) page shows a complete example of running steps that `Migration.derive` produced.
+`DynamicValue#transform` takes a `Chunk[Migration]` and applies the steps to a value. It stops at the first step that fails and returns its error. [Manual Migration](../operations/schema-migration.md#manual-migration) shows a complete example that runs a step and reads the result back as a typed value.
+
+:::caution
+`DynamicValue#transform` applies the steps from the last one in the chunk to the first one. The order matters when two steps touch the same node. For example, to make `age` optional and then required again, `Optional` must come last in the chunk, because it runs first:
+
+```scala mdoc
+applied(Migration.Require(NodePath.root / "age"), Migration.Optional(NodePath.root / "age"))
+```
+
+In the opposite order, `Require` runs first on a value that is not optional, and the whole transform fails.
+:::

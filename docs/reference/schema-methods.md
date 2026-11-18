@@ -25,7 +25,7 @@ val john = Person("John", 42)
 
 ## Building Schemas
 
-Combinators build a new schema from existing ones. `Schema#optional`, written `?`, accepts a missing value. `Schema#zip`, written `<*>`, pairs two schemas into a tuple schema. `Schema#orElseEither`, written `<+>`, accepts a value of either schema, as an `Either`. `Schema#repeated` returns a schema for a `Chunk` of values.
+Combinators build a new schema from existing ones. `Schema#optional`, written `?`, accepts a missing value. `Schema#zip`, written `<*>`, pairs two schemas into a tuple schema. `Schema#orElseEither`, written `<+>`, accepts a value of either schema, as an `Either`. `Schema#repeated` returns a schema for a `Chunk` of values. Each combinator returns a new schema for the combined type:
 
 ```scala mdoc:silent
 val maybeAge: Schema[Option[Int]] = Schema[Int].?
@@ -39,7 +39,7 @@ val names: Schema[zio.Chunk[String]] = Schema[String].repeated
 
 ## Defaults and Annotations
 
-`Schema#defaultValue` returns the default value of the schema. `Schema#default` returns a copy of the schema with a different default. `Schema#annotate` attaches an annotation of any type, and `Schema#annotations` lists the annotations of the schema. Schema annotations, such as `fieldName`, are covered in the [Basic Building Blocks](../basic-building-blocks.md) page.
+`Schema#defaultValue` returns the default value of the schema. `Schema#default` returns a copy of a primitive schema with a different default; other kinds of schemas, such as records and `Transform` schemas, ignore the value it sets. `Schema#annotate` attaches an annotation of any type, and `Schema#annotations` lists the annotations of the schema. Schema annotations, such as `fieldName`, are covered in the [Schema Annotations](../schema-annotations.md) page. A primitive default set with `Schema#default` shows up in `Schema#defaultValue`, and the built-in `Schema[Int]` carries no annotations:
 
 ```scala mdoc
 Schema[Int].default(7).defaultValue
@@ -47,23 +47,29 @@ Schema[Int].default(7).defaultValue
 Schema[Int].annotations.isEmpty
 ```
 
-For more about defaults, see [Getting The Default Value](../operations/the-default-value.md).
+For the default of each kind of schema, and for how to set a default on a case class field, see [Getting The Default Value](../operations/the-default-value.md).
 
 ## Validation
 
-`Schema#validate` checks a value against the rules that its fields carry and returns the failed checks as a `Chunk`. An empty chunk means that the value passes. `Schema#validation` attaches a `Validation` rule to the schema itself. The rules and their combinators are described in the [Validation](../operations/validating-types.md) page.
+`Schema#validate` checks a value against the rules that its fields carry and returns the failed checks as a `Chunk`. An empty chunk means that the value passes. It checks the value with the implicit `Schema[A]` in scope, which is usually the schema you call it on. The [Validation](../operations/validating-types.md) page explains how rules are attached and checked, and the [Validation reference](../operations/validating-types.md) lists the rules and their combinators. The `Person` model has no rules, so `john` passes:
 
 ```scala mdoc
 Person.schema.validate(john).isEmpty
 ```
 
+:::caution
+`Schema#validation` stores a `Validation` rule as an annotation on the schema, but `Schema#validate` never reads that annotation, so the rule is not checked. Attach rules to case class fields with the `@validate` annotation instead, or call `Validation#validate` on the value directly.
+:::
+
 ## Transformations
 
-`Schema#transform` maps a schema of `A` to a schema of `B`, given a function in each direction. `Schema#transformOrFail` does the same, but each function can fail with a message. These methods are covered in [Transforming Schemas](../operations/transforming-schemas.md).
+`Schema#transform` maps a schema of `A` to a schema of `B`, given a function in each direction. `Schema#transformOrFail` does the same, but each function can fail with a message. These methods are covered in [Transforming Schemas](../operations/transforming-schemas.md). The following schema views a `Person` as its name and fills in an age of `0` on the way back:
 
 ```scala mdoc:silent
 val nameOnly: Schema[String] = Person.schema.transform(_.name, name => Person(name, 0))
 ```
+
+The default of the new schema is the default `Person` passed through the forward function:
 
 ```scala mdoc
 nameOnly.defaultValue
@@ -71,7 +77,7 @@ nameOnly.defaultValue
 
 ## Conversion Through DynamicValue
 
-`Schema#toDynamic` turns a value into a `DynamicValue`, and `Schema#fromDynamic` turns it back. `DynamicValue` is covered in [Dynamic Data Representation](../operations/dynamic-data-representation.md).
+`Schema#toDynamic` turns a value into a `DynamicValue`, and `Schema#fromDynamic` turns it back. `DynamicValue` is covered in [Dynamic Data Representation](../operations/dynamic-data-representation.md) and in the [DynamicValue reference](../operations/dynamic-data-representation.md). A round trip through `DynamicValue` gives back the original value:
 
 ```scala mdoc
 val dynamic = Person.schema.toDynamic(john)
@@ -81,11 +87,11 @@ Person.schema.fromDynamic(dynamic) == Right(john)
 
 ## Migration
 
-`Schema#migrate` returns a function that converts values of this schema to values of another schema, when the two schemas have a clear mapping. `Schema#coerce` returns a schema for the new type when migrations exist in both directions, so values can convert back and forth. See [Schema Migration](../operations/schema-migration.md) for the full process.
+`Schema#migrate` returns a function that converts values of this schema to values of another schema, when the two schemas have a clear mapping. `Schema#coerce` returns a schema for the new type when migrations exist in both directions, so values can convert back and forth. Both methods succeed for some changes, such as an added field, whose conversion function then fails on every value. See [Schema Migration](../operations/schema-migration.md) for the changes that work and the full process.
 
 ## Diff and Patch
 
-`Schema#diff` compares two values and returns a `Patch`. `Schema#patch` applies a patch to an old value. See [Diffing and Patching](../operations/diffing-and-patching.md) for details.
+`Schema#diff` compares two values and returns a `Patch`. `Schema#patch` applies a patch to an old value. See [Diffing and Patching](../operations/diffing-and-patching.md) for details, and [Patch and Differ](patch-and-differ.md) for the `Patch` cases. Applying the diff of two values to the first value gives the second:
 
 ```scala mdoc
 val older = john.copy(age = 43)
@@ -95,10 +101,14 @@ Person.schema.patch(john, Person.schema.diff(john, older)) == Right(older)
 
 ## Ordering and Structure
 
-`Schema#ordering` returns a Scala `Ordering` for the type, which is useful for sorting. `Schema#ast` returns the `MetaSchema` tree that describes the structure of the schema.
+`Schema#ordering` returns a Scala `Ordering` for the type, which is useful for sorting. Records compare field by field in declaration order, enumerations compare by the order of their cases, and sequences compare element by element. Each comparison converts both values to `DynamicValue` first. `Schema#ast` returns the [`MetaSchema`](../operations/serialization-of-the-schema-itself.md) tree that describes the structure of the schema. Sorting two people orders them by name, the first field:
 
 ```scala mdoc
 List(john, Person("Ann", 30)).sorted(Person.schema.ordering).map(_.name)
 ```
 
-`Schema#serializable` returns a schema that describes the schema itself. It currently fails at runtime for case classes; see [Serialization of the Schema Itself](../operations/serialization-of-the-schema-itself.md).
+:::caution
+`Set`, `Map`, `NonEmptyChunk`, `NonEmptySet`, `NonEmptyMap`, and `Fallback` values have no ordering rule, so `Schema#ordering` treats any two of them as equal. For example, `Schema[Set[Int]].ordering.compare(Set(1), Set(2))` returns `0`, and a record that differs only in such a field compares as equal. Sort such values with your own `Ordering`.
+:::
+
+`Schema#serializable` is meant to return a schema that describes the schema itself, but it does not work in the current version. To send a schema over the wire, encode `Schema#ast` with `MetaSchema.schema`, as shown in [Serialization of the Schema Itself](../operations/serialization-of-the-schema-itself.md).
