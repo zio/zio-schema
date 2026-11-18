@@ -78,7 +78,7 @@ applied(Migration.UpdateFail(NodePath.root / "age", "age can no longer be conver
 
 ## Running Several Steps
 
-`DynamicValue#transform` takes a `Chunk[Migration]` and applies the steps to a value. It stops at the first step that fails and returns its error. The [Schema Migration](../operations/schema-migration.md) page shows a complete example of running steps that `Migration.derive` produced.
+`DynamicValue#transform` takes a `Chunk[Migration]` and applies the steps to a value. It stops at the first step that fails and returns its error. [Manual Migration](../operations/schema-migration.md#manual-migration) shows a complete example that runs a step and reads the result back as a typed value.
 
 :::caution
 `DynamicValue#transform` applies the steps from the last one in the chunk to the first one. The order matters when two steps touch the same node. For example, to make `age` optional and then required again, `Optional` must come last in the chunk, because it runs first:
