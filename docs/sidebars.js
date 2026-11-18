@@ -18,7 +18,6 @@ const sidebars = {
       type: "category",
       label: "Reference",
       collapsed: false,
-      link: { type: "doc", id: "reference/index" },
       items: [
         {
           type: "category",
@@ -35,7 +34,6 @@ const sidebars = {
           label: "Schema API",
           collapsed: false,
           items: [
-            "reference/schema-data-types",
             "standard-type-reference",
             "reference/schema-methods",
             "reference/name-format-and-type-id",
@@ -51,15 +49,12 @@ const sidebars = {
             "operations/transforming-schemas",
             "derivations/ordering-derivation",
             "operations/validation",
-            "reference/validation",
             "operations/diffing-and-patching",
             "reference/patch-and-differ",
             "operations/schema-migration",
             "reference/migration-operations",
             "operations/dynamic-data-representation",
-            "reference/dynamic-value",
             "operations/schema-serialization",
-            "reference/meta-schema",
           ],
         },
         {
