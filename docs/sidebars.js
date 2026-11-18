@@ -18,6 +18,7 @@ const sidebars = {
       type: "category",
       label: "Reference",
       collapsed: false,
+      link: { type: "doc", id: "reference/index" },
       items: [
         {
           type: "category",
