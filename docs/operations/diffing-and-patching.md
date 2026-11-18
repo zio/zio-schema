@@ -97,4 +97,4 @@ val optionPatch = Schema[Option[Int]].diff(Some(1), None)
 Schema[Option[Int]].patch(Some(5), optionPatch)
 ```
 
-Because the patch only stores the new value, its `Patch#invert` is the same patch, so inverting it does not restore the old value. A change between two `Some` values diffs the inner values as usual.
+A change between two `Some` values diffs the inner values as usual. Inverting a `Some`-to-`None` patch does not restore the old value, as [Patches That Cannot Be Inverted](../reference/patch-and-differ.md#patches-that-cannot-be-inverted) explains.
