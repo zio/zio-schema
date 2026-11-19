@@ -172,7 +172,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
-        jsonCodec
+        JsonDecoder
+          .strict(jsonCodec.decoder)
           .decodeJson(new String(whole.toArray, JsonEncoder.CHARSET))
           .left
           .map(failure => DecodeError.ReadError(Cause.empty, failure))
@@ -182,7 +183,11 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
           ZPipeline.utfDecode.channel.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage))
         ) >>> splitOnJsonBoundary >>>
           ZPipeline.mapEitherChunked { (s: String) =>
-            jsonCodec.decodeJson(s).left.map(failure => DecodeError.ReadError(Cause.empty, failure))
+            JsonDecoder
+              .lenient(jsonCodec.decoder)
+              .decodeJson(s)
+              .left
+              .map(failure => DecodeError.ReadError(Cause.empty, failure))
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -327,7 +332,7 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         ZPipeline.utfDecode.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage)) >>>
           (if (cfg.treatStreamsAsArrays) splitJsonArrayElements else splitOnJsonBoundary) >>>
           ZPipeline.mapZIO { (s: String) =>
-            ZIO.fromEither(JsonDecoder.decode(schema, s, cfg))
+            ZIO.fromEither(JsonDecoder.decodeLenient(schema, s, cfg))
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -357,11 +362,17 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   def jsonEncoder[A](cfg: JsonCodec.Configuration)(schema: Schema[A]): ZJsonEncoder[A] =
     JsonEncoder.schemaEncoder(schema, cfg)
 
+  /**
+   * Returns a decoder for `schema`. When used for single-value decoding (e.g.
+   * `decodeJson(String)`), any non-whitespace input after the decoded value is
+   * rejected. Decoders nested inside other decoders and streaming pipelines are
+   * unaffected.
+   */
   def jsonDecoder[A](schema: Schema[A]): ZJsonDecoder[A] =
-    JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default)
+    JsonDecoder.strict(JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default))
 
   def jsonDecoder[A](cfg: JsonCodec.Configuration)(schema: Schema[A]): ZJsonDecoder[A] =
-    JsonDecoder.schemaDecoder(schema, cfg)
+    JsonDecoder.strict(JsonDecoder.schemaDecoder(schema, cfg))
 
   def jsonCodec[A](schema: Schema[A]): ZJsonCodec[A] =
     ZJsonCodec(jsonEncoder(schema), jsonDecoder(schema))
@@ -832,10 +843,71 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
     final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
+      strict(schemaDecoder(schema, config)).decodeJson(json) match {
+        case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
+        case Right(value) => Right(value)
+      }
+
+    // Used by stream decoding: the JSON splitter may hand over a value together
+    // with its separator (e.g. `1,`), so trailing input is tolerated there.
+    private[codec] final def decodeLenient[A](
+      schema: Schema[A],
+      json: String,
+      config: Configuration
+    ): Either[DecodeError, A] =
       schemaDecoder(schema, config).decodeJson(json) match {
         case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
         case Right(value) => Right(value)
       }
+
+    private[codec] def lenient[A](decoder: ZJsonDecoder[A]): ZJsonDecoder[A] =
+      decoder match {
+        case s: StrictJsonDecoder[_] => s.underlying.asInstanceOf[ZJsonDecoder[A]]
+        case d                       => d
+      }
+
+    /**
+     * Wraps `decoder` so that, when it decodes a whole in-memory input
+     * (`decodeJson(String | Chunk[Byte] | Array[Byte])`), trailing
+     * non-whitespace characters after the JSON value are reported as an error
+     * instead of being silently ignored (see zio/zio-schema#712).
+     *
+     * The check only runs at the top level (empty trace) and only for the
+     * readers used by `decodeJson`, so decoders composed inside other decoders
+     * and stream/pipeline decoding keep their existing behaviour.
+     */
+    private[codec] def strict[A](decoder: ZJsonDecoder[A]): ZJsonDecoder[A] =
+      decoder match {
+        case s: StrictJsonDecoder[_] => s.asInstanceOf[ZJsonDecoder[A]]
+        case d                       => new StrictJsonDecoder[A](d)
+      }
+
+    private[codec] final class StrictJsonDecoder[A](val underlying: ZJsonDecoder[A]) extends ZJsonDecoder[A] {
+
+      override def unsafeDecode(trace: List[JsonError], in: RetractReader): A = {
+        val a = underlying.unsafeDecode(trace, in)
+        if (trace.isEmpty) in match {
+          case _: zio.json.internal.FastStringReader => StrictJsonDecoder.ensureEnd(trace, in)
+          case _: zio.json.internal.Utf8ChunkReader  => StrictJsonDecoder.ensureEnd(trace, in)
+          case _                                     => ()
+        }
+        a
+      }
+
+      override def unsafeDecodeMissing(trace: List[JsonError]): A =
+        underlying.unsafeDecodeMissing(trace)
+
+      override def unsafeFromJsonAST(trace: List[JsonError], json: Json): A =
+        underlying.unsafeFromJsonAST(trace, json)
+    }
+
+    private[codec] object StrictJsonDecoder {
+      def ensureEnd(trace: List[JsonError], in: RetractReader): Unit = {
+        var c = in.read()
+        while (c == ' ' || c == '\n' || c == '\r' || c == '\t') c = in.read()
+        if (c != -1) Lexer.error(s"unexpected trailing input '${c.toChar}' after JSON value", trace)
+      }
+    }
 
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
       new ZJsonDecoder[Option[A]] {
