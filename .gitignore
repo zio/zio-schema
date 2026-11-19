@@ -415,7 +415,11 @@ project/secret
 # mdoc
 website/node_modules
 website/build
-website/i18n/en.json
+website/docs
+website/.docusaurus
+website/package-lock.json
+website/yarn.lock
+website/i18n
 website/static/api
 
 dumps
