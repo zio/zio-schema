@@ -49,11 +49,14 @@ The encoder does not escape quotes in the name, the decoder is still missing, an
 ZIO HTTP provides the server and the `Endpoint` API. ZIO Schema provides the schemas; its JSON module also brings in `zio-schema-derivation`, which provides `DeriveSchema.gen`:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-http"        % "3.11.6",
-  "dev.zio" %% "zio-schema"      % "@VERSION@",
-  "dev.zio" %% "zio-schema-json" % "@VERSION@"
-)
+// HTTP server and client for ZIO
+libraryDependencies += "dev.zio" %% "zio-http"        % "3.11.6"
+
+// ZIO Schema core: schemas and the data types they describe
+libraryDependencies += "dev.zio" %% "zio-schema"      % "@VERSION@"
+
+// JSON codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-json" % "@VERSION@"
 ```
 
 ZIO HTTP depends on ZIO Schema itself, so sbt keeps the newer of the two ZIO Schema versions. On Scala 2, schema derivation also needs `scala-reflect` at compile time, as the [Installation](../index.md#installation) section shows. We assume you know how to derive a schema and how ZIO effects compose.

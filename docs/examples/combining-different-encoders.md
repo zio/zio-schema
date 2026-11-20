@@ -16,10 +16,11 @@ Because every codec is derived from the same `Schema`, one data model can move b
 The example uses the JSON and Protobuf modules:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema-json"     % "@VERSION@",
-  "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
-)
+// JSON codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-json"     % "@VERSION@"
+
+// Protobuf codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
 ```
 
 ## Define the Model and the Codecs

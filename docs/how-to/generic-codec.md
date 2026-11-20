@@ -41,6 +41,7 @@ A `Schema` already describes the fields, cases, and element types of a value. A 
 The examples only use the core module:
 
 ```scala
+// ZIO Schema core: schemas and the data types they describe
 libraryDependencies += "dev.zio" %% "zio-schema" % "@VERSION@"
 ```
 

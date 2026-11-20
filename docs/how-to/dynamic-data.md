@@ -40,11 +40,14 @@ That tree belongs to one format. Turning the payload into a case class, or writi
 The examples use the core module with the JSON and MessagePack codecs:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema"          % "@VERSION@",
-  "dev.zio" %% "zio-schema-json"     % "@VERSION@",
-  "dev.zio" %% "zio-schema-msg-pack" % "@VERSION@"
-)
+// ZIO Schema core: schemas and the data types they describe
+libraryDependencies += "dev.zio" %% "zio-schema"          % "@VERSION@"
+
+// JSON codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-json"     % "@VERSION@"
+
+// MessagePack codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "@VERSION@"
 ```
 
 The [DynamicValue](../operations/dynamic-data-representation.md) reference lists every case of the tree, and [Dynamic Data Representation](../operations/dynamic-data-representation.md) explains the idea behind it.

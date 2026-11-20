@@ -20,10 +20,11 @@ On this page we install ZIO Schema and write a first program. We describe a `Per
 The first program needs the core module and the JSON codec module. We add both to `build.sbt`:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema"      % "@VERSION@",
-  "dev.zio" %% "zio-schema-json" % "@VERSION@"
-)
+// ZIO Schema core: schemas and the data types they describe
+libraryDependencies += "dev.zio" %% "zio-schema"      % "@VERSION@"
+
+// JSON codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-json" % "@VERSION@"
 ```
 
 The JSON module depends on `zio-schema-derivation`, which provides `DeriveSchema`, so we do not add it separately. On Scala 2, the derivation macros also need `scala-reflect` at compile time. On Scala 3, the project must use Scala 3.9 or later. The [Installation](index.md#installation) section shows how to add `scala-reflect`, and [Modules](index.md#modules) lists the other modules with the platforms they support, ready to copy, with `%%%` for Scala.js and Scala Native.

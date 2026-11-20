@@ -60,13 +60,20 @@ The models already have schemas, and a schema describes the same structure. `Der
 We need the derivation module, the two codecs under test, and `zio-schema-zio-test`, which provides `DeriveGen` and brings in ZIO Test. ZIO Test's sbt runner, `zio-test-sbt`, runs the specs:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema-derivation" % "@VERSION@",
-  "dev.zio" %% "zio-schema-json"       % "@VERSION@",
-  "dev.zio" %% "zio-schema-protobuf"   % "@VERSION@",
-  "dev.zio" %% "zio-schema-zio-test"   % "@VERSION@" % Test,
-  "dev.zio" %% "zio-test-sbt"          % zioVersion  % Test
-)
+// Automatic derivation of schemas for case classes and sealed traits
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
+
+// JSON codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-json"       % "@VERSION@"
+
+// Protobuf codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf"   % "@VERSION@"
+
+// Test generators derived from a schema, for ZIO Test
+libraryDependencies += "dev.zio" %% "zio-schema-zio-test"   % "@VERSION@" % Test
+
+// ZIO Test sbt integration (test scope)
+libraryDependencies += "dev.zio" %% "zio-test-sbt"          % zioVersion  % Test
 ```
 
 Here `zioVersion` is the ZIO version your project already uses. The guide assumes you know how `DeriveGen.gen` works on a single type; [Derivation of ZIO Test Generators](../derivations/zio-test-gen-derivation.md) introduces it.

@@ -87,12 +87,14 @@ The pages for each format cover installation, configuration, and format-specific
 Each format is a separate dependency. On the JVM, add the module with `%%`, for example:
 
 ```scala
+// JSON codecs derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-json" % "@VERSION@"
 ```
 
 The JSON, Protobuf, and XML modules are also published for Scala.js and Scala Native. In a Scala.js or Scala Native project, declare them with `%%%` so sbt picks the artifact for the platform:
 
 ```scala
+// JSON codecs derived from a schema
 libraryDependencies += "dev.zio" %%% "zio-schema-json" % "@VERSION@"
 ```
 

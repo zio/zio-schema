@@ -15,6 +15,7 @@ Unlike the other format modules, the BSON module does not return a `BinaryCodec`
 To use BSON codecs, add the following dependency to your `build.sbt` file. The module is published for the JVM only:
 
 ```scala
+// BSON codecs derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-bson" % "@VERSION@"
 ```
 

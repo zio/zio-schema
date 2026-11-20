@@ -36,10 +36,11 @@ We recommend reading from top to bottom, because each section builds on the prev
 The examples need the core module and the JSON codec. Add both to your `build.sbt`:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema"      % "@VERSION@",
-  "dev.zio" %% "zio-schema-json" % "@VERSION@"
-)
+// ZIO Schema core: schemas and the data types they describe
+libraryDependencies += "dev.zio" %% "zio-schema"      % "@VERSION@"
+
+// JSON codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-json" % "@VERSION@"
 ```
 
 The JSON module already brings in `zio-schema-derivation`, which provides `DeriveSchema`. On Scala 2, derivation also needs `scala-reflect` at compile time, as the [Installation](../index.md#installation) section shows.

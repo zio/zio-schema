@@ -160,6 +160,7 @@ Now that we have written all the required schemas, we can create encoders and de
 Let's start with Protobuf codecs. We need to add the following line to our `build.sbt`:
 
 ```scala
+// Protobuf codecs derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
 ```
 

@@ -27,10 +27,11 @@ ZIO Schema solves this with `Schema.Lazy`, a schema that builds its inner schema
 The examples use the core module and the JSON codec, which brings in `DeriveSchema`:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema"      % "@VERSION@",
-  "dev.zio" %% "zio-schema-json" % "@VERSION@"
-)
+// ZIO Schema core: schemas and the data types they describe
+libraryDependencies += "dev.zio" %% "zio-schema"      % "@VERSION@"
+
+// JSON codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-json" % "@VERSION@"
 ```
 
 On Scala 2, `DeriveSchema` also needs `scala-reflect` at compile time; the [Installation](../index.md#installation) section shows the line to add. The [Schema Data Types](../basic-building-blocks.md) page describes `Schema.Lazy` and the other schema cases this guide builds by hand.
