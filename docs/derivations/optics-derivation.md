@@ -91,6 +91,7 @@ The type of the `Accessors` value depends on the schema: a record schema returns
 To derive optics from a ZIO Schema, we add the following line to our `build.sbt` file:
 
 ```scala
+// Optics derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-optics" % "@VERSION@"
 ```
 

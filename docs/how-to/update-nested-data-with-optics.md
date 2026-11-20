@@ -44,10 +44,11 @@ A schema already lists the fields of a case class and the cases of a sealed trai
 The `zio-schema-optics` module provides `ZioOpticsBuilder` and brings in [ZIO Optics](https://zio.dev/zio-optics), whose `Optic` type the derived optics use. We also need the derivation module for `DeriveSchema.gen`:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema-derivation" % "@VERSION@",
-  "dev.zio" %% "zio-schema-optics"     % "@VERSION@"
-)
+// Automatic derivation of schemas for case classes and sealed traits
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
+
+// Optics derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-optics"     % "@VERSION@"
 ```
 
 ## Deriving the Accessors

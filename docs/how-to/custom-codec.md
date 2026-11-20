@@ -18,10 +18,11 @@ This guide writes a codec that stores a `Person` as one line, `name,age`, and re
 The `Codec` trait lives in the core module, and `DeriveSchema` in the derivation module:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema"            % "@VERSION@",
-  "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
-)
+// ZIO Schema core: schemas and the data types they describe
+libraryDependencies += "dev.zio" %% "zio-schema"            % "@VERSION@"
+
+// Automatic derivation of schemas for case classes and sealed traits
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
 ```
 
 ## Define the Model

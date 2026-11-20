@@ -13,6 +13,7 @@ Apache Thrift is an open-source framework that allows seamless communication and
 To derive Apache Thrift codecs from a ZIO Schema, add the following dependency to your `build.sbt` file. The module is published for the JVM only:
 
 ```scala
+// Thrift codecs derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-thrift" % "@VERSION@"
 ```
 

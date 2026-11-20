@@ -21,10 +21,11 @@ Most ZIO Schema examples use the Scala 2 idiom: an `implicit val schema = Derive
 Schema derivation lives in the `zio-schema-derivation` module, and the JSON module, used here to show encoded output, already depends on it:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema"      % "@VERSION@",
-  "dev.zio" %% "zio-schema-json" % "@VERSION@"
-)
+// ZIO Schema core: schemas and the data types they describe
+libraryDependencies += "dev.zio" %% "zio-schema"      % "@VERSION@"
+
+// JSON codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-json" % "@VERSION@"
 ```
 
 Scala 3 needs no `scala-reflect` dependency, because derivation uses inline methods and quoted macros instead of Scala 2 macros. Every example imports `zio.schema._`, which brings `Schema`, `DeriveSchema`, and the `Schema.derived` extension method into scope. The documentation build compiles its snippets with Scala 2.13, so the Scala 3 snippets on this page are plain code blocks.

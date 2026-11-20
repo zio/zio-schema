@@ -25,10 +25,11 @@ A `Schema[A]` describes that structure, but it cannot be serialized as it is: it
 The examples use the core module and the JSON codec:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema"      % "@VERSION@",
-  "dev.zio" %% "zio-schema-json" % "@VERSION@"
-)
+// ZIO Schema core: schemas and the data types they describe
+libraryDependencies += "dev.zio" %% "zio-schema"      % "@VERSION@"
+
+// JSON codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-json" % "@VERSION@"
 ```
 
 The [MetaSchema](../operations/serialization-of-the-schema-itself.md) reference describes every node of the tree, and [DynamicValue](../operations/dynamic-data-representation.md) describes the values the receiver works with.

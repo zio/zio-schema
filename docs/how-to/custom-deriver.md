@@ -45,10 +45,11 @@ A schema already describes the structure of each type. A `Deriver` builds the in
 `Deriver`, `Derive`, and `Factory` live in the `zio-schema-derivation` module:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema"            % "@VERSION@",
-  "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
-)
+// ZIO Schema core: schemas and the data types they describe
+libraryDependencies += "dev.zio" %% "zio-schema"            % "@VERSION@"
+
+// Automatic derivation of schemas for case classes and sealed traits
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
 ```
 
 On Scala 2, the derivation macros also need `scala-reflect` at compile time, as the [Installation](../index.md#installation) section shows. The guide assumes you know how to derive a schema with `DeriveSchema.gen`, as [Automatic Schema Derivation](../automatic-schema-derivation.md) explains.

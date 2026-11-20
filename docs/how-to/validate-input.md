@@ -41,10 +41,11 @@ The check sits apart from the model, so adding a field without updating the chec
 We need the core module for `Schema` and validation, and the JSON module for decoding. The JSON module already depends on `zio-schema-derivation`, which provides `DeriveSchema.gen`:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema"      % "@VERSION@",
-  "dev.zio" %% "zio-schema-json" % "@VERSION@"
-)
+// ZIO Schema core: schemas and the data types they describe
+libraryDependencies += "dev.zio" %% "zio-schema"      % "@VERSION@"
+
+// JSON codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-json" % "@VERSION@"
 ```
 
 On Scala 2, schema derivation also needs `scala-reflect` at compile time, as the [Installation](../index.md#installation) section shows. This guide assumes you know how to derive a schema; the [Validation](../operations/validating-types.md) reference describes every rule and error type in detail.

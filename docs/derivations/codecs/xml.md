@@ -13,12 +13,14 @@ XML (Extensible Markup Language) is a widely used markup language for representi
 To start using XML codecs in ZIO Schema, add the following dependency to your `build.sbt` file:
 
 ```scala
+// XML codecs derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-xml" % "@VERSION@"
 ```
 
 For a Scala.js or Scala Native project, use `%%%` instead:
 
 ```scala
+// XML codecs derived from a schema
 libraryDependencies += "dev.zio" %%% "zio-schema-xml" % "@VERSION@"
 ```
 

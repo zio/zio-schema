@@ -15,12 +15,14 @@ The codec writes the Protobuf wire format, with field numbers and wire types, bu
 To start using Protobuf codecs in ZIO, add the following dependency to your `build.sbt` file:
 
 ```scala
+// Protobuf codecs derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
 ```
 
 For a Scala.js or Scala Native project, use `%%%` instead:
 
 ```scala
+// Protobuf codecs derived from a schema
 libraryDependencies += "dev.zio" %%% "zio-schema-protobuf" % "@VERSION@"
 ```
 

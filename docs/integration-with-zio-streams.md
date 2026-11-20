@@ -31,10 +31,11 @@ Only the JSON codec streams several values reliably through its pipelines. For t
 The examples use the JSON and Protobuf modules, which bring ZIO Streams with them:
 
 ```scala
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio-schema-json"     % "@VERSION@",
-  "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
-)
+// JSON codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-json"     % "@VERSION@"
+
+// Protobuf codecs derived from a schema
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
 ```
 
 For other formats, add their modules as listed on the [Introduction to ZIO Schema Codecs](derivations/codecs/index.md#available-codecs) page.

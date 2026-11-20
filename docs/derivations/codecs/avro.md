@@ -13,6 +13,7 @@ Apache Avro is a popular data serialization format used in distributed systems, 
 To use the Avro codecs, add the following dependency to your `build.sbt` file. The module is published for the JVM only:
 
 ```scala
+// Avro codecs derived from a schema
 libraryDependencies += "dev.zio" %% "zio-schema-avro" % "@VERSION@"
 ```
 

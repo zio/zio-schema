@@ -14,6 +14,7 @@ Derivation happens at compile time: macros on Scala 2 and inline methods on Scal
 ZIO Schema provides schema derivation in the `zio-schema-derivation` module. In order to use automatic schema derivation, we need to add the following line to our `build.sbt` file:
 
 ```scala
+// Automatic derivation of schemas for case classes and sealed traits
 libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
 ```
 
