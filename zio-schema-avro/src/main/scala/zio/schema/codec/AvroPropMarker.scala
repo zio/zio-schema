@@ -250,6 +250,7 @@ object StringType {
 sealed trait IntType { self =>
 
   def value: String = self match {
+    case IntType.Byte       => "byte"
     case IntType.Char       => "char"
     case IntType.Short      => "short"
     case IntType.DayOfWeek  => "dayOfWeek"
@@ -265,6 +266,7 @@ object IntType {
   def fromAvroInt(avroSchema: SchemaAvro): Option[IntType] =
     if (avroSchema.getType == SchemaAvro.Type.INT) {
       avroSchema.getObjectProps.asScala.get(propName).collect {
+        case "byte"       => IntType.Byte
         case "char"       => IntType.Char
         case "short"      => IntType.Short
         case "dayOfWeek"  => IntType.DayOfWeek
@@ -274,6 +276,7 @@ object IntType {
       }
     } else None
 
+  case object Byte       extends IntType
   case object Char       extends IntType
   case object Short      extends IntType
   case object DayOfWeek  extends IntType

@@ -558,6 +558,12 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
 
             assert(result)(isRight(equalTo("\"boolean\"")))
           },
+          test("encodes ByteType") {
+            val schema = Schema.primitive(StandardType.ByteType)
+            val result = AvroSchemaCodec.encode(schema)
+
+            assert(result)(isRight(equalTo("""{"type":"int","zio.schema.codec.intType":"byte"}""")))
+          },
           test("encodes ShortType") {
             val schema = Schema.primitive(StandardType.ShortType)
             val result = AvroSchemaCodec.encode(schema)
@@ -1604,6 +1610,12 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
             assert(schema)(isRight(isStandardType(StandardType.YearType)))
+          },
+          test("decodes byte") {
+            val s      = """{"type":"int","zio.schema.codec.intType":"byte"}"""
+            val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
+
+            assert(schema)(isRight(isStandardType(StandardType.ByteType)))
           },
           test("decodes short") {
             val s      = """{"type":"int","zio.schema.codec.intType":"short"}"""
