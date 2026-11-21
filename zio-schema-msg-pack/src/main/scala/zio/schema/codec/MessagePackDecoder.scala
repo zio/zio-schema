@@ -349,7 +349,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
 
   private def decodeEnum[Z, A](path: Path, cases: Schema.Case[Z, _]*): Result[Z] =
     decodeInt(path).flatMap { caseIndex =>
-      if (caseIndex > cases.length) {
+      if (caseIndex < 0 || caseIndex >= cases.length) {
         fail(path, s"Error decoding enum with cases ${cases.map(_.id).mkString(", ")}, enum id out of range: ${caseIndex}")
       } else {
         val subtypeCase = cases(caseIndex)
