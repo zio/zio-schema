@@ -12,7 +12,16 @@ import scala.util.control.NonFatal
 
 import zio.json.JsonDecoder.{JsonError, UnsafeJson}
 import zio.json.ast.Json
-import zio.json.internal.{FastStringReader, Lexer, OneCharReader, RecordingReader, RetractReader, StringMatrix, Write}
+import zio.json.internal.{
+  FastStringReader,
+  Lexer,
+  OneCharReader,
+  RecordingReader,
+  RetractReader,
+  StringMatrix,
+  UnexpectedEnd,
+  Write
+}
 import zio.json.{
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
@@ -172,8 +181,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
-        jsonCodec
-          .decodeJson(new String(whole.toArray, JsonEncoder.CHARSET))
+        JsonDecoder
+          .decodeWhole(jsonCodec.decoder, new String(whole.toArray, JsonEncoder.CHARSET))
           .left
           .map(failure => DecodeError.ReadError(Cause.empty, failure))
 
@@ -327,7 +336,11 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         ZPipeline.utfDecode.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage)) >>>
           (if (cfg.treatStreamsAsArrays) splitJsonArrayElements else splitOnJsonBoundary) >>>
           ZPipeline.mapZIO { (s: String) =>
-            ZIO.fromEither(JsonDecoder.decode(schema, s, cfg))
+            // The splitter can leave separators like ',' or ']' on a chunk, so
+            // trailing input is allowed here.
+            ZIO.fromEither(
+              JsonDecoder.schemaDecoder(schema, cfg).decodeJson(s).left.map(DecodeError.ReadError(Cause.empty, _))
+            )
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -831,8 +844,27 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
+    // zio-json's decodeJson stops once a value is complete, so `"foo"bar` would
+    // decode as "foo". This also checks that only whitespace follows the value.
+    private[codec] def decodeWhole[A](decoder: ZJsonDecoder[A], json: String): Either[String, A] =
+      try {
+        // Number lexers read one char past the value and retract. At end of input
+        // that retract lands on the last digit, so pad with a space to keep the
+        // reader's position right.
+        val in = new FastStringReader(json + " ")
+        val a  = decoder.unsafeDecode(Nil, in)
+        var c  = in.read()
+        while (c == ' ' || c == '\t' || c == '\n' || c == '\r') c = in.read()
+        if (c != -1) Lexer.error(s"unexpected '${c.toChar}' after JSON value", Nil)
+        Right(a)
+      } catch {
+        case e: UnsafeJson         => Left(JsonError.render(e.trace))
+        case _: UnexpectedEnd      => Left("Unexpected end of input")
+        case _: StackOverflowError => Left("Unexpected structure")
+      }
+
     final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
-      schemaDecoder(schema, config).decodeJson(json) match {
+      decodeWhole(schemaDecoder(schema, config), json) match {
         case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
         case Right(value) => Right(value)
       }
@@ -1302,36 +1334,36 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
             val lexer = Lexer
             lexer.char(trace, in, '[')
 
-            // get left element
-            if (lexer.firstArrayElement(in)) {
-              val trace_ = JsonError.ArrayAccess(0) :: trace
-              try left = Some(leftDecoder.unsafeDecode(trace_, in))
-              catch {
-                case _: UnsafeJson => ()
-              }
-
-              // read until ',' if left wasn't decoded
-              var continue = true
-              while (continue) {
-                try {
-                  lexer.nextArrayElement(trace, in)
-                  continue = false
-                } catch {
-                  case _: UnsafeJson => ()
-                }
+            // Decode an element, or skip over it if it doesn't decode, so the
+            // reader always ends up after the element.
+            def decodeOrSkip[X](
+              decoder: ZJsonDecoder[X],
+              trace_ : List[JsonError],
+              cur: RetractReader
+            ): (Option[X], RetractReader) = {
+              val rr = RecordingReader(cur)
+              try {
+                (Some(decoder.unsafeDecode(trace_, rr)), rr)
+              } catch {
+                case _: UnsafeJson =>
+                  rr.rewind()
+                  lexer.skipValue(trace_, rr)
+                  (None, rr)
               }
             }
 
-            // get right element
-            if (((left eq None) || schema.fullDecode) && lexer.firstArrayElement(in)) {
-              val trace_ = JsonError.ArrayAccess(1) :: trace
-              try right = Some(rightDecoder.unsafeDecode(trace_, in))
-              catch {
-                case _: UnsafeJson => ()
-              }
-              try lexer.nextArrayElement(trace, in)
-              catch {
-                case _: UnsafeJson => ()
+            var cur: RetractReader = in
+            if (lexer.firstArrayElement(cur)) {
+              val (l, next) = decodeOrSkip(leftDecoder, JsonError.ArrayAccess(0) :: trace, cur)
+              left = l
+              cur = next
+              if (lexer.nextArrayElement(trace, cur)) {
+                if ((left eq None) || schema.fullDecode) {
+                  val (r, next) = decodeOrSkip(rightDecoder, JsonError.ArrayAccess(1) :: trace, cur)
+                  right = r
+                  cur = next
+                } else lexer.skipValue(trace, cur)
+                lexer.char(trace, cur, ']')
               }
             }
 
