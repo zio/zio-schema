@@ -59,6 +59,20 @@ object ThriftCodecSpec extends ZIOSpecDefault {
           res <- write(new g.BasicInt(150))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
+      test("streamEncoder is safe when encoding concurrent streams") {
+        val codec    = ThriftCodec.thriftCodec(schemaBasicInt)
+        val pipeline = codec.streamEncoder
+        val items1   = (1 to 100).map(BasicInt.apply).toList
+        val items2   = (101 to 200).map(BasicInt.apply).toList
+        for {
+          f1        <- ZStream.fromIterable(items1).via(pipeline).runCollect.fork
+          f2        <- ZStream.fromIterable(items2).via(pipeline).runCollect.fork
+          out1      <- f1.join
+          out2      <- f2.join
+          expected1  = items1.map(codec.encode).reduce(_ ++ _)
+          expected2  = items2.map(codec.encode).reduce(_ ++ _)
+        } yield assertTrue(out1 == expected1) && assertTrue(out2 == expected2)
+      },
       test("strings") {
         for {
           e   <- encode(schemaBasicString, BasicString("testing")).map(toHex)

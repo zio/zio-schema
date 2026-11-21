@@ -32,12 +32,11 @@ object ThriftCodec {
       override def encode(value: A): Chunk[Byte] =
         new Encoder().encode(schema, value)
 
-      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] = {
-        val encoder = new Encoder()
+      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
         ZPipeline.mapChunks { chunk =>
+          val encoder = new Encoder()
           chunk.flatMap(encoder.encode(schema, _))
         }
-      }
 
       private def decodeChunk(chunk: Chunk[Byte]): Either[DecodeError, A] =
         if (chunk.isEmpty)
