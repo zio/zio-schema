@@ -327,7 +327,11 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         ZPipeline.utfDecode.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage)) >>>
           (if (cfg.treatStreamsAsArrays) splitJsonArrayElements else splitOnJsonBoundary) >>>
           ZPipeline.mapZIO { (s: String) =>
-            ZIO.fromEither(JsonDecoder.decode(schema, s, cfg))
+            // Stream chunks may include separators left by JsonSplitter (e.g. a trailing
+            // comma when treatStreamsAsArrays is true), so keep this path lenient.
+            ZIO.fromEither(
+              JsonDecoder.schemaDecoder(schema, cfg).decodeJson(s).left.map(DecodeError.ReadError(Cause.empty, _))
+            )
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -832,10 +836,35 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
     final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
-      schemaDecoder(schema, config).decodeJson(json) match {
+      decodeFully(schemaDecoder(schema, config), json) match {
         case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
         case Right(value) => Right(value)
       }
+
+    /**
+     * Decodes `json` like `ZJsonDecoder#decodeJson`, but additionally fails if
+     * anything other than whitespace follows the decoded value (e.g. `{}}` or
+     * `"foo""`).
+     */
+    private[codec] def decodeFully[A](decoder: ZJsonDecoder[A], json: CharSequence): Either[String, A] = {
+      val reader = new FastStringReader(json)
+      try {
+        val result      = decoder.unsafeDecode(Nil, reader)
+        val hasTrailing =
+          try {
+            reader.nextNonWhitespace()
+            true
+          } catch {
+            case _: zio.json.internal.UnexpectedEnd => false
+          }
+        if (hasTrailing) Left("(unexpected trailing characters after JSON value)")
+        else Right(result)
+      } catch {
+        case e: UnsafeJson                      => Left(ZJsonDecoder.JsonError.render(e.trace))
+        case _: zio.json.internal.UnexpectedEnd => Left("Unexpected end of input")
+        case _: StackOverflowError              => Left("Unexpected structure")
+      }
+    }
 
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
       new ZJsonDecoder[Option[A]] {
