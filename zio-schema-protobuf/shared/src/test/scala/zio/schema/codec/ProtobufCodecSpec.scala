@@ -760,6 +760,13 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
             d2 <- decodeNS(schemaFail, "0F").exit
           } yield assert(d)(failsWithA[DecodeError]) && assert(d2)(failsWithA[DecodeError])
 
+        },
+        test("fallback with invalid field number") {
+          for {
+            d  <- decode(fallbackSchema1, "2001").exit
+            d2 <- decodeNS(fallbackSchema1, "2001").exit
+          } yield assert(d)(failsWithA[DecodeError]) &&
+            assert(d2)(failsWithA[DecodeError])
         }
       ),
       suite("dynamic")(
