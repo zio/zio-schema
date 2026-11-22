@@ -115,7 +115,12 @@ object PatchSpec extends ZIOSpecDefault {
       test("Separate enum cases") {
         notComparable[Pet](_.isInstanceOf[Pet.Dog], _.isInstanceOf[Pet.Cat])(_.isLeft)
       }
-    )
+    ),
+    test("Patch.Temporal for ZonedDateTimeType") {
+      val zdt   = java.time.ZonedDateTime.of(2024, 5, 10, 12, 30, 0, 0, java.time.ZoneOffset.UTC)
+      val patch = Patch.Temporal(List(1L), StandardType.ZonedDateTimeType)
+      assert(patch.patch(zdt))(isRight(equalTo(zdt.minusDays(1))))
+    }
   )
 
   private def patchIdentityLaw[A](implicit schema: Schema[A]): URIO[Sized with TestConfig, TestResult] =
