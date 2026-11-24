@@ -18,10 +18,15 @@ package zio.schema.codec
 
 import zio.stream.ZPipeline
 
+/**
+ * Encodes values of type `A` into a `Whole`, such as `Chunk[Byte]`, or turns a stream of `A` values into a stream of `Element`s.
+ */
 trait Encoder[Whole, Element, -A] {
 
+  /** Returns the encoded form of `value`. */
   def encode(value: A): Whole
 
+  /** Returns a pipeline that encodes a stream of `A` values into a stream of `Element`s. */
   def streamEncoder: ZPipeline[Any, Nothing, A, Element]
 
 }

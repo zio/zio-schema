@@ -3,24 +3,33 @@ package zio.schema.validation
 import scala.annotation.tailrec
 import scala.collection.mutable
 
+/** Provides `time`, the time-of-day validation that the `Validation` companion object inherits. */
 trait Time {
 
   /**
-   * Format is almost the same as the one used by the
-   * java.time.format.DateTimeFormatter class.
+   * Returns a `Validation` that passes when the string matches the time `format`. The letters are close to those of `java.time.format.DateTimeFormatter`, with these accepted ranges:
    *
-   * a AM/PM always 2 letters h 1-12 hour 1 or 2 digits hh 01-12 hour always 2
-   * digits H 0-23 hour 1 or 2 digits HH 00-23 hour always 2 digits m 0-59
-   * minute 1 or 2 digits mm 00-59 minute always 2 digits s 0-59 second 1 or 2
-   * digits ss 00-59 second always 2 digits
+   *   - `H`: hour, one or two digits, `0` to `24` (`00` and `24` pass)
+   *   - `HH`: hour, two digits, `00` to `24`
+   *   - `h`: hour, one or two digits, `0` to `12` (`0` and `00` pass)
+   *   - `hh`: hour, two digits, `00` to `12`
+   *   - `m` and `s`: minute and second, one or two digits, `0` to `59`
+   *   - `mm` and `ss`: minute and second, two digits, `00` to `59`
+   *   - `S` to `SSSSSSSSS`: fraction of a second, exactly as many digits as letters (one to nine)
+   *   - `a`: `AM` or `PM`, upper case
    *
-   * S 0-9 fraction of seconds 1 digits .. SSSSSSSSS 000000000-999999999 maximum
-   * number of digits is 9
+   * Other characters are matched literally. Each field is checked on its own, so `HH:mm a` accepts `13:10 PM`. A letter that follows a non-letter literal is also matched literally: `HH:xx` accepts `10:xx`.
    *
-   * All other letters are reserved.
+   * {{{
+   * import zio.schema.validation.Validation
    *
-   * Examples: HH:mm 01:10 HH:mm:ss 11:10:30 HH:mm:ss.SSSSSSSSS
-   * 21:10:30.123456789 HH:mm a 01:10 AM h:mm:ss 1:10:30
+   * val hourMinute = Validation.time("HH:mm")
+   *
+   * val padded   = hourMinute.validate("01:10").isRight // true
+   * val unpadded = hourMinute.validate("1:10").isRight  // false
+   * }}}
+   *
+   * Throws a `java.lang.IllegalArgumentException` when `format` has no time field, repeats a field (`H:H`), has a field longer than allowed (`HHH`), or has another letter at its start or right after a field (`HHx`).
    */
   def time(format: String): Validation[String] = {
     val regex = parseFormat(format)

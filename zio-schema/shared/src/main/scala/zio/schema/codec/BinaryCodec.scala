@@ -19,16 +19,24 @@ package zio.schema.codec
 import zio.Chunk
 import zio.stream.ZPipeline
 
+/**
+ * A `Codec` that encodes `A` to `Chunk[Byte]` and streams `Byte`s. Format modules provide instances from a `Schema`, for example `JsonCodec.schemaBasedBinaryCodec` and `ProtobufCodec.protobufCodec`.
+ */
 trait BinaryCodec[A] extends Codec[Chunk[Byte], Byte, A]
 
+/** Type aliases for the binary forms of encoders, decoders and stream pipelines. */
 object BinaryCodec {
 
+  /** An `Encoder` that produces `Chunk[Byte]`. */
   type BinaryEncoder[A] = Encoder[Chunk[Byte], Byte, A]
 
+  /** A `Decoder` that reads `Chunk[Byte]`. */
   type BinaryDecoder[A] = Decoder[Chunk[Byte], Byte, A]
 
+  /** A pipeline that encodes `A` values into a stream of bytes. */
   type BinaryStreamEncoder[A] = ZPipeline[Any, Nothing, A, Byte]
 
+  /** A pipeline that decodes a stream of bytes into `A` values and can fail with a `DecodeError`. */
   type BinaryStreamDecoder[A] = ZPipeline[Any, DecodeError, Byte, A]
 
 }

@@ -6,10 +6,55 @@ import zio.schema.meta.ExtensibleMetaSchema.Labelled
 import zio.schema.{DynamicValue, StandardType}
 import zio.{Chunk, ChunkBuilder}
 
+/**
+ * A `Migration` is one step that turns a [[zio.schema.DynamicValue]] of an old
+ * schema into a value of a new schema, such as making a field optional or
+ * deleting a field. [[Migration.derive]] compares two [[MetaSchema]] trees and
+ * returns the steps between them, and [[zio.schema.DynamicValue#transform]]
+ * applies a chunk of steps to a value. `Schema#migrate` and the `migrate`
+ * syntax in `zio.schema.syntax` run these three steps for you.
+ *
+ * Use it when data written with one version of a schema has to be read with
+ * another. The steps work on a value's dynamic form, so they apply to data
+ * from any codec.
+ *
+ * {{{
+ * import zio.Chunk
+ * import zio.schema._
+ * import zio.schema.meta._
+ *
+ * val v1: Schema[Map[String, Int]]         = Schema[Map[String, Int]]
+ * val v2: Schema[Map[String, Option[Int]]] = Schema[Map[String, Option[Int]]]
+ *
+ * val migrations: Either[String, Chunk[Migration]] =
+ *   Migration.derive(MetaSchema.fromSchema(v1), MetaSchema.fromSchema(v2))
+ * // Right(Chunk(Optional(Chunk(values))))
+ *
+ * val result: Either[String, Map[String, Option[Int]]] =
+ *   for {
+ *     ms      <- migrations
+ *     dynamic <- v1.toDynamic(Map("ana" -> 31)).transform(ms)
+ *     value   <- v2.fromDynamic(dynamic)
+ *   } yield value
+ * // Right(Map(ana -> Some(31)))
+ * }}}
+ *
+ * Some steps never succeed on a value: [[Migration.AddNode]] and
+ * [[Migration.ChangeType]] always return `Left`, because a migration has no
+ * default value and no type conversion. A step whose path ends at the `left`
+ * or `right` element of a tuple returns `Left` ("Unexpected node"), and so
+ * does one that ends at the side an `Either` value holds; steps on record
+ * fields and on map values apply.
+ */
 sealed trait Migration { self =>
 
+  /** The path of the node this step changes. */
   def path: NodePath
 
+  /**
+   * Applies this step to `value`, returning the changed value or an error
+   * message.
+   */
   def migrate(value: DynamicValue): Either[String, DynamicValue] =
     self match {
       case Migration.Require(path)       => Migration.require(value, path.toList)
@@ -34,30 +79,82 @@ sealed trait Migration { self =>
     }
 }
 
+/** The migration steps and [[Migration.derive]]. */
 object Migration {
+  /**
+   * Replaces the message of the `DynamicValue.Error` at `path` with `message`.
+   * Returns `Left` when the node is not an error value.
+   */
   final case class UpdateFail(override val path: NodePath, message: String) extends Migration
 
+  /** Wraps the value at `path` in `DynamicValue.SomeValue`. */
   final case class Optional(override val path: NodePath) extends Migration
 
+  /**
+   * Unwraps the `DynamicValue.SomeValue` at `path`. Returns `Left` when the
+   * value is `NoneValue` or is not optional.
+   */
   final case class Require(override val path: NodePath) extends Migration
 
+  /**
+   * Records that the primitive at `path` changes to the standard type `value`.
+   * `migrate` always returns `Left`, because no type conversion is available.
+   */
   final case class ChangeType(override val path: NodePath, value: StandardType[_]) extends Migration
 
+  /**
+   * Records that the new schema adds the node `node` at `path`. `migrate`
+   * always returns `Left`, because no default value is available.
+   */
   final case class AddNode(override val path: NodePath, node: MetaSchema) extends Migration
 
+  /**
+   * Records that the new schema adds the enum case `node` at `path`. `migrate`
+   * returns the value unchanged, since an existing value never uses the new
+   * case.
+   */
   final case class AddCase(override val path: NodePath, node: MetaSchema) extends Migration
 
+  /**
+   * Removes the record field at `path`. Returns `Left` for the root path and
+   * for an enum case that the value uses.
+   */
   final case class DeleteNode(override val path: NodePath) extends Migration
 
+  /** Renames the field or case at `path` with the label transformation `tranform`. */
   final case class Relabel(override val path: NodePath, tranform: LabelTransformation) extends Migration
 
+  /** Wraps the value at `path` in `n` single-element sequences. */
   final case class IncrementDimensions(override val path: NodePath, n: Int) extends Migration
 
+  /**
+   * Unwraps `n` levels of single-element sequences at `path`. Returns `Left`
+   * when a level is not a sequence of exactly one element.
+   */
   final case class DecrementDimensions(override val path: NodePath, n: Int) extends Migration
 
+  /**
+   * Applies `relativeMigration` at each level of a recursive structure. `path`
+   * is the node the recursion starts from, and `relativeNodePath` is the path
+   * from that node to its recursive child. `migrate` applies the step below
+   * `path / relativeNodePath`, then one `relativeNodePath` deeper each time,
+   * and stops when a level leaves the value unchanged.
+   */
   final case class Recursive(override val path: NodePath, relativeNodePath: NodePath, relativeMigration: Migration)
       extends Migration
 
+  /**
+   * Returns the steps that turn values described by `from` into values
+   * described by `to`, or `Left` with a message when the two trees have
+   * different shapes ("not homomorphic"), for example a primitive and a
+   * record.
+   *
+   * It matches record fields and enum cases by label: a label only in `to`
+   * gives [[AddNode]] or [[AddCase]], a label only in `from` gives
+   * [[DeleteNode]], a change of optionality gives [[Optional]] or [[Require]],
+   * a change of primitive type gives [[ChangeType]], and a list on one side
+   * only gives [[IncrementDimensions]] or [[DecrementDimensions]].
+   */
   def derive(from: MetaSchema, to: MetaSchema): Either[String, Chunk[Migration]] = {
     def go(
       acc: Chunk[Migration],
@@ -223,12 +320,14 @@ object Migration {
    *
    * Not currently implemented but we can use this type to encode unambiguous
    * string transformations applied to field and case labels. For example,
-   * converting from snake to camel case (or vica versa)
+   * converting from snake to camel case (or vice versa)
    */
   sealed trait LabelTransformation {
+    /** Returns the new label for `label`, or an error message. */
     def apply(label: String): Either[String, String]
   }
 
+  /** The companion of [[LabelTransformation]]; it defines no transformations. */
   object LabelTransformation {}
 
   private def matchedSubtrees(

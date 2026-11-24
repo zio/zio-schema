@@ -29,8 +29,23 @@ import zio.prelude.NonEmptyMap
 import zio.schema.diff.Edit
 import zio.{Chunk, ChunkBuilder}
 
+/**
+ * A `Differ[A]` compares two values of type `A` and returns the [[Patch]] that turns the first into the second. `Differ.fromSchema` builds one from a schema, and `Schema#diff` uses it.
+ *
+ * Numbers, booleans and `java.time` values are diffed by their difference; strings, chunks, lists, sets and maps by their longest common subsequence; records field by field; and enums case by case. Two values of different enum cases, or of different sides of an `Either`, give a patch that is not comparable.
+ *
+ * {{{
+ * val differ = Differ.fromSchema(Schema[List[Int]])
+ * val patch  = differ(List(1, 2, 3), List(1, 3, 4))
+ *
+ * patch.patch(List(1, 2, 3)) // Right(List(1, 3, 4))
+ * }}}
+ */
 trait Differ[A] { self =>
 
+  /**
+   * Returns the patch that turns `thisValue` into `thatValue`.
+   */
   def apply(thisValue: A, thatValue: A): Patch[A]
 
   /**
@@ -38,12 +53,21 @@ trait Differ[A] { self =>
    */
   def <*>[B](that: Differ[B]): Differ[(A, B)] = self.zip(that)
 
+  /**
+   * Combines this differ with `that` into a differ for pairs, which diffs the first elements with this differ and the second elements with `that`.
+   */
   def zip[B](that: Differ[B]): Differ[(A, B)] = Differ.tuple(self, that)
 
+  /**
+   * Returns a differ for `B` that converts both values to `A` with `f`, diffs them with this differ, and wraps the result in a `Patch.Transform` that converts back with `g`. `f` maps `B` to `A`, the opposite direction of the first function of `Schema#transform`.
+   */
   def transform[B](f: B => A, g: A => B): Differ[B] =
     (thisValue: B, thatValue: B) =>
       Patch.Transform(self(f(thisValue), f(thatValue)), g.andThen(Right(_)), f.andThen(Right(_)))
 
+  /**
+   * Like `transform`, but the conversions can fail. Returns `Patch.notComparable` when `f` fails for either value.
+   */
   def transformOrFail[B](f: B => Either[String, A], g: A => Either[String, B]): Differ[B] =
     (thisValue: B, thatValue: B) =>
       f(thisValue) -> f(thatValue) match {
@@ -51,8 +75,14 @@ trait Differ[A] { self =>
         case _                    => Patch.notComparable
       }
 
+  /**
+   * Returns a differ for `Chunk[A]` that diffs by longest common subsequence and returns a `Patch.LCS`, or `Patch.identical` when the chunks are equal. It compares elements with `==` and doesn't use this differ.
+   */
   def chunk: Differ[Chunk[A]] = Differ.LCSDiff[A]
 
+  /**
+   * Returns a differ for `Option[A]`. Two `Some` values are diffed with this differ; a change between `Some` and `None` gives a `Patch.Total` holding the new value; two `None` values give `Patch.identical`.
+   */
   def optional: Differ[Option[A]] = Differ.instancePartial {
     case (Some(l), Some(r)) =>
       Patch.Transform[A, Option[A]](
@@ -66,6 +96,9 @@ trait Differ[A] { self =>
   }
 }
 
+/**
+ * Constructors for [[Differ]], including `fromSchema`, which builds the differ for a schema.
+ */
 object Differ {
   import ProductDiffer._
 
@@ -215,6 +248,9 @@ object Differ {
   }
 
   // scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
+  /**
+   * Returns the differ for the values of `schema`. Primitive types get the matching differ of this object, except `UUID`, `ZoneId` and `Currency`, which are diffed as strings. Sequences, sets and maps are diffed by longest common subsequence, records field by field, and enums case by case. `Schema.Dynamic` gives `Differ.dynamicValue` and `Schema.Fail` gives `Differ.fail`, whose patches are not comparable.
+   */
   def fromSchema[A](schema: Schema[A]): Differ[A] = schema match {
     case Schema.Primitive(StandardType.UnitType, _)       => unit
     case Schema.Primitive(StandardType.BinaryType, _)     => binary
@@ -332,25 +368,46 @@ object Differ {
   }
   // scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
+  /**
+   * A differ for `Unit` that returns `Patch.identical`.
+   */
   def unit: Differ[Unit] = (_: Unit, _: Unit) => Patch.identical
 
+  /**
+   * A differ for `Chunk[Byte]` that diffs by longest common subsequence.
+   */
   def binary: Differ[Chunk[Byte]] = LCSDiff.apply[Byte]
 
   // TODO We can probably actually diff DynamicValues properly
+  /**
+   * A differ for `DynamicValue` that returns `Patch.notComparable` for every pair of values, equal values included.
+   */
   def dynamicValue: Differ[DynamicValue] = new Differ[DynamicValue] {
     def apply(thisValue: DynamicValue, thatValue: DynamicValue): Patch[DynamicValue] = Patch.notComparable[DynamicValue]
   }
 
+  /**
+   * A differ for `Boolean` that returns `Patch.Bool(true)` when the values differ and `Patch.identical` when they are equal.
+   */
   def bool: Differ[Boolean] =
     (thisBool: Boolean, thatBool: Boolean) =>
       if (thisBool ^ thatBool) Patch.Bool(thisBool ^ thatBool) else Patch.identical
 
+  /**
+   * A differ for `Map[K, V]` that diffs the key-value pairs by longest common subsequence, in the maps' iteration order. It doesn't use `keySchema` or `valueSchema`.
+   */
   @nowarn def map[K, V](keySchema: Schema[K], valueSchema: Schema[V]): Differ[Map[K, V]] =
     LCSDiff.map[K, V]
 
+  /**
+   * A differ for `Set[A]` that diffs the elements by longest common subsequence, in the sets' iteration order. It doesn't use `schema`.
+   */
   @nowarn def set[A](schema: Schema[A]): Differ[Set[A]] =
     LCSDiff.set[A]
 
+  /**
+   * A differ for any type with a `Numeric` instance. Returns `Patch.Number(thisValue - thatValue)`, or `Patch.identical` when the difference is zero.
+   */
   def numeric[A](implicit numeric: Numeric[A]): Differ[A] =
     (thisValue: A, thatValue: A) =>
       numeric.minus(thisValue, thatValue) match {
@@ -358,6 +415,9 @@ object Differ {
         case distance                             => Patch.Number(distance)
       }
 
+  /**
+   * A differ for `java.time.Period` that records the differences in days, months and years.
+   */
   val period: Differ[Period] =
     (thisPeriod: Period, thatPeriod: Period) =>
       if (thisPeriod == thatPeriod)
@@ -372,6 +432,9 @@ object Differ {
           StandardType.PeriodType
         )
 
+  /**
+   * A differ for `java.time.Year` that records the difference in years.
+   */
   val year: Differ[Year] =
     (thisYear: Year, thatYear: Year) =>
       if (thisYear == thatYear)
@@ -379,6 +442,9 @@ object Differ {
       else
         Patch.Temporal(List[Long]((thisYear.getValue - thatYear.getValue).toLong), StandardType.YearType)
 
+  /**
+   * A differ for `java.time.YearMonth` that records the difference in months.
+   */
   val yearMonth: Differ[YearMonth] =
     (thisYearMonth: YearMonth, thatYearMonth: YearMonth) =>
       if (thisYearMonth == thatYearMonth)
@@ -391,6 +457,9 @@ object Differ {
           StandardType.YearMonthType
         )
 
+  /**
+   * A differ for `java.time.LocalDate` that records the difference in epoch days.
+   */
   def localDate: Differ[LocalDate] =
     (thisLocalDate: LocalDate, thatLocalDate: LocalDate) =>
       if (thisLocalDate == thatLocalDate)
@@ -398,6 +467,9 @@ object Differ {
       else
         Patch.Temporal(List[Long](thisLocalDate.toEpochDay - thatLocalDate.toEpochDay), StandardType.LocalDateType)
 
+  /**
+   * A differ for `java.time.Instant` that records the differences in epoch seconds and in nanoseconds.
+   */
   def instant: Differ[Instant] =
     (thisInstant: Instant, thatInstant: Instant) =>
       if (thisInstant == thatInstant)
@@ -411,6 +483,9 @@ object Differ {
           StandardType.InstantType
         )
 
+  /**
+   * A differ for `java.time.Duration` that records the differences in seconds and in nanoseconds.
+   */
   def duration: Differ[JDuration] =
     (thisDuration: JDuration, thatDuration: JDuration) =>
       if (thisDuration == thatDuration)
@@ -424,6 +499,9 @@ object Differ {
           StandardType.DurationType
         )
 
+  /**
+   * A differ for `java.time.LocalTime` that records the difference in nanoseconds of the day.
+   */
   def localTime: Differ[LocalTime] =
     (thisLocalTime: LocalTime, thatLocalTime: LocalTime) =>
       if (thisLocalTime == thatLocalTime)
@@ -431,6 +509,9 @@ object Differ {
       else
         Patch.Temporal(List[Long](thisLocalTime.toNanoOfDay - thatLocalTime.toNanoOfDay), StandardType.LocalTimeType)
 
+  /**
+   * A differ for `java.time.LocalDateTime` that records the differences in epoch days and in nanoseconds of the day.
+   */
   def localDateTime: Differ[LocalDateTime] =
     (thisLocalDateTime: LocalDateTime, thatLocalDateTime: LocalDateTime) =>
       if (thisLocalDateTime == thatLocalDateTime)
@@ -444,6 +525,9 @@ object Differ {
           StandardType.LocalDateTimeType
         )
 
+  /**
+   * A differ for `java.time.OffsetTime` that records the differences in nanoseconds of the day and in offset seconds.
+   */
   def offsetTime: Differ[OffsetTime] =
     (thisOffsetTime: OffsetTime, thatOffsetTime: OffsetTime) =>
       if (thisOffsetTime == thatOffsetTime)
@@ -457,6 +541,9 @@ object Differ {
           StandardType.OffsetTimeType
         )
 
+  /**
+   * A differ for `java.time.OffsetDateTime` that records the differences in epoch days, in nanoseconds of the day, and in offset seconds.
+   */
   def offsetDateTime: Differ[OffsetDateTime] =
     (thisOffsetDateTime: OffsetDateTime, thatOffsetDateTime: OffsetDateTime) =>
       if (thisOffsetDateTime == thatOffsetDateTime)
@@ -471,6 +558,9 @@ object Differ {
           StandardType.OffsetDateTimeType
         )
 
+  /**
+   * A differ for `java.time.ZonedDateTime` that diffs the local date-time with `localDateTime` and the zone id with `string`, and returns a `Patch.ZonedDateTime`.
+   */
   def zonedDateTime: Differ[JZonedDateTime] =
     (thisZonedDateTime: JZonedDateTime, thatZonedDateTime: JZonedDateTime) =>
       if (thisZonedDateTime == thatZonedDateTime)
@@ -484,6 +574,9 @@ object Differ {
           string(thisZonedDateTime.getZone.getId, thatZonedDateTime.getZone.getId)
         )
 
+  /**
+   * A differ for `java.time.ZoneOffset` that records the difference in total offset seconds.
+   */
   val zoneOffset: Differ[ZoneOffset] = (thisOffset: ZoneOffset, thatOffset: ZoneOffset) => {
     if (thisOffset.getTotalSeconds == thatOffset.getTotalSeconds)
       Patch.identical
@@ -494,6 +587,9 @@ object Differ {
       )
   }
 
+  /**
+   * A differ for `java.time.DayOfWeek` that records the difference between the day numbers.
+   */
   val dayOfWeek: Differ[DayOfWeek] =
     (thisDay: DayOfWeek, thatDay: DayOfWeek) =>
       if (thisDay == thatDay)
@@ -501,6 +597,9 @@ object Differ {
       else
         Patch.Temporal(List[Long]((thatDay.getValue - thisDay.getValue).toLong), StandardType.DayOfWeekType)
 
+  /**
+   * A differ for `java.time.Month` that records the difference between the month numbers.
+   */
   val month: Differ[JMonth] =
     (thisMonth: JMonth, thatMonth: JMonth) =>
       if (thisMonth == thatMonth)
@@ -508,6 +607,9 @@ object Differ {
       else
         Patch.Temporal(List[Long]((thatMonth.getValue - thisMonth.getValue).toLong), StandardType.MonthType)
 
+  /**
+   * A differ for `java.time.MonthDay` that records the number of days between the two values in the year 2001 and in the leap year 2000. `patch` uses the 2001 difference.
+   */
   val monthDay: Differ[MonthDay] =
     (thisMonthDay: MonthDay, thatMonthDay: MonthDay) =>
       if (thisMonthDay == thatMonthDay)
@@ -521,6 +623,9 @@ object Differ {
           StandardType.MonthDayType
         )
 
+  /**
+   * A differ for `java.math.BigInteger` that returns `Patch.BigInt(thisValue - thatValue)`, or `Patch.identical` when the difference is zero.
+   */
   val bigInt: Differ[BigInteger] =
     (thisValue: BigInteger, thatValue: BigInteger) =>
       thisValue.subtract(thatValue) match {
@@ -528,6 +633,9 @@ object Differ {
         case distance        => Patch.BigInt(distance)
       }
 
+  /**
+   * A differ for `java.math.BigDecimal`. It rounds `thisValue` to the precision of `thatValue`, subtracts `thatValue`, and returns a `Patch.BigDecimal` with that precision, or `Patch.identical` when the difference is zero. So two values that differ only beyond the precision of `thatValue` give `Patch.identical`: diffing `3.54` against `3.5` gives `Patch.identical`.
+   */
   val bigDecimal: Differ[java.math.BigDecimal] =
     (thisValue: java.math.BigDecimal, thatValue: java.math.BigDecimal) => {
       val thatCtx = new MathContext(thatValue.precision())
@@ -537,6 +645,9 @@ object Differ {
       }
     }
 
+  /**
+   * A differ for `java.util.Currency` that returns a `Patch.Currency` holding `thatValue` when the currencies differ. Applying that patch returns the input unchanged. `fromSchema` doesn't use this differ: it diffs currencies as strings.
+   */
   val currency: Differ[Currency] =
     (thisValue: Currency, thatValue: Currency) =>
       if (thisValue == thatValue)
@@ -544,6 +655,9 @@ object Differ {
       else
         Patch.Currency(thatValue)
 
+  /**
+   * A differ for pairs that diffs the first elements with `left` and the second elements with `right`.
+   */
   def tuple[A, B](left: Differ[A], right: Differ[B]): Differ[(A, B)] =
     (thisValue: (A, B), thatValue: (A, B)) =>
       (thisValue, thatValue) match {
@@ -551,12 +665,18 @@ object Differ {
           left(thisA, thatA) <*> right(thisB, thatB)
       }
 
+  /**
+   * A differ for `Either` that diffs two `Left` values with `left` and two `Right` values with `right`. A `Left` and a `Right` give `Patch.notComparable`.
+   */
   def either[A, B](left: Differ[A], right: Differ[B]): Differ[Either[A, B]] =
     instancePartial[Either[A, B]] {
       case (Left(l), Left(r))   => Patch.EitherDiff(Left(left(l, r)))
       case (Right(l), Right(r)) => Patch.EitherDiff(Right(right(l, r)))
     }
 
+  /**
+   * A differ for [[zio.schema.Fallback]] that diffs two values of the same shape (`Left`, `Right` or `Both`) side by side. Values of different shapes give `Patch.notComparable`.
+   */
   def fallback[A, B](left: Differ[A], right: Differ[B]): Differ[Fallback[A, B]] =
     instancePartial[Fallback[A, B]] {
       case (Fallback.Left(l), Fallback.Left(r))           => Patch.Fallback(Fallback.Left(left(l, r)))
@@ -564,10 +684,19 @@ object Differ {
       case (Fallback.Both(l1, r1), Fallback.Both(l2, r2)) => Patch.Fallback(Fallback.Both(left(l1, l2), right(r1, r2)))
     }
 
+  /**
+   * A differ that returns `Patch.identical` for every pair of values, so its patches change nothing.
+   */
   def identical[A]: Differ[A] = (_: A, _: A) => Patch.identical
 
+  /**
+   * A differ that returns `Patch.notComparable` for every pair of values.
+   */
   def fail[A]: Differ[A] = (_: A, _: A) => Patch.notComparable
 
+  /**
+   * A differ for generic records (`ListMap[String, _]`) described by `schema`. It pairs the fields by position and diffs each pair with the differ for that field's schema. Returns `Patch.notComparable` when either record lacks a field of `schema`, or when a field diff is not comparable.
+   */
   def record(schema: Schema.Record[ListMap[String, _]]): Differ[ListMap[String, _]] =
     (thisValue: ListMap[String, _], thatValue: ListMap[String, _]) =>
       if (!(conformsToStructure(thisValue, schema.fields) && conformsToStructure(thatValue, schema.fields)))
@@ -591,6 +720,9 @@ object Differ {
       case (field: Schema.Field[Z, a], _) => map.get(field.name).exists(_.isInstanceOf[a])
     }
 
+  /**
+   * A differ for a sum type with the given cases. When both values belong to the same case, it diffs them with the differ for that case's schema; otherwise it returns `Patch.notComparable`.
+   */
   def enumN[Z](cases: Schema.Case[Z, _]*): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       cases
@@ -610,6 +742,9 @@ object Differ {
         }
         .getOrElse(Patch.notComparable)
 
+  /**
+   * A differ for enum values written as `(caseName, value)` pairs, where `structure` maps each case name to its schema. Two values with the same case name are diffed with the differ for that schema; different case names, or a name missing from `structure`, give `Patch.notComparable`.
+   */
   def enumeration(structure: ListMap[String, Schema[_]]): Differ[(String, _)] =
     instancePartial[(String, _)] {
       case ((thisKey, thisValue), (thatKey, thatValue)) if thisKey == thatKey =>
@@ -620,8 +755,14 @@ object Differ {
           .asInstanceOf[Patch[(String, Any)]]
     }
 
+  /**
+   * A differ for `String` that diffs the characters by longest common subsequence.
+   */
   val string: Differ[String] = LCSDiff.string
 
+  /**
+   * Returns a differ that applies `f` to the pair of values, and returns `Patch.notComparable` for the pairs where `f` isn't defined.
+   */
   def instancePartial[A](f: PartialFunction[(A, A), Patch[A]]): Differ[A] =
     new Differ[A] {
       override def apply(thisValue: A, thatValue: A): Patch[A] =

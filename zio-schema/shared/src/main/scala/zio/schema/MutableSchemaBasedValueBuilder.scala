@@ -1191,20 +1191,31 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
   }
 }
 
+/** Types used by [[MutableSchemaBasedValueBuilder]]. */
 object MutableSchemaBasedValueBuilder {
+  /**
+   * The exception `create` throws when building fails with a non-fatal
+   * exception. `context` is the context on top of the stack at that moment,
+   * and `cause` is the original exception.
+   */
   case class CreateValueFromSchemaError[Context](context: Context, cause: Throwable) extends RuntimeException
 
+  /** The result of `startReadingField`: what to do next for the current record. */
   sealed trait ReadingFieldResult[Context]
 
+  /** The possible [[ReadingFieldResult]] values. */
   object ReadingFieldResult {
+    /** No more fields to read; the record is built from the values read so far. */
     final case class Finished[Context]()                              extends ReadingFieldResult[Context]
+    /** Reads the field at `index` in the schema, with `context` as its context. */
     final case class ReadField[Context](context: Context, index: Int) extends ReadingFieldResult[Context]
+    /** Reads no field; replaces the context with `context` and asks again. */
     final case class UpdateContext[Context](context: Context)         extends ReadingFieldResult[Context]
   }
 }
 
 /**
- * A simpler version of SimpleMutableSchemaBasedValueBuilder without using any
+ * A simpler version of MutableSchemaBasedValueBuilder without using any
  * Context
  */
 trait SimpleMutableSchemaBasedValueBuilder[Target] extends MutableSchemaBasedValueBuilder[Target, Unit] {

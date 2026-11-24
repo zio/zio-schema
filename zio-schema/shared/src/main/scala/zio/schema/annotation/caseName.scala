@@ -3,8 +3,7 @@ package zio.schema.annotation
 import scala.annotation.StaticAnnotation
 
 /**
- * Annotation for specifying an alternate identity for a case of an enum.
- * Currently, the subtype name is always used.
+ * Annotation for specifying an alternate name for a case of an enum. `Schema.Case#caseName` returns this name instead of the subtype name, and the JSON, XML and BSON codecs use it as the case name when encoding and decoding. With `@caseName("kitty")` on `final case class Cat(name: String)`, `JsonCodec` encodes `Cat("Tom")` as `{"kitty":{"name":"Tom"}}`.
  *
  * This is the dual of `@fieldName`, but for sums rather than products.
  *

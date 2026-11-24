@@ -46,7 +46,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
 
   /**
    * Process an enum in the given context with the given schema using the
-   * processed constructor value and it's name
+   * processed constructor value and its name
    */
   protected def processEnum(context: Context, schema: Schema.Enum[_], tuple: (String, Target)): Target
 
@@ -60,7 +60,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   protected def startProcessingDictionary(context: Context, schema: Schema.Map[_, _], size: Int): Unit = {}
 
   /**
-   * * Process a dictionary using its already processed key-value pairs
+   * Process a dictionary using its already processed key-value pairs
    */
   protected def processDictionary(context: Context, schema: Schema.Map[_, _], value: Chunk[(Target, Target)]): Target
 
@@ -154,7 +154,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   /** Gets the context for a set's given element within the parent context */
   protected def contextForSet(context: Context, schema: Schema.Set[_], index: Int): Context
 
-  /** Process a value based on it's schema */
+  /** Process a value based on its schema */
   def process[A](schema: Schema[A], value: A): Target = {
     var currentSchema: Schema[_]    = schema
     var currentValue: Any           = value
