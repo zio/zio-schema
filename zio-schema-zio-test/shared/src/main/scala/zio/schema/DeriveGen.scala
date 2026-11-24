@@ -12,7 +12,7 @@ import zio.test.{Gen, Sized}
  * Derives ZIO Test generators (`Gen`) from schemas, for property-based tests.
  *
  * @see
- *   [[https://zio.dev/zio-schema/derivations/zio-test-gen-derivation Derivation of ZIO Test Generators]]
+ *   [[https://zio.dev/zio-schema/derivations/zio-test-gen-derivation/ Derivation of ZIO Test Generators]]
  */
 object DeriveGen {
 

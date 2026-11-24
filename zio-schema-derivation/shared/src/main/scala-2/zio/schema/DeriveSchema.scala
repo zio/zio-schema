@@ -38,7 +38,7 @@ object DeriveSchema {
    * }}}
    *
    * @see
-   *   [[https://zio.dev/zio-schema/automatic-schema-derivation Automatic Schema Derivation]]
+   *   [[https://zio.dev/zio-schema/automatic-schema-derivation/ Automatic Schema Derivation]]
    */
   implicit def gen[T]: Schema[T] = macro genImpl[T]
 

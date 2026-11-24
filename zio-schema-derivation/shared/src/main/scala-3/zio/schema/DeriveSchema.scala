@@ -33,7 +33,7 @@ object DeriveSchema {
    * // List(name, age)
    * }}}
    *
-   * @see [[https://zio.dev/zio-schema/automatic-schema-derivation Automatic Schema Derivation]]
+   * @see [[https://zio.dev/zio-schema/automatic-schema-derivation/ Automatic Schema Derivation]]
    */
   transparent inline def gen[T]: Schema[T] = ${ deriveSchema[T] }
 
