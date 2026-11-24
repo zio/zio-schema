@@ -646,9 +646,12 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
 
 }
 
+/** Type aliases used by the MessagePack decoder. */
 object MessagePackDecoder {
+  /** The location of a value inside the decoded input, such as `fieldId:[x]`, reported in decoding errors. */
   type Path = Chunk[String]
 
+  /** The result of decoding: the value, or the `DecodeError` that stopped it. */
   type Result[A] = scala.util.Either[DecodeError, A]
 
   private def succeed[A](a: => A): Result[A] =
