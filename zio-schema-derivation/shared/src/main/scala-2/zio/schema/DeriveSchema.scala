@@ -5,11 +5,34 @@ import scala.reflect.macros.whitebox
 
 import zio.Chunk
 
+/** Derives schemas for case classes, sealed traits and other supported types at compile time. */
 object DeriveSchema {
   import scala.language.experimental.macros
 
+  /**
+   * Derives the `Schema[T]` of a case class, case object or sealed trait at compile time, and on Scala 3 also of an `enum` or union type. A field or case whose type has a `Schema` in implicit scope uses that schema; the others are derived as well.
+   *
+   * On Scala 2, `gen` is an implicit whitebox macro, which implicit search uses only where `DeriveSchema._` is imported. On Scala 3, it is a `transparent inline` method that is not implicit; `Schema.derived[T]` and a `derives Schema` clause call it.
+   *
+   * {{{
+   * final case class Person(name: String, age: Int)
+   *
+   * object Person {
+   *   implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+   * }
+   *
+   * val fieldNames = Person.schema match {
+   *   case record: Schema.Record[_] => record.fields.map(_.name).toList
+   *   case _                        => Nil
+   * }
+   * // List(name, age)
+   * }}}
+   *
+   * @see [[https://zio.dev/zio-schema/automatic-schema-derivation Automatic Schema Derivation]]
+   */
   implicit def gen[T]: Schema[T] = macro genImpl[T]
 
+  /** The Scala 2 macro implementation of `gen`. */
   def genImpl[T: c.WeakTypeTag](c: whitebox.Context): c.Tree = {
     import c.universe._
 
@@ -802,6 +825,7 @@ object DeriveSchema {
     recurse(tpe, List.empty[Frame[c.type]])
   }
 
+  /** A type being derived and the name of the value that refers to it, used by the macro to handle recursive types. */
   case class Frame[C <: whitebox.Context](ctx: C, ref: String, tpe: C#Type)
 
 }
