@@ -20,10 +20,19 @@ import zio.Chunk
 import zio.constraintless._
 import zio.stream.ZPipeline
 
+/**
+ * `Codecs` whose members are `BinaryCodec`s: every type in `Types` encodes to
+ * `Chunk[Byte]` and streams `Byte`s.
+ */
 trait BinaryCodecs[Types <: TypeList] extends Codecs[Chunk[Byte], Byte, Types]
 
+/** Constructors for `BinaryCodecs`. */
 object BinaryCodecs {
 
+  /**
+   * Builds a `BinaryCodecs` that delegates to one `BinaryCodec` per type in
+   * `Types`, collected from the implicit `BinaryCodec`s in scope.
+   */
   def make[Types <: TypeList](implicit instances: Instances[BinaryCodec, Types]): BinaryCodecs[Types] =
     new BinaryCodecs[Types] {
       override def encode[T](value: T)(implicit ev: IsElementOf[T, Types]): Chunk[Byte] =

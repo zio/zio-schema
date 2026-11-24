@@ -16,8 +16,53 @@ import zio.schema.codec.DecodeError.{EmptyContent, MalformedFieldWithPath, ReadE
 import zio.stream.ZPipeline
 import zio.{Cause, Chunk, Unsafe}
 
+/**
+ * Reads and writes values with Apache Thrift's binary protocol
+ * (`TBinaryProtocol`), driven by a `Schema` instead of a `.thrift` IDL file. A
+ * record is written as a Thrift struct whose field ids are the fields' 1-based
+ * positions.
+ *
+ * Use it when you need Thrift's binary encoding for values that have a
+ * `Schema`.
+ *
+ * {{{
+ * import zio.schema.{DeriveSchema, Schema}
+ * import zio.schema.codec.{BinaryCodec, ThriftCodec}
+ *
+ * final case class Point(x: Int, y: Int)
+ * implicit val pointSchema: Schema[Point] = DeriveSchema.gen[Point]
+ *
+ * val codec: BinaryCodec[Point] = ThriftCodec.thriftCodec[Point]
+ * val bytes = codec.encode(Point(3, 4))
+ * bytes.size
+ * // 15
+ * codec.decode(bytes)
+ * // Right(Point(3,4))
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-schema/derivations/codecs/thrift/ Thrift Codec]]
+ */
 object ThriftCodec {
 
+  /**
+   * Returns a `BinaryCodec` that reads and writes `A` with Thrift's binary
+   * protocol, using the implicit `Schema[A]`.
+   *
+   * `decode` fails with `DecodeError.EmptyContent` (`No bytes to decode`) on an
+   * empty chunk. When decoding a record, a missing `Option` field becomes
+   * `None`, a missing sequence field becomes empty, and a missing field with
+   * `@optionalField` or `@fieldDefaultValue` gets its default; another missing
+   * field fails with `Missing value`. Input with a field id beyond the schema's
+   * fields fails to decode.
+   *
+   * `streamDecoder` decodes each chunk it receives as one value, so a chunk
+   * that holds two encoded values yields the first one. `streamEncoder` reuses
+   * one encoder for the whole stream, and the bytes it writes for each value
+   * start with the bytes of every value encoded before it: encoding
+   * `Point(1, 2)` then `Point(3, 4)` writes `Point(1, 2)` twice, then
+   * `Point(3, 4)`.
+   */
   implicit def thriftCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
@@ -65,6 +110,10 @@ object ThriftCodec {
           }: @nowarn
     }
 
+  /**
+   * Writes values with Thrift's binary protocol by walking their schema. One
+   * instance keeps one output buffer.
+   */
   class Encoder extends MutableSchemaBasedValueProcessor[Unit, Encoder.Context] {
     import Encoder._
 
@@ -375,7 +424,13 @@ object ThriftCodec {
       }
   }
 
+  /** Helpers for [[ThriftCodec.Encoder]]. */
   object Encoder {
+
+    /**
+     * The Thrift field id to write the current value under, or `None` for a
+     * value written without a field header.
+     */
     final case class Context(fieldNumber: Option[Short])
 
     private def getPrimitiveType[A](standardType: StandardType[A]): Byte =
@@ -446,16 +501,42 @@ object ThriftCodec {
     }
   }
 
-  type Path                = Chunk[String]
+  /**
+   * The location of a value inside the decoded input, such as `fieldId:2`,
+   * reported in decoding errors.
+   */
+  type Path = Chunk[String]
+
+  /**
+   * Reads one primitive value; the [[ThriftCodec.Path]] is used in the error
+   * when reading fails.
+   */
   type PrimitiveDecoder[A] = Path => A
 
+  /**
+   * What a [[ThriftCodec.Decoder]] knows about the value it is reading: its
+   * `path`, and inside a list, set or map the element count read from the
+   * collection's header.
+   */
   final case class DecoderContext(path: Path, expectedCount: Option[Int])
 
+  /**
+   * Decodes one value from `chunk` with Thrift's binary protocol by walking a
+   * schema. It keeps its read position, so use one instance per input.
+   */
   class Decoder(chunk: Chunk[Byte]) extends MutableSchemaBasedValueBuilder[Any, DecoderContext] {
 
+    /** The transport that reads `chunk`. */
     val read = new ChunkTransport.Read(chunk)
-    val p    = new TBinaryProtocol(read)
 
+    /** The Thrift binary protocol reading from `read`. */
+    val p = new TBinaryProtocol(read)
+
+    /**
+     * Wraps `f` as a [[ThriftCodec.PrimitiveDecoder]] that fails with
+     * `DecodeError.MalformedFieldWithPath` (for example `Unable to decode Int`)
+     * when `f` throws.
+     */
     def decodePrimitive[A](f: TProtocol => A, name: String): PrimitiveDecoder[A] =
       path =>
         try {
@@ -464,36 +545,47 @@ object ThriftCodec {
           case NonFatal(_) => throw MalformedFieldWithPath(path, s"Unable to decode $name")
         }
 
+    /** Reads a `String`. */
     def decodeString: PrimitiveDecoder[String] =
       decodePrimitive(_.readString(), "String")
 
+    /** Reads a `UUID` written as its string form. */
     def decodeUUID: PrimitiveDecoder[UUID] =
       decodePrimitive(protocol => UUID.fromString(protocol.readString()), "UUID")
 
+    /** Reads a `Byte`. */
     def decodeByte: PrimitiveDecoder[Byte] =
       decodePrimitive(_.readByte(), "Byte")
 
+    /** Reads a `Boolean`. */
     def decodeBoolean: PrimitiveDecoder[Boolean] =
       decodePrimitive(_.readBool(), "Boolean")
 
+    /** Reads a `Short` (Thrift `i16`). */
     def decodeShort: PrimitiveDecoder[Short] =
       decodePrimitive(_.readI16(), "Short")
 
+    /** Reads an `Int` (Thrift `i32`). */
     def decodeInt: PrimitiveDecoder[Int] =
       decodePrimitive(_.readI32(), "Int")
 
+    /** Reads a `Long` (Thrift `i64`). */
     def decodeLong: PrimitiveDecoder[Long] =
       decodePrimitive(_.readI64(), "Long")
 
+    /** Reads a `Float`, written as a Thrift `double`. */
     def decodeFloat: PrimitiveDecoder[Float] =
       decodePrimitive(_.readDouble().toFloat, "Float")
 
+    /** Reads a `Double`. */
     def decodeDouble: PrimitiveDecoder[Double] =
       decodePrimitive(_.readDouble(), "Double")
 
+    /** Reads a `java.math.BigInteger` written as its two's-complement bytes. */
     def decodeBigInteger: PrimitiveDecoder[java.math.BigInteger] =
       decodePrimitive(p => new java.math.BigInteger(p.readBinary().array()), "BigInteger")
 
+    /** Reads a `Chunk[Byte]` written as Thrift `binary`. */
     def decodeBinary: PrimitiveDecoder[Chunk[Byte]] =
       decodePrimitive(p => Chunk.fromByteBuffer(p.readBinary()), "Binary")
 

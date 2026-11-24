@@ -16,8 +16,21 @@ import zio.{Chunk, ChunkBuilder}
  */
 object ZioOpticsBuilder extends AccessorBuilder {
 
-  type Lens[F, S, A]   = Optic[S, S, A, OpticFailure, OpticFailure, A, S]
-  type Prism[F, S, A]  = ZPrism[S, S, A, A]
+  /**
+   * A zio-optics lens from `S` to the field `A`, which can fail with an
+   * `OpticFailure`. `F` is the field's label and does not appear in the optic.
+   */
+  type Lens[F, S, A] = Optic[S, S, A, OpticFailure, OpticFailure, A, S]
+
+  /**
+   * A zio-optics prism from the sum type `S` to its case `A`. `F` is the case's
+   * label and does not appear in the optic.
+   */
+  type Prism[F, S, A] = ZPrism[S, S, A, A]
+
+  /**
+   * A zio-optics traversal from the collection `S` to its elements of type `A`.
+   */
   type Traversal[S, A] = ZTraversal[S, S, A, A]
 
   override def makeLens[F, S, A](

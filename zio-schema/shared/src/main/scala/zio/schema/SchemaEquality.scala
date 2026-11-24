@@ -4,6 +4,18 @@ import scala.collection.mutable
 
 import zio.prelude._
 
+/**
+ * Two `zio.prelude.Equal` instances for schemas, available as
+ * `Schema.strictEquality` and `Schema.structureEquality`. They compare schemas
+ * by structure and annotations, not by reference, and remember the pairs
+ * already compared, so recursive schemas compare without looping. They do not
+ * compare the type ids of records and enumerations: the derived schemas of
+ * `final case class Tree(value: Int, children: List[Tree])` and of a `Tree2`
+ * with the same fields compare as equal. For a [[Schema.Tuple2]], they compare
+ * the left element schemas and the annotations but not the right element
+ * schemas, so `Schema[(Int, String)]` and `Schema[(Int, Int)]` compare as
+ * equal.
+ */
 trait SchemaEquality {
 
   private class SchemaEqual(ignoreTransformations: Boolean) extends Equal[Schema[_]] {
@@ -94,6 +106,17 @@ trait SchemaEquality {
     }
   }
 
-  val strictEquality: Equal[Schema[_]]    = new SchemaEqual(ignoreTransformations = false)
+  /**
+   * Compares two schemas by structure and annotations, including the identity
+   * of each transformation and sequence: `Schema[List[Int]]` and
+   * `Schema[Vector[Int]]` are not equal.
+   */
+  val strictEquality: Equal[Schema[_]] = new SchemaEqual(ignoreTransformations = false)
+
+  /**
+   * Compares two schemas by structure and annotations, looking through
+   * transformations and ignoring the identity of sequences: `Schema[List[Int]]`
+   * and `Schema[Vector[Int]]` are equal.
+   */
   val structureEquality: Equal[Schema[_]] = new SchemaEqual(ignoreTransformations = true)
 }

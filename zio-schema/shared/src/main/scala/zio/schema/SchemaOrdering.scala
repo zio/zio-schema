@@ -6,6 +6,10 @@ import zio.Chunk
 import zio.schema.DynamicValue._
 import zio.schema.StandardType.UnitType
 
+/**
+ * Builds the `Ordering` that `Schema#ordering` returns: values are compared
+ * through their [[DynamicValue]] form, following the structure of the schema.
+ */
 object SchemaOrdering {
 
   private[schema] def ordering[A](schema: Schema[A]): Ordering[A] = (l: A, r: A) => {

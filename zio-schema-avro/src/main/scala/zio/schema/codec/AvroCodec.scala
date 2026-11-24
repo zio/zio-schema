@@ -24,13 +24,71 @@ import zio.schema.{Fallback, FieldSet, Schema, StandardType, TypeId}
 import zio.stream.ZPipeline
 import zio.{Chunk, Unsafe}
 
+/**
+ * Binary codecs that write and read values in the Apache Avro binary encoding,
+ * using the Avro schema that [[AvroSchemaCodec]] generates from the value's ZIO
+ * Schema.
+ *
+ * Use it to store or send values as Avro data. Each encoded value is one Avro
+ * datum without the schema, so a reader needs the same Avro schema, which
+ * `AvroSchemaCodec.encode` returns. `schemaBasedBinaryCodec` returns an
+ * [[AvroCodec.ExtendedBinaryCodec]], which also converts values to and from
+ * Avro `GenericRecord`s.
+ *
+ * {{{
+ * import zio.Chunk
+ * import zio.schema.{DeriveSchema, Schema}
+ *
+ * final case class Account(owner: String, balance: Long)
+ * implicit val schema: Schema[Account] = DeriveSchema.gen[Account]
+ *
+ * val codec = AvroCodec.schemaBasedBinaryCodec[Account]
+ * val bytes: Chunk[Byte] = codec.encode(Account("Ada", 250L))
+ * // Chunk(6,65,100,97,-12,3)
+ * val decoded = codec.decode(bytes)
+ * // Right(Account(Ada,250))
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-schema/derivations/codecs/avro/ Avro codec]]
+ */
 object AvroCodec {
 
+  /**
+   * A `BinaryCodec` that also converts values to and from Apache Avro
+   * `GenericRecord`s, for APIs that work with records instead of bytes.
+   */
   trait ExtendedBinaryCodec[A] extends BinaryCodec[A] {
+
+    /**
+     * Converts `value` to an Avro `GenericData.Record`. It throws a
+     * `java.lang.ClassCastException` when `schema` is not a record schema, such
+     * as `Schema[Int]`.
+     */
     def encodeGenericRecord(value: A)(implicit schema: Schema[A]): GenericData.Record
+
+    /**
+     * Converts an Avro `GenericRecord` to a value of `A`, or returns a
+     * `DecodeError`. It expects text values as Avro `Utf8`, as in records read
+     * from Avro binary data. A record built by `encodeGenericRecord` holds
+     * `java.time` values such as `Instant` and `ZoneId` as `java.lang.String`,
+     * so decoding such a record returns a `Left`.
+     */
     def decodeGenericRecord(value: GenericRecord)(implicit schema: Schema[A]): Either[DecodeError, A]
   }
 
+  /**
+   * Derives an [[AvroCodec.ExtendedBinaryCodec]] for `A` from its implicit
+   * `Schema`.
+   *
+   * The codec generates its Avro schema when it is created, and throws a
+   * `java.lang.Exception` with the message
+   * `Avro schema could not be generated.` when `AvroSchemaCodec` returns a
+   * `Left` for `schema`, such as for `Schema.fail`. `decode` reads one Avro
+   * datum and ignores any bytes after it; when the input ends before the datum
+   * is complete, it throws a `java.io.EOFException` instead of returning a
+   * `Left`. `streamDecoder` decodes each incoming chunk as one value.
+   */
   implicit def schemaBasedBinaryCodec[A](implicit schema: Schema[A]): ExtendedBinaryCodec[A] =
     new ExtendedBinaryCodec[A] {
 

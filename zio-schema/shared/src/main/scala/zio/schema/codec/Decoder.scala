@@ -18,10 +18,22 @@ package zio.schema.codec
 
 import zio.stream.ZPipeline
 
+/**
+ * Decodes a `Whole`, such as `Chunk[Byte]`, into a value of type `A`, or turns
+ * a stream of `Element`s into a stream of `A` values.
+ */
 trait Decoder[Whole, Element, +A] {
 
+  /**
+   * Returns the value decoded from `whole`, or a `DecodeError` when `whole` is
+   * not a valid encoding of `A`.
+   */
   def decode(whole: Whole): Either[DecodeError, A]
 
+  /**
+   * Returns a pipeline that decodes a stream of `Element`s into `A` values and
+   * fails with a `DecodeError` on invalid input.
+   */
   def streamDecoder: ZPipeline[Any, DecodeError, Element, A]
 
 }

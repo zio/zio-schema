@@ -8,9 +8,39 @@ import zio.schema.meta.ExtensibleMetaSchema.Labelled
 import zio.schema.meta.{ExtensibleMetaSchema, MetaSchema, NodePath}
 import zio.test.{Gen, Sized}
 
+/**
+ * Derives ZIO Test generators (`Gen`) from schemas, for property-based tests.
+ *
+ * @see
+ *   [[https://zio.dev/zio-schema/derivations/zio-test-gen-derivation/ Derivation of ZIO Test Generators]]
+ */
 object DeriveGen {
 
   // scalafmt: { maxColumn = 400 }
+  /**
+   * Returns a generator of `A` values that follows the structure of `schema`.
+   * Each generated sequence or map is either empty or has two elements. For a
+   * `Transform` schema, it generates a value of the underlying type and drops
+   * the sample when the transformation fails. Generated values do not follow
+   * `@validate` rules.
+   *
+   * Throws a `java.lang.Exception` with the message "Missing handler for
+   * generating value of schema ..." for a `NonEmptySequence` (such as
+   * `NonEmptyChunk`), `NonEmptyMap` or `Fallback` schema: when `gen` is called
+   * with one, or when the generator runs and reaches one through a lazy schema.
+   *
+   * {{{
+   * import zio.test.{Gen, Sized}
+   *
+   * final case class Order(id: Long, items: List[String])
+   *
+   * object Order {
+   *   implicit val schema: Schema[Order] = DeriveSchema.gen[Order]
+   * }
+   *
+   * val orders: Gen[Sized, Order] = DeriveGen.gen[Order]
+   * }}}
+   */
   def gen[A](implicit schema: Schema[A]): Gen[Sized, A] =
     schema match {
       case Schema.Enum1(_, c1, _)                                                                                                   => genEnum(c1)
@@ -480,6 +510,11 @@ object DeriveGen {
   private def genTransform[A, B, I](transform: Schema.Transform[A, B, I]): Gen[Sized, B] =
     gen(transform.schema).flatMap(a => transform.f(a).fold(_ => Gen.empty, (b: B) => Gen.const(b)))
 
+  /**
+   * Returns a generator for the primitive type described by `standardType`,
+   * built from the matching ZIO Test `Gen`, such as `Gen.int` for
+   * `StandardType.IntType`.
+   */
   def genPrimitive[A](standardType: StandardType[A]): Gen[Sized, A] = {
     val gen = standardType match {
       case StandardType.UnitType           => Gen.unit
