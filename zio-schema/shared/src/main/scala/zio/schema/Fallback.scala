@@ -38,14 +38,18 @@ sealed trait Fallback[+A, +B] { self =>
   /** Applies `f` to the left value; the same as [[mapLeft]]. */
   def map[C](f: A => C): Fallback[C, B] = mapLeft(f)
 
-  /** Applies `f` to the left value, in `Fallback.Left` and in `Fallback.Both`. */
+  /**
+   * Applies `f` to the left value, in `Fallback.Left` and in `Fallback.Both`.
+   */
   def mapLeft[C](f: A => C): Fallback[C, B] = self match {
     case Fallback.Left(left)        => Fallback.Left(f(left))
     case Fallback.Right(right)      => Fallback.Right(right)
     case Fallback.Both(left, right) => Fallback.Both(f(left), right)
   }
 
-  /** Applies `f` to the right value, in `Fallback.Right` and in `Fallback.Both`. */
+  /**
+   * Applies `f` to the right value, in `Fallback.Right` and in `Fallback.Both`.
+   */
   def mapRight[C](f: B => C): Fallback[A, C] = self match {
     case Fallback.Left(left)        => Fallback.Left(left)
     case Fallback.Right(right)      => Fallback.Right(f(right))
@@ -63,16 +67,21 @@ sealed trait Fallback[+A, +B] { self =>
 /** The cases of [[Fallback]]. */
 object Fallback {
 
-  /** Turns `scala.util.Left` into `Fallback.Left` and `scala.util.Right` into `Fallback.Right`. */
+  /**
+   * Turns `scala.util.Left` into `Fallback.Left` and `scala.util.Right` into
+   * `Fallback.Right`.
+   */
   def fromEither[A, B](either: Either[A, B]): Fallback[A, B] = either match {
     case scala.util.Left(value)  => Left(value)
     case scala.util.Right(value) => Right(value)
   }
 
   /** A `Fallback` with only a left value. */
-  final case class Left[+A, +B](left: A)           extends Fallback[A, B]
+  final case class Left[+A, +B](left: A) extends Fallback[A, B]
+
   /** A `Fallback` with only a right value. */
-  final case class Right[+A, +B](right: B)         extends Fallback[A, B]
+  final case class Right[+A, +B](right: B) extends Fallback[A, B]
+
   /** A `Fallback` with both a left and a right value. */
   final case class Both[+A, +B](left: A, right: B) extends Fallback[A, B]
 

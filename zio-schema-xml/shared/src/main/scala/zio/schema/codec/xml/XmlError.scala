@@ -1,7 +1,11 @@
 package zio.schema.codec.xml
 
 /**
- * An XML error, such as an error from parsing XML text, with the 1-based `line` and `column` where parsing stopped when they are known. `toString` gives the message and position, such as `XmlError: Expected '=' at line 1, column 5`. `XmlCodec` puts that text in the `DecodeError.ReadError` it returns. It records no stack trace.
+ * An XML error, such as an error from parsing XML text, with the 1-based `line`
+ * and `column` where parsing stopped when they are known. `toString` gives the
+ * message and position, such as `XmlError: Expected '=' at line 1, column 5`.
+ * `XmlCodec` puts that text in the `DecodeError.ReadError` it returns. It
+ * records no stack trace.
  */
 class XmlError(message: String, val line: Option[Int] = None, val column: Option[Int] = None)
     extends Exception(message, null, false, false) {

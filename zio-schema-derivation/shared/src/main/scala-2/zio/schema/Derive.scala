@@ -9,7 +9,13 @@ import zio.Chunk
 object Derive {
 
   /**
-   * Derives the instance `F[A]` by walking the structure of `A` at compile time and calling the method of `deriver` that matches each part, such as `deriveRecord` for a case class and `derivePrimitive` for an `Int`. The deriver receives an instance found in implicit scope for each nested type, but not for `A` itself. A type it does not recognize goes to `deriveUnknown`. On Scala 2 it is a whitebox macro; on Scala 3 it is an inline method.
+   * Derives the instance `F[A]` by walking the structure of `A` at compile time
+   * and calling the method of `deriver` that matches each part, such as
+   * `deriveRecord` for a case class and `derivePrimitive` for an `Int`. The
+   * deriver receives an instance found in implicit scope for each nested type,
+   * but not for `A` itself. A type it does not recognize goes to
+   * `deriveUnknown`. On Scala 2 it is a whitebox macro; on Scala 3 it is an
+   * inline method.
    */
   def derive[F[_], A](deriver: Deriver[F])(implicit schema: Schema[A]): F[A] = macro deriveImpl[F, A]
 
@@ -377,6 +383,9 @@ object Derive {
 
   }
 
-  /** A type being derived and the name of the value that refers to it, used by the macro to handle recursive types. */
+  /**
+   * A type being derived and the name of the value that refers to it, used by
+   * the macro to handle recursive types.
+   */
   final case class Frame[C <: whitebox.Context](ctx: C, ref: String, tpe: C#Type)
 }

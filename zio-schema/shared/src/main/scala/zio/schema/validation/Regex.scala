@@ -3,7 +3,10 @@ package zio.schema.validation
 import java.util.regex.Pattern
 
 /**
- * A regular expression described as data, used by `Validation.regex`. Build one from the constructors on the companion object and combine them with `~`, `|` and the repetition methods; `Regex.toRegexString` renders it as a `java.util.regex.Pattern` string.
+ * A regular expression described as data, used by `Validation.regex`. Build one
+ * from the constructors on the companion object and combine them with `~`, `|`
+ * and the repetition methods; `Regex.toRegexString` renders it as a
+ * `java.util.regex.Pattern` string.
  *
  * {{{
  * import zio.schema.validation.Regex
@@ -15,46 +18,82 @@ import java.util.regex.Pattern
  * }}}
  */
 sealed trait Regex { self =>
+
   /** Returns a regex that matches this one `n` or more times in a row. */
-  def atLeast(n: Int): Regex             = Regex.Repeat(this, Some(n), None)
-  /** Returns a regex that matches this one between zero and `n` times in a row. */
-  def atMost(n: Int): Regex              = Regex.Repeat(this, None, Some(n))
-  /** Returns a regex that matches this one between `min` and `max` times in a row, both included. */
-  def between(min: Int, max: Int): Regex = Regex.Repeat(this, Some(min), Some(max))
-  /** Returns a regex that matches this one exactly `n` times in a row. */
-  def exactly(n: Int): Regex             = Regex.Repeat(this, Some(n), Some(n))
-  /** Returns a regex that matches this one one or more times, the same as `atLeast(1)`. */
-  def + : Regex                          = atLeast(1)
-  /** Returns a regex that matches this one zero or more times, the same as `atLeast(0)`. */
-  def * : Regex                          = atLeast(0)
-  /** Returns a regex that matches this one zero or one time, the same as `atMost(1)`. */
-  def ? : Regex                          = atMost(1)
-  /** Returns a regex that matches this one followed by `that`. */
-  def ~(that: Regex): Regex              = Regex.Sequence(this, that)
-  /** Returns a regex that matches either this one or `that`. */
-  def |(that: Regex): Regex              = Regex.Alternate(this, that)
+  def atLeast(n: Int): Regex = Regex.Repeat(this, Some(n), None)
+
   /**
-   * Returns `true` when the whole `string` matches this regex. It compiles the pattern from `Regex.toRegexString` on each call.
-   *
-   * Throws a `java.util.regex.PatternSyntaxException` when the generated pattern is invalid, for example for an empty `Regex.CharacterSet` or a repeat whose minimum is greater than its maximum.
+   * Returns a regex that matches this one between zero and `n` times in a row.
    */
-  def test(string: String): Boolean      = Pattern.compile(Regex.toRegexString(self)).matcher(string).matches()
+  def atMost(n: Int): Regex = Regex.Repeat(this, None, Some(n))
+
+  /**
+   * Returns a regex that matches this one between `min` and `max` times in a
+   * row, both included.
+   */
+  def between(min: Int, max: Int): Regex = Regex.Repeat(this, Some(min), Some(max))
+
+  /** Returns a regex that matches this one exactly `n` times in a row. */
+  def exactly(n: Int): Regex = Regex.Repeat(this, Some(n), Some(n))
+
+  /**
+   * Returns a regex that matches this one one or more times, the same as
+   * `atLeast(1)`.
+   */
+  def + : Regex = atLeast(1)
+
+  /**
+   * Returns a regex that matches this one zero or more times, the same as
+   * `atLeast(0)`.
+   */
+  def * : Regex = atLeast(0)
+
+  /**
+   * Returns a regex that matches this one zero or one time, the same as
+   * `atMost(1)`.
+   */
+  def ? : Regex = atMost(1)
+
+  /** Returns a regex that matches this one followed by `that`. */
+  def ~(that: Regex): Regex = Regex.Sequence(this, that)
+
+  /** Returns a regex that matches either this one or `that`. */
+  def |(that: Regex): Regex = Regex.Alternate(this, that)
+
+  /**
+   * Returns `true` when the whole `string` matches this regex. It compiles the
+   * pattern from `Regex.toRegexString` on each call.
+   *
+   * Throws a `java.util.regex.PatternSyntaxException` when the generated
+   * pattern is invalid, for example for an empty `Regex.CharacterSet` or a
+   * repeat whose minimum is greater than its maximum.
+   */
+  def test(string: String): Boolean = Pattern.compile(Regex.toRegexString(self)).matcher(string).matches()
 
 }
 
 /** The cases of `Regex`, its constructors, and predefined character classes. */
 object Regex {
-  /** Matches one character from `set`. An empty `set` gives an invalid pattern. */
+
+  /**
+   * Matches one character from `set`. An empty `set` gives an invalid pattern.
+   */
   final case class CharacterSet(set: Set[Char]) extends Regex
 
-  /** Matches the text `str` exactly; special regex characters in it are escaped. */
+  /**
+   * Matches the text `str` exactly; special regex characters in it are escaped.
+   */
   final case class Literal(str: String) extends Regex
 
-  /** Matches one character in the range from `start` to `end`, both included. */
+  /**
+   * Matches one character in the range from `start` to `end`, both included.
+   */
   final case class Between(start: Char, end: Char) extends Regex
 
   /**
-   * Matches `regex` repeated between `min` and `max` times. A missing `min` means zero and a missing `max` means no upper limit; `Regex.toRegexString` throws a `java.lang.IllegalArgumentException` when both are `None`.
+   * Matches `regex` repeated between `min` and `max` times. A missing `min`
+   * means zero and a missing `max` means no upper limit; `Regex.toRegexString`
+   * throws a `java.lang.IllegalArgumentException` when both are `None`.
    */
   final case class Repeat(regex: Regex, min: Option[Int], max: Option[Int]) extends Regex
 
@@ -73,10 +112,16 @@ object Regex {
   /** Matches `left` or `right`. */
   final case class Alternate(left: Regex, right: Regex) extends Regex
 
-  /** Returns a regex that matches one character from `minChar` to `maxChar`, both included. */
+  /**
+   * Returns a regex that matches one character from `minChar` to `maxChar`,
+   * both included.
+   */
   def between(minChar: Char, maxChar: Char): Regex = Between(minChar, maxChar)
 
-  /** Returns a regex that matches one character for which `f` returns `true`. It tests `f` on each of the 65536 `Char` values when called. */
+  /**
+   * Returns a regex that matches one character for which `f` returns `true`. It
+   * tests `f` on each of the 65536 `Char` values when called.
+   */
   def filter(f: Char => Boolean): Regex = CharacterSet((Char.MinValue to Char.MaxValue).filter(f).toSet)
 
   /** Returns a regex that matches the text `str` exactly. */
@@ -100,7 +145,10 @@ object Regex {
   /** Matches one hexadecimal digit: `0` to `9`, `a` to `f` or `A` to `F`. */
   val hexDigit: Regex = Digit | between('a', 'f') | between('A', 'F')
 
-  /** Matches one hexadecimal digit other than `0`: `1` to `9`, `a` to `f` or `A` to `F`. */
+  /**
+   * Matches one hexadecimal digit other than `0`: `1` to `9`, `a` to `f` or `A`
+   * to `F`.
+   */
   val hexDigitNonZero: Regex = digitNonZero | between('a', 'f') | between('A', 'F')
 
   private def escapeChar(ch: Char): String =
@@ -124,9 +172,12 @@ object Regex {
     }
 
   /**
-   * Returns `regex` as a `java.util.regex.Pattern` string, for example `(\d)+` for `Regex.digit.+` and `[a-zA-Z]` for `Regex.letter`. It escapes the special characters of literals and character sets.
+   * Returns `regex` as a `java.util.regex.Pattern` string, for example `(\d)+`
+   * for `Regex.digit.+` and `[a-zA-Z]` for `Regex.letter`. It escapes the
+   * special characters of literals and character sets.
    *
-   * Throws a `java.lang.IllegalArgumentException` when `regex` contains a `Repeat` with neither a minimum nor a maximum.
+   * Throws a `java.lang.IllegalArgumentException` when `regex` contains a
+   * `Repeat` with neither a minimum nor a maximum.
    */
   def toRegexString(regex: Regex): String = {
     def loop(regex: Regex): String =

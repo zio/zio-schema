@@ -3,9 +3,15 @@ package zio.schema
 import zio.Chunk
 
 /**
- * A `TypeId` identifies the Scala type that a schema describes. Record and enum schemas carry one (`Schema.Record#id`, `Schema.Enum#id`), `DeriveSchema.gen` fills it in from the type's full name, and codecs read it to name types in their output, for example a record name in Avro.
+ * A `TypeId` identifies the Scala type that a schema describes. Record and enum
+ * schemas carry one (`Schema.Record#id`, `Schema.Enum#id`), `DeriveSchema.gen`
+ * fills it in from the type's full name, and codecs read it to name types in
+ * their output, for example a record name in Avro.
  *
- * A [[TypeId.Nominal]] holds the package names, the enclosing object names and the type name. [[TypeId.Structural]] stands for a type without a name, such as a record decoded into a `DynamicValue` without a schema. Build one from a full name with [[TypeId.parse]].
+ * A [[TypeId.Nominal]] holds the package names, the enclosing object names and
+ * the type name. [[TypeId.Structural]] stands for a type without a name, such
+ * as a record decoded into a `DynamicValue` without a schema. Build one from a
+ * full name with [[TypeId.parse]].
  *
  * {{{
  * val id: TypeId     = TypeId.parse("com.example.Person")
@@ -18,8 +24,8 @@ import zio.Chunk
 sealed trait TypeId { self =>
 
   /**
-   * Returns the simple type name of a [[TypeId.Nominal]], or `"Structural"`
-   * for [[TypeId.Structural]].
+   * Returns the simple type name of a [[TypeId.Nominal]], or `"Structural"` for
+   * [[TypeId.Structural]].
    */
   def name: String = self match {
     case TypeId.Structural              => "Structural"
@@ -31,16 +37,20 @@ sealed trait TypeId { self =>
  * The two kinds of [[TypeId]], and constructors that build them from names.
  */
 object TypeId {
+
   /**
    * The id of a type that has no name, such as a record decoded into a
    * `DynamicValue` without a schema. Its `name` is `"Structural"`, and
    * [[TypeId.schema]] encodes it as the empty string.
    */
-  case object Structural                                                                             extends TypeId
+  case object Structural extends TypeId
+
   /**
-   * The id of a named type: its package names (for example `com` and `example`), the names of the objects it is nested in, and its own name.
+   * The id of a named type: its package names (for example `com` and
+   * `example`), the names of the objects it is nested in, and its own name.
    */
   final case class Nominal(packageName: Chunk[String], objectNames: Chunk[String], typeName: String) extends TypeId {
+
     /**
      * Returns the full dotted name, for example `"zio.schema.Schema.Field"`.
      */

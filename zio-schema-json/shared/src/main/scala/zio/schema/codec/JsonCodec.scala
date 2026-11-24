@@ -29,9 +29,16 @@ import zio.stream.{ZChannel, ZPipeline}
 import zio.{Cause, Chunk, ChunkBuilder, ZIO, ZNothing}
 
 /**
- * Reads and writes JSON for any type that has a `Schema`. It builds zio-json encoders, decoders and codecs from a schema (`jsonEncoder`, `jsonDecoder`, `jsonCodec`) and byte-level `BinaryCodec` instances that also work on streams (`schemaBasedBinaryCodec`).
+ * Reads and writes JSON for any type that has a `Schema`. It builds zio-json
+ * encoders, decoders and codecs from a schema (`jsonEncoder`, `jsonDecoder`,
+ * `jsonCodec`) and byte-level `BinaryCodec` instances that also work on streams
+ * (`schemaBasedBinaryCodec`).
  *
- * Use it when values cross a JSON boundary (HTTP bodies, files, message queues) and you already describe them with a `Schema`. Pass a [[JsonCodec.Configuration]] to change how `None`, empty collections, enum cases and field names are written and read; annotations such as `@fieldName` and `@optionalField` on the type take precedence over it.
+ * Use it when values cross a JSON boundary (HTTP bodies, files, message queues)
+ * and you already describe them with a `Schema`. Pass a
+ * [[JsonCodec.Configuration]] to change how `None`, empty collections, enum
+ * cases and field names are written and read; annotations such as `@fieldName`
+ * and `@optionalField` on the type take precedence over it.
  *
  * {{{
  * import zio.schema.{DeriveSchema, Schema}
@@ -47,21 +54,31 @@ import zio.{Cause, Chunk, ChunkBuilder, ZIO, ZNothing}
  * // Right(Person(Ann,30))
  * }}}
  *
- * @see [[https://zio.dev/zio-schema/derivations/codecs/json/ JSON Codec]]
+ * @see
+ *   [[https://zio.dev/zio-schema/derivations/codecs/json/ JSON Codec]]
  */
 object JsonCodec {
 
   private val streamEncoderSeparator: Chunk[Byte] = Chunk.single('\n'.toByte)
 
   /**
-   * Settings of the JSON codec, replaced by [[JsonCodec.Configuration]]. It converts to a `Configuration` whose `explicitEmptyCollections` is `!ignoreEmptyCollections` and whose `explicitNulls` is `explicitNulls`, each for both encoding and decoding, with `treatStreamsAsArrays` carried over.
+   * Settings of the JSON codec, replaced by [[JsonCodec.Configuration]]. It
+   * converts to a `Configuration` whose `explicitEmptyCollections` is
+   * `!ignoreEmptyCollections` and whose `explicitNulls` is `explicitNulls`,
+   * each for both encoding and decoding, with `treatStreamsAsArrays` carried
+   * over.
    *
    * @param ignoreEmptyCollections
-   *   `true` leaves out empty collections (and `None` values) when encoding and decodes missing collection fields as empty; `false` writes them as `[]` and makes a missing collection field a decoding error
+   *   `true` leaves out empty collections (and `None` values) when encoding and
+   *   decodes missing collection fields as empty; `false` writes them as `[]`
+   *   and makes a missing collection field a decoding error
    * @param treatStreamsAsArrays
-   *   `true` makes the stream encoder and decoder use one JSON array instead of newline-separated values
+   *   `true` makes the stream encoder and decoder use one JSON array instead of
+   *   newline-separated values
    * @param explicitNulls
-   *   `true` writes `None` as `null` and makes a missing `Option` field a decoding error; `false` leaves `None` fields out and decodes missing ones as `None`
+   *   `true` writes `None` as `null` and makes a missing `Option` field a
+   *   decoding error; `false` leaves `None` fields out and decodes missing ones
+   *   as `None`
    */
   @deprecated(
     """Use JsonCodec.Configuration instead.
@@ -108,7 +125,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     )
 
     /**
-     * Returns a copy with the given `ignoreEmptyCollections` and `treatStreamsAsArrays`, keeping `explicitNulls`.
+     * Returns a copy with the given `ignoreEmptyCollections` and
+     * `treatStreamsAsArrays`, keeping `explicitNulls`.
      */
     def copy(ignoreEmptyCollections: Boolean, treatStreamsAsArrays: Boolean): Config = new Config(
       ignoreEmptyCollections,
@@ -128,7 +146,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   object Config {
 
     /**
-     * Creates a `Config` with the given `ignoreEmptyCollections`, `treatStreamsAsArrays = false` and `explicitNulls = false`.
+     * Creates a `Config` with the given `ignoreEmptyCollections`,
+     * `treatStreamsAsArrays = false` and `explicitNulls = false`.
      */
     @deprecated(
       """Use JsonCodec.Configuration instead.
@@ -144,13 +163,26 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   }
 
   /**
-   * Two switches for one kind of record field value, `None` (as [[JsonCodec.Configuration]]'s `explicitNulls`) or an empty collection (as its `explicitEmptyCollections`): one for encoding and one for decoding.
+   * Two switches for one kind of record field value, `None` (as
+   * [[JsonCodec.Configuration]]'s `explicitNulls`) or an empty collection (as
+   * its `explicitEmptyCollections`): one for encoding and one for decoding.
    *
-   * `encoding = true` (the default) writes the field as `null` or `[]`. `encoding = false` leaves the field out of the JSON object. For `explicitEmptyCollections`, `encoding = false` leaves out fields whose value is `None` as well.
+   * `encoding = true` (the default) writes the field as `null` or `[]`.
+   * `encoding = false` leaves the field out of the JSON object. For
+   * `explicitEmptyCollections`, `encoding = false` leaves out fields whose
+   * value is `None` as well.
    *
-   * `decoding = false` (the default) accepts a missing field and fills in the schema's default value for its type: `None` for an `Option`, and an empty `List`, `Chunk`, `Set` or `Map` for a collection. A non-empty collection type has no default value, so a missing one still fails. `decoding = true` makes a missing field fail with a `missing` error, such as `.tags(missing)`.
+   * `decoding = false` (the default) accepts a missing field and fills in the
+   * schema's default value for its type: `None` for an `Option`, and an empty
+   * `List`, `Chunk`, `Set` or `Map` for a collection. A non-empty collection
+   * type has no default value, so a missing one still fails. `decoding = true`
+   * makes a missing field fail with a `missing` error, such as
+   * `.tags(missing)`.
    *
-   * A field annotated with `@optionalField`, `@fieldDefaultValue` or `@transientField` is filled in with its own default value whatever `decoding` is, and with `@optionalField` or `@fieldDefaultValue` it is left out when encoding whenever its value is `None` or empty.
+   * A field annotated with `@optionalField`, `@fieldDefaultValue` or
+   * `@transientField` is filled in with its own default value whatever
+   * `decoding` is, and with `@optionalField` or `@fieldDefaultValue` it is left
+   * out when encoding whenever its value is `None` or empty.
    *
    * {{{
    * import zio.schema.{DeriveSchema, Schema}
@@ -174,7 +206,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   case class ExplicitConfig(encoding: Boolean = true, decoding: Boolean = false)
 
   /**
-   * Configuration for the JSON codec. Annotations on the schema that set the same behaviour take precedence over it.
+   * Configuration for the JSON codec. Annotations on the schema that set the
+   * same behaviour take precedence over it.
    *
    * {{{
    * import zio.schema.{DeriveSchema, Schema}
@@ -196,17 +229,27 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
    * }}}
    *
    * @param explicitEmptyCollections
-   *   how empty collections are written (`[]` or left out) and whether a missing collection field is an error; see [[JsonCodec.ExplicitConfig]]
+   *   how empty collections are written (`[]` or left out) and whether a
+   *   missing collection field is an error; see [[JsonCodec.ExplicitConfig]]
    * @param explicitNulls
-   *   how `None` is written (`null` or left out) and whether a missing `Option` field is an error; see [[JsonCodec.ExplicitConfig]]
+   *   how `None` is written (`null` or left out) and whether a missing `Option`
+   *   field is an error; see [[JsonCodec.ExplicitConfig]]
    * @param discriminatorSettings
-   *   how the JSON marks which case of an enum a value holds; see [[JsonCodec.DiscriminatorSetting]]
+   *   how the JSON marks which case of an enum a value holds; see
+   *   [[JsonCodec.DiscriminatorSetting]]
    * @param fieldNameFormat
-   *   the `NameFormat` applied to record field names when encoding and decoding, for example `orderId` becomes `order_id` with `NameFormat.SnakeCase`; a field renamed with `@fieldName` keeps that name
+   *   the `NameFormat` applied to record field names when encoding and
+   *   decoding, for example `orderId` becomes `order_id` with
+   *   `NameFormat.SnakeCase`; a field renamed with `@fieldName` keeps that name
    * @param treatStreamsAsArrays
-   *   `true` makes the stream encoder of `schemaBasedBinaryCodec` write one JSON array (`[1,2,3]`) and its stream decoder read the elements of one array; `false` (the default) writes values separated by newlines
+   *   `true` makes the stream encoder of `schemaBasedBinaryCodec` write one
+   *   JSON array (`[1,2,3]`) and its stream decoder read the elements of one
+   *   array; `false` (the default) writes values separated by newlines
    * @param rejectExtraFields
-   *   `true` makes decoding of a case class fail with `extra field` when the JSON object has a field the case class does not have; `false` (the default) skips such fields unless the record is annotated with `@rejectExtraFields`
+   *   `true` makes decoding of a case class fail with `extra field` when the
+   *   JSON object has a field the case class does not have; `false` (the
+   *   default) skips such fields unless the record is annotated with
+   *   `@rejectExtraFields`
    */
   final case class Configuration(
     explicitEmptyCollections: ExplicitConfig = ExplicitConfig(),
@@ -217,19 +260,28 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     rejectExtraFields: Boolean = false
   ) {
 
-    /** `true` when `discriminatorSettings` is `DiscriminatorSetting.NoDiscriminator`. */
+    /**
+     * `true` when `discriminatorSettings` is
+     * `DiscriminatorSetting.NoDiscriminator`.
+     */
     val noDiscriminator: Boolean = discriminatorSettings match {
       case DiscriminatorSetting.NoDiscriminator => true
       case _                                    => false
     }
 
-    /** The discriminator field name when `discriminatorSettings` is `DiscriminatorSetting.Name`, otherwise `None`. */
+    /**
+     * The discriminator field name when `discriminatorSettings` is
+     * `DiscriminatorSetting.Name`, otherwise `None`.
+     */
     val discriminatorName: Option[String] = discriminatorSettings match {
       case DiscriminatorSetting.Name(name, _) => Some(name)
       case _                                  => None
     }
 
-    /** The `NameFormat` applied to case names: the `format` of `ClassName` or `Name`, and `NameFormat.Identity` for `NoDiscriminator`. */
+    /**
+     * The `NameFormat` applied to case names: the `format` of `ClassName` or
+     * `Name`, and `NameFormat.Identity` for `NoDiscriminator`.
+     */
     val discriminatorFormat: NameFormat = discriminatorSettings match {
       case DiscriminatorSetting.ClassName(format) => format
       case DiscriminatorSetting.Name(_, format)   => format
@@ -239,38 +291,68 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
   /** Holds the default [[JsonCodec.Configuration]]. */
   object Configuration {
+
     /**
-     * A `Configuration` with every parameter at its default: `None` written as `null`, empty collections written as `[]`, missing `Option` and collection fields accepted, enum cases wrapped in an object keyed by the case name, field names unchanged, newline-separated stream values and extra fields skipped.
+     * A `Configuration` with every parameter at its default: `None` written as
+     * `null`, empty collections written as `[]`, missing `Option` and
+     * collection fields accepted, enum cases wrapped in an object keyed by the
+     * case name, field names unchanged, newline-separated stream values and
+     * extra fields skipped.
      */
     val default: Configuration = Configuration()
   }
 
   /**
-   * How the JSON codec marks which case of an enum (a sealed trait or `Schema.Enum`) a JSON value holds. An enum annotated with `@noDiscriminator` or `@discriminatorName` uses the annotation instead. One exception: with `NoDiscriminator`, the decoder ignores `@discriminatorName` and tries each case, so the discriminator field counts as an extra field when `rejectExtraFields` is `true`.
+   * How the JSON codec marks which case of an enum (a sealed trait or
+   * `Schema.Enum`) a JSON value holds. An enum annotated with
+   * `@noDiscriminator` or `@discriminatorName` uses the annotation instead. One
+   * exception: with `NoDiscriminator`, the decoder ignores `@discriminatorName`
+   * and tries each case, so the discriminator field counts as an extra field
+   * when `rejectExtraFields` is `true`.
    */
   sealed trait DiscriminatorSetting
 
   /** The available [[JsonCodec.DiscriminatorSetting]] values. */
   object DiscriminatorSetting {
-    /** `ClassName(NameFormat.Identity)`: the case name, unchanged, as the key of a wrapper object. */
-    val default: ClassName = ClassName(NameFormat.Identity)
-    /** Wraps the case's JSON in an object with one key, the case name formatted with `format`: `{"Circle":{"radius":1.5}}`. */
-    case class ClassName(format: NameFormat)                                extends DiscriminatorSetting
+
     /**
-     * Writes the case's fields with no marker: `{"radius":1.5}`. The decoder tries the cases in declaration order and returns the first one that decodes, or fails with `none of the subtypes could decode the data`.
+     * `ClassName(NameFormat.Identity)`: the case name, unchanged, as the key of
+     * a wrapper object.
      */
-    case object NoDiscriminator                                             extends DiscriminatorSetting
-    /** Adds a field called `name`, holding the case name formatted with `format`, before the case's fields: `{"type":"Circle","radius":1.5}`. */
+    val default: ClassName = ClassName(NameFormat.Identity)
+
+    /**
+     * Wraps the case's JSON in an object with one key, the case name formatted
+     * with `format`: `{"Circle":{"radius":1.5}}`.
+     */
+    case class ClassName(format: NameFormat) extends DiscriminatorSetting
+
+    /**
+     * Writes the case's fields with no marker: `{"radius":1.5}`. The decoder
+     * tries the cases in declaration order and returns the first one that
+     * decodes, or fails with `none of the subtypes could decode the data`.
+     */
+    case object NoDiscriminator extends DiscriminatorSetting
+
+    /**
+     * Adds a field called `name`, holding the case name formatted with
+     * `format`, before the case's fields: `{"type":"Circle","radius":1.5}`.
+     */
     case class Name(name: String, format: NameFormat = NameFormat.Identity) extends DiscriminatorSetting
   }
 
   /**
-   * The discriminator field an encoder writes before a case's fields, as a pair of the compact text and the pretty-printed text of `"name":"value"`, or `None` when there is none.
+   * The discriminator field an encoder writes before a case's fields, as a pair
+   * of the compact text and the pretty-printed text of `"name":"value"`, or
+   * `None` when there is none.
    */
   type DiscriminatorTuple = Option[(String, String)]
 
   /**
-   * A `BinaryCodec` built from a zio-json `JsonCodec`, with no schema involved. It reads and writes UTF-8 bytes; `streamDecoder` splits the text with `splitOnJsonBoundary` and `streamEncoder` puts a newline between values. A decoding failure is a `DecodeError.ReadError` carrying zio-json's message.
+   * A `BinaryCodec` built from a zio-json `JsonCodec`, with no schema involved.
+   * It reads and writes UTF-8 bytes; `streamDecoder` splits the text with
+   * `splitOnJsonBoundary` and `streamEncoder` puts a newline between values. A
+   * decoding failure is a `DecodeError.ReadError` carrying zio-json's message.
    */
   implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
@@ -296,7 +378,10 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     }
 
   /**
-   * A `BinaryCodec` that reads and writes `A` as UTF-8 JSON, built from its implicit `Schema` with `Configuration.default`. `decode` returns a `DecodeError.ReadError` for malformed JSON, for empty input (`Unexpected end of input`) and for JSON that doesn't match the schema.
+   * A `BinaryCodec` that reads and writes `A` as UTF-8 JSON, built from its
+   * implicit `Schema` with `Configuration.default`. `decode` returns a
+   * `DecodeError.ReadError` for malformed JSON, for empty input (`Unexpected
+   * end of input`) and for JSON that doesn't match the schema.
    */
   implicit def schemaBasedBinaryCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     schemaBasedBinaryCodec[A](JsonCodec.Configuration.default)
@@ -414,21 +499,34 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   }
 
   /**
-   * Splits a stream of text into one string per top-level JSON value, for input that holds values one after another, such as `{"a":1}{"b":2}` or newline-separated values. A value may span several input strings. Pieces that are only whitespace are dropped.
+   * Splits a stream of text into one string per top-level JSON value, for input
+   * that holds values one after another, such as `{"a":1}{"b":2}` or
+   * newline-separated values. A value may span several input strings. Pieces
+   * that are only whitespace are dropped.
    */
-  val splitOnJsonBoundary: ZPipeline[Any, Nothing, String, String]    = JsonSplitter.jsonSplitter(wrappedInArray = false)
+  val splitOnJsonBoundary: ZPipeline[Any, Nothing, String, String] = JsonSplitter.jsonSplitter(wrappedInArray = false)
+
   /**
-   * Splits a stream of text that holds one JSON array into one string per element; text after the closing bracket is ignored. A number element keeps the comma that follows it: `[10,20,30]` gives `10,`, `20,` and `30`.
+   * Splits a stream of text that holds one JSON array into one string per
+   * element; text after the closing bracket is ignored. A number element keeps
+   * the comma that follows it: `[10,20,30]` gives `10,`, `20,` and `30`.
    */
   val splitJsonArrayElements: ZPipeline[Any, Nothing, String, String] = JsonSplitter.jsonSplitter(wrappedInArray = true)
 
-  /** Same as the `Configuration` overload, after converting the deprecated `cfg` to a `Configuration`. */
+  /**
+   * Same as the `Configuration` overload, after converting the deprecated `cfg`
+   * to a `Configuration`.
+   */
   @deprecated("Use Configuration based method instead", "1.6.7")
   def schemaBasedBinaryCodec[A](cfg: Config)(implicit schema: Schema[A]): BinaryCodec[A] =
     schemaBasedBinaryCodec[A](cfg.toConfiguration)
 
   /**
-   * A `BinaryCodec` that reads and writes `A` as UTF-8 JSON according to `cfg`. With `cfg.treatStreamsAsArrays`, `streamEncoder` writes one JSON array and `streamDecoder` reads the elements of one array; otherwise values are separated by newlines on the way out and split at JSON value boundaries on the way in.
+   * A `BinaryCodec` that reads and writes `A` as UTF-8 JSON according to `cfg`.
+   * With `cfg.treatStreamsAsArrays`, `streamEncoder` writes one JSON array and
+   * `streamDecoder` reads the elements of one array; otherwise values are
+   * separated by newlines on the way out and split at JSON value boundaries on
+   * the way in.
    *
    * {{{
    * import zio.Chunk
@@ -478,40 +576,59 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         }
     }
 
-  /** Returns a zio-json `JsonEncoder` for `A` built from `schema` with `Configuration.default`. */
+  /**
+   * Returns a zio-json `JsonEncoder` for `A` built from `schema` with
+   * `Configuration.default`.
+   */
   def jsonEncoder[A](schema: Schema[A]): ZJsonEncoder[A] =
     JsonEncoder.schemaEncoder(schema, JsonCodec.Configuration.default)
 
-  /** Same as the `Configuration` overload, after converting the deprecated `cfg` to a `Configuration`. */
+  /**
+   * Same as the `Configuration` overload, after converting the deprecated `cfg`
+   * to a `Configuration`.
+   */
   @deprecated("Use Configuration based method instead", "1.6.7")
   def jsonEncoder[A](cfg: JsonCodec.Config)(schema: Schema[A]): ZJsonEncoder[A] =
     JsonEncoder.schemaEncoder(schema, cfg.toConfiguration)
 
-  /** Returns a zio-json `JsonEncoder` for `A` built from `schema` with `cfg`. */
+  /**
+   * Returns a zio-json `JsonEncoder` for `A` built from `schema` with `cfg`.
+   */
   def jsonEncoder[A](cfg: JsonCodec.Configuration)(schema: Schema[A]): ZJsonEncoder[A] =
     JsonEncoder.schemaEncoder(schema, cfg)
 
   /**
-   * Returns a zio-json `JsonDecoder` for `A` built from `schema` with `Configuration.default`. A failed decode reports the JSON path and the problem, for example `.name(missing)` for a missing required field.
+   * Returns a zio-json `JsonDecoder` for `A` built from `schema` with
+   * `Configuration.default`. A failed decode reports the JSON path and the
+   * problem, for example `.name(missing)` for a missing required field.
    */
   def jsonDecoder[A](schema: Schema[A]): ZJsonDecoder[A] =
     JsonDecoder.schemaDecoder(schema, JsonCodec.Configuration.default)
 
-  /** Returns a zio-json `JsonDecoder` for `A` built from `schema` with `cfg`. */
+  /**
+   * Returns a zio-json `JsonDecoder` for `A` built from `schema` with `cfg`.
+   */
   def jsonDecoder[A](cfg: JsonCodec.Configuration)(schema: Schema[A]): ZJsonDecoder[A] =
     JsonDecoder.schemaDecoder(schema, cfg)
 
-  /** Returns a zio-json `JsonCodec` for `A` that pairs `jsonEncoder(schema)` and `jsonDecoder(schema)`, both with `Configuration.default`. */
+  /**
+   * Returns a zio-json `JsonCodec` for `A` that pairs `jsonEncoder(schema)` and
+   * `jsonDecoder(schema)`, both with `Configuration.default`.
+   */
   def jsonCodec[A](schema: Schema[A]): ZJsonCodec[A] =
     ZJsonCodec(jsonEncoder(schema), jsonDecoder(schema))
 
-  /** Same as the `Configuration` overload, after converting the deprecated `cfg` to a `Configuration`. */
+  /**
+   * Same as the `Configuration` overload, after converting the deprecated `cfg`
+   * to a `Configuration`.
+   */
   @deprecated("Use Configuration based method instead", "1.6.7")
   def jsonCodec[A](cfg: JsonCodec.Config)(schema: Schema[A]): ZJsonCodec[A] =
     ZJsonCodec(jsonEncoder(cfg.toConfiguration)(schema), jsonDecoder(cfg.toConfiguration)(schema))
 
   /**
-   * Returns a zio-json `JsonCodec` for `A` built from `schema`, with `cfg` for both encoding and decoding.
+   * Returns a zio-json `JsonCodec` for `A` built from `schema`, with `cfg` for
+   * both encoding and decoding.
    *
    * {{{
    * import zio.schema.{DeriveSchema, NameFormat, Schema}
@@ -531,7 +648,10 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
   def jsonCodec[A](cfg: JsonCodec.Configuration)(schema: Schema[A]): ZJsonCodec[A] =
     ZJsonCodec(jsonEncoder(cfg)(schema), jsonDecoder(cfg)(schema))
 
-  /** Holds the JSON codecs for the primitive standard types that `JsonCodec` builds on. */
+  /**
+   * Holds the JSON codecs for the primitive standard types that `JsonCodec`
+   * builds on.
+   */
   object Codecs {
     protected[codec] val unitEncoder: ZJsonEncoder[Unit] =
       (_: Unit, _: Option[Int], out: Write) => out.write("{}")
@@ -603,7 +723,10 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         )
     }
 
-  /** Builds zio-json encoders from schemas and encodes values to UTF-8 JSON bytes. */
+  /**
+   * Builds zio-json encoders from schemas and encodes values to UTF-8 JSON
+   * bytes.
+   */
   object JsonEncoder {
 
     import Codecs._
@@ -622,7 +745,10 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     private[codec] val CHARSET = StandardCharsets.UTF_8
     private[this] val encoders = new ConcurrentHashMap[EncoderKey[_], ZJsonEncoder[_]]()
 
-    /** Same as the `Configuration` overload, after converting the deprecated `cfg` to a `Configuration`. */
+    /**
+     * Same as the `Configuration` overload, after converting the deprecated
+     * `cfg` to a `Configuration`.
+     */
     @deprecated(
       """Use JsonCodec.Configuration instead.
 JsonCodec.Configuration makes it now possible to configure en-/decoding of empty collection and nulls (Options) independently.""",
@@ -631,11 +757,17 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
     final def encode[A](schema: Schema[A], value: A, cfg: Config): Chunk[Byte] =
       encode(schema, value, cfg.toConfiguration)
 
-    /** Encodes `value` as compact JSON in UTF-8 bytes, using `schema` and `cfg`. */
+    /**
+     * Encodes `value` as compact JSON in UTF-8 bytes, using `schema` and `cfg`.
+     */
     final def encode[A](schema: Schema[A], value: A, cfg: Configuration): Chunk[Byte] =
       charSequenceToByteChunk(schemaEncoder(schema, cfg).encodeJson(value, None))
 
-    /** Returns `caseName` formatted with the configuration's discriminator format, for example `MyCase` becomes `my_case` with `NameFormat.SnakeCase`. */
+    /**
+     * Returns `caseName` formatted with the configuration's discriminator
+     * format, for example `MyCase` becomes `my_case` with
+     * `NameFormat.SnakeCase`.
+     */
     def format(caseName: String, cfg: Configuration): String =
       if (cfg.discriminatorFormat == NameFormat.Identity) caseName
       else cfg.discriminatorFormat(caseName)
@@ -995,7 +1127,11 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
 
-    /** Decodes `json` as an `A` using `schema` and `config`. A failure is a `DecodeError.ReadError` carrying zio-json's message, such as `.name(missing)`. */
+    /**
+     * Decodes `json` as an `A` using `schema` and `config`. A failure is a
+     * `DecodeError.ReadError` carrying zio-json's message, such as
+     * `.name(missing)`.
+     */
     final def decode[A](schema: Schema[A], json: String, config: Configuration): Either[DecodeError, A] =
       schemaDecoder(schema, config).decodeJson(json) match {
         case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))

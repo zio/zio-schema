@@ -7,7 +7,8 @@ import zio.schema.DynamicValue._
 import zio.schema.StandardType.UnitType
 
 /**
- * Builds the `Ordering` that `Schema#ordering` returns: values are compared through their [[DynamicValue]] form, following the structure of the schema.
+ * Builds the `Ordering` that `Schema#ordering` returns: values are compared
+ * through their [[DynamicValue]] form, following the structure of the schema.
  */
 object SchemaOrdering {
 

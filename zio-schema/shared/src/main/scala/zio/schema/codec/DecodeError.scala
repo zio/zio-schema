@@ -22,6 +22,7 @@ import zio.{Cause, Chunk}
  * }}}
  */
 sealed trait DecodeError extends Exception with NoStackTrace { self =>
+
   /** A human-readable description of the error. */
   def message: String
 
@@ -37,14 +38,17 @@ sealed trait DecodeError extends Exception with NoStackTrace { self =>
 
 /** The kinds of [[DecodeError]]. */
 object DecodeError {
+
   /** Two errors that both occurred. */
   final case class And(left: DecodeError, right: DecodeError) extends DecodeError {
+
     /** The two messages joined with " and ". */
     def message: String = s"${left.message} and ${right.message}"
   }
 
   /** Two errors combined as alternatives. */
   final case class Or(left: DecodeError, right: DecodeError) extends DecodeError {
+
     /** The two messages joined with " or ". */
     override def message: String = s"${left.message} or ${right.message}"
   }
@@ -64,7 +68,10 @@ object DecodeError {
   /** Reading the input failed, with the failure in `cause`. */
   final case class ReadError(cause: Cause[Any], message: String) extends DecodeError
 
-  /** Reading the input at the field path `path` failed, with the failure in `cause`. */
+  /**
+   * Reading the input at the field path `path` failed, with the failure in
+   * `cause`.
+   */
   final case class ReadErrorWithPath(path: Chunk[String], cause: Cause[Any], message: String) extends DecodeError
 
   /** The value of the field `field` fails the validation `validation`. */
@@ -78,12 +85,14 @@ object DecodeError {
 
   /** The dynamic value `value` has a different shape than `schema`. */
   final case class CastError[A](value: DynamicValue, schema: Schema[A]) extends DecodeError {
+
     /** Returns "Failed to cast", the value, "to schema" and the schema. */
     def message: String = s"Failed to cast $value to schema $schema"
   }
 
   /** The enum `enumN` has no case with the id `key`. */
   final case class MissingCase(key: String, enumN: Schema.Enum[_]) extends DecodeError {
+
     /** Returns "Missing case", the key, "in enum" and the enum schema. */
     def message: String = s"Missing case $key in enum $enumN"
   }
@@ -91,13 +100,21 @@ object DecodeError {
   /** The record values `values` do not match the record fields `structure`. */
   final case class IncompatibleShape(values: ListMap[String, DynamicValue], structure: Chunk[Schema.Field[_, _]])
       extends DecodeError {
-    /** Returns a message naming the values and the fields, ending in "have incompatible shape". */
+
+    /**
+     * Returns a message naming the values and the fields, ending in "have
+     * incompatible shape".
+     */
     def message: String = s"Value $values and $structure have incompatible shape"
   }
 
   /** The decoder named `decoderName` cannot decode values of `schema`. */
   final case class UnsupportedSchema(schema: Schema[_], decoderName: String) extends DecodeError {
-    /** Returns a message naming the schema and the decoder, "... is not supported by ...". */
+
+    /**
+     * Returns a message naming the schema and the decoder, "... is not
+     * supported by ...".
+     */
     def message: String = s"Schema $schema is not supported by $decoderName"
   }
 

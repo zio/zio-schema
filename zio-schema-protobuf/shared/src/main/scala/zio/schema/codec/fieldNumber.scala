@@ -3,7 +3,9 @@ package zio.schema.codec
 import scala.annotation.StaticAnnotation
 
 /**
- * Sets the Protobuf field number of a record field, used by [[ProtobufCodec]] instead of the field's 1-based position. Give each field of a record a different number.
+ * Sets the Protobuf field number of a record field, used by [[ProtobufCodec]]
+ * instead of the field's 1-based position. Give each field of a record a
+ * different number.
  *
  * {{{
  * import zio.schema.{DeriveSchema, Schema}

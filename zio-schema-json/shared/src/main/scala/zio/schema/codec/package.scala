@@ -10,8 +10,14 @@ import zio.schema.annotation.directDynamicMapping
 import zio.schema.{DynamicValue, Schema, StandardType, TypeId}
 
 package object json {
+
   /**
-   * A `Schema` for zio-json's `Json` AST, so `Json` values can be encoded and decoded with zio-schema codecs or used as fields of a schema-described type. `JsonCodec` writes and reads such a value as the JSON it holds. Converted to a `DynamicValue`, a JSON object becomes a `DynamicValue.Record`, an array a `DynamicValue.Sequence`, a number a `BigDecimal` primitive and `null` a `DynamicValue.NoneValue`.
+   * A `Schema` for zio-json's `Json` AST, so `Json` values can be encoded and
+   * decoded with zio-schema codecs or used as fields of a schema-described
+   * type. `JsonCodec` writes and reads such a value as the JSON it holds.
+   * Converted to a `DynamicValue`, a JSON object becomes a
+   * `DynamicValue.Record`, an array a `DynamicValue.Sequence`, a number a
+   * `BigDecimal` primitive and `null` a `DynamicValue.NoneValue`.
    *
    * {{{
    * import zio.json.ast.Json

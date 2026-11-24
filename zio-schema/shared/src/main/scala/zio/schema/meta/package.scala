@@ -3,6 +3,7 @@ package zio.schema
 import zio.constraintless.TypeList._
 
 package object meta {
+
   /**
    * A path to a node in a [[MetaSchema]] tree, as a `Chunk[String]` of labels
    * from the root. The empty path is the root.
@@ -18,8 +19,8 @@ package object meta {
    * between two versions of a schema.
    *
    * `MetaSchema` is the [[ExtensibleMetaSchema]] whose only built-in type is
-   * [[zio.schema.DynamicValue]]. [[ExtensibleMetaSchema#toSchema]] turns it back
-   * into a `Schema[_]` that works on generic values: a record becomes a
+   * [[zio.schema.DynamicValue]]. [[ExtensibleMetaSchema#toSchema]] turns it
+   * back into a `Schema[_]` that works on generic values: a record becomes a
    * `ListMap[String, _]`.
    *
    * {{{
@@ -38,16 +39,20 @@ package object meta {
   type MetaSchema = ExtensibleMetaSchema[DynamicValue :: End]
 
   /**
-   * Builds a [[MetaSchema]] from a schema, and holds the schema of
-   * `MetaSchema` itself.
+   * Builds a [[MetaSchema]] from a schema, and holds the schema of `MetaSchema`
+   * itself.
    */
   object MetaSchema {
-    /** A labelled child of a [[MetaSchema]] node: a record field or an enum case. */
+
+    /**
+     * A labelled child of a [[MetaSchema]] node: a record field or an enum
+     * case.
+     */
     type Labelled = ExtensibleMetaSchema.Labelled[DynamicValue :: End]
 
     /**
-     * The schema of [[MetaSchema]] itself, used to encode a meta schema with any
-     * codec or to turn it into a [[zio.schema.DynamicValue]].
+     * The schema of [[MetaSchema]] itself, used to encode a meta schema with
+     * any codec or to turn it into a [[zio.schema.DynamicValue]].
      */
     val schema: Schema[MetaSchema] = ExtensibleMetaSchema.schema[DynamicValue :: End]
 

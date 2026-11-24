@@ -7,25 +7,37 @@ import zio.schema.Schema._
 
 /**
  * The fields of a generic record as a type-level list, built from
- * `FieldSet.:*:` cells that end in [[FieldSet.Empty]]. A generic record
- * stores its values in a `ListMap[String, _]`; `Schema.record` takes a
- * `FieldSet` (or builds one from its fields) to describe such a record.
+ * `FieldSet.:*:` cells that end in [[FieldSet.Empty]]. A generic record stores
+ * its values in a `ListMap[String, _]`; `Schema.record` takes a `FieldSet` (or
+ * builds one from its fields) to describe such a record.
  */
 sealed trait FieldSet {
-  /** The type of the tuple of lenses that [[makeAccessors]] returns, one per field. */
+
+  /**
+   * The type of the tuple of lenses that [[makeAccessors]] returns, one per
+   * field.
+   */
   type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]
+
   /** The type of this field set followed by the fields of `That`. */
   type Append[That <: FieldSet] <: FieldSet
 
   /** The intersection of `(field name, field type)` pairs, one per field. */
   type Terms
+
   /** The intersection of the field name types, one per field. */
   type FieldNames
 
-  /** Returns a field set with `head` as its first field, followed by the fields of this set. */
+  /**
+   * Returns a field set with `head` as its first field, followed by the fields
+   * of this set.
+   */
   def :*:[A](head: Field[ListMap[String, _], A]): FieldSet.Cons[A, FieldSet]
 
-  /** Returns a field set with the fields of this set followed by the fields of `that`. */
+  /**
+   * Returns a field set with the fields of this set followed by the fields of
+   * `that`.
+   */
   def ++[That <: FieldSet](that: That): Append[That]
 
   /** Returns the fields in order. */
@@ -41,8 +53,10 @@ sealed trait FieldSet {
 
 /** The cells of a [[FieldSet]] and the ways to build one. */
 object FieldSet {
+
   /** The type of the empty field set. */
-  type Empty                   = Empty.type
+  type Empty = Empty.type
+
   /** Another name for the `:*:` cell type. */
   type Cons[A, +T <: FieldSet] = :*:[A, T]
 

@@ -19,8 +19,10 @@ import zio.prelude._
  * }}}
  */
 object NodePath extends Subtype[Chunk[String]] {
+
   /** The empty path, which points to the root node. */
-  val root: NodePath  = NodePath(Chunk.fromArray(Array.empty[String]))
+  val root: NodePath = NodePath(Chunk.fromArray(Array.empty[String]))
+
   /** The empty path; the same value as `root`. */
   val empty: NodePath = NodePath(Chunk.fromArray(Array.empty[String]))
 

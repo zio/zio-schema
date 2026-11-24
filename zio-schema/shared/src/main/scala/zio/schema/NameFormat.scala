@@ -1,7 +1,10 @@
 package zio.schema
 
 /**
- * A function that rewrites a field or case name into a naming convention, such as `snake_case` or `kebab-case`. `JsonCodec.Configuration` takes one as `fieldNameFormat` for field names and inside `DiscriminatorSetting` for case names.
+ * A function that rewrites a field or case name into a naming convention, such
+ * as `snake_case` or `kebab-case`. `JsonCodec.Configuration` takes one as
+ * `fieldNameFormat` for field names and inside `DiscriminatorSetting` for case
+ * names.
  *
  * {{{
  * val snake: String  = NameFormat.SnakeCase("firstName")   // "first_name"
@@ -12,7 +15,8 @@ package zio.schema
 sealed trait NameFormat extends (String => String)
 
 /**
- * The predefined name formats, plus [[NameFormat.Custom]] for any other function.
+ * The predefined name formats, plus [[NameFormat.Custom]] for any other
+ * function.
  */
 object NameFormat {
   import java.lang.Character._
@@ -77,14 +81,19 @@ object NameFormat {
   }
 
   /**
-   * Converts a name to `snake_case`: `"firstName"` and `"first-name"` become `"first_name"`, and `"HTTPServer"` becomes `"http_server"`. Each `-` or `_` becomes one `_`, so a `-` followed by an upper-case letter gives two (`"Some-Kebab"` becomes `"some__kebab"`).
+   * Converts a name to `snake_case`: `"firstName"` and `"first-name"` become
+   * `"first_name"`, and `"HTTPServer"` becomes `"http_server"`. Each `-` or `_`
+   * becomes one `_`, so a `-` followed by an upper-case letter gives two
+   * (`"Some-Kebab"` becomes `"some__kebab"`).
    */
   case object SnakeCase extends NameFormat {
     override def apply(memberName: String): String = enforceSnakeOrKebabCase(memberName, '_')
   }
 
   /**
-   * Converts a name to `camelCase`: `"first_name"` and `"first-name"` become `"firstName"`. A name without `_` or `-` only has its first letter lower-cased, so `"HTTPServer"` becomes `"hTTPServer"`.
+   * Converts a name to `camelCase`: `"first_name"` and `"first-name"` become
+   * `"firstName"`. A name without `_` or `-` only has its first letter
+   * lower-cased, so `"HTTPServer"` becomes `"hTTPServer"`.
    */
   case object CamelCase extends NameFormat {
     override def apply(memberName: String): String =
@@ -92,7 +101,9 @@ object NameFormat {
   }
 
   /**
-   * Converts a name to `PascalCase`: `"first_name"` and `"first-name"` become `"FirstName"`. A name without `_` or `-` only has its first letter upper-cased, so `"userID"` becomes `"UserID"`.
+   * Converts a name to `PascalCase`: `"first_name"` and `"first-name"` become
+   * `"FirstName"`. A name without `_` or `-` only has its first letter
+   * upper-cased, so `"userID"` becomes `"UserID"`.
    */
   case object PascalCase extends NameFormat {
     override def apply(memberName: String): String =
@@ -100,14 +111,17 @@ object NameFormat {
   }
 
   /**
-   * Converts a name to `kebab-case`: `"firstName"` and `"first_name"` become `"first-name"`, and `"HTTPServer"` becomes `"http-server"`. Each `-` or `_` becomes one `-`, so a `_` followed by an upper-case letter gives two.
+   * Converts a name to `kebab-case`: `"firstName"` and `"first_name"` become
+   * `"first-name"`, and `"HTTPServer"` becomes `"http-server"`. Each `-` or `_`
+   * becomes one `-`, so a `_` followed by an upper-case letter gives two.
    */
   case object KebabCase extends NameFormat {
     override def apply(memberName: String): String = enforceSnakeOrKebabCase(memberName, '-')
   }
 
   /**
-   * Returns the name unchanged. It is the default `fieldNameFormat` of `JsonCodec.Configuration`.
+   * Returns the name unchanged. It is the default `fieldNameFormat` of
+   * `JsonCodec.Configuration`.
    */
   case object Identity extends NameFormat {
     override def apply(memberName: String): String = memberName

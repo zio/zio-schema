@@ -15,8 +15,8 @@ import zio.{Chunk, ChunkBuilder}
  * syntax in `zio.schema.syntax` run these three steps for you.
  *
  * Use it when data written with one version of a schema has to be read with
- * another. The steps work on a value's dynamic form, so they apply to data
- * from any codec.
+ * another. The steps work on a value's dynamic form, so they apply to data from
+ * any codec.
  *
  * {{{
  * import zio.Chunk
@@ -41,10 +41,10 @@ import zio.{Chunk, ChunkBuilder}
  *
  * Some steps never succeed on a value: [[Migration.AddNode]] and
  * [[Migration.ChangeType]] always return `Left`, because a migration has no
- * default value and no type conversion. A step whose path ends at the `left`
- * or `right` element of a tuple returns `Left` ("Unexpected node"), and so
- * does one that ends at the side an `Either` value holds; steps on record
- * fields and on map values apply.
+ * default value and no type conversion. A step whose path ends at the `left` or
+ * `right` element of a tuple returns `Left` ("Unexpected node"), and so does
+ * one that ends at the side an `Either` value holds; steps on record fields and
+ * on map values apply.
  */
 sealed trait Migration { self =>
 
@@ -81,6 +81,7 @@ sealed trait Migration { self =>
 
 /** The migration steps and [[Migration.derive]]. */
 object Migration {
+
   /**
    * Replaces the message of the `DynamicValue.Error` at `path` with `message`.
    * Returns `Left` when the node is not an error value.
@@ -121,7 +122,10 @@ object Migration {
    */
   final case class DeleteNode(override val path: NodePath) extends Migration
 
-  /** Renames the field or case at `path` with the label transformation `tranform`. */
+  /**
+   * Renames the field or case at `path` with the label transformation
+   * `tranform`.
+   */
   final case class Relabel(override val path: NodePath, tranform: LabelTransformation) extends Migration
 
   /** Wraps the value at `path` in `n` single-element sequences. */
@@ -146,8 +150,7 @@ object Migration {
   /**
    * Returns the steps that turn values described by `from` into values
    * described by `to`, or `Left` with a message when the two trees have
-   * different shapes ("not homomorphic"), for example a primitive and a
-   * record.
+   * different shapes ("not homomorphic"), for example a primitive and a record.
    *
    * It matches record fields and enum cases by label: a label only in `to`
    * gives [[AddNode]] or [[AddCase]], a label only in `from` gives
@@ -323,11 +326,14 @@ object Migration {
    * converting from snake to camel case (or vice versa)
    */
   sealed trait LabelTransformation {
+
     /** Returns the new label for `label`, or an error message. */
     def apply(label: String): Either[String, String]
   }
 
-  /** The companion of [[LabelTransformation]]; it defines no transformations. */
+  /**
+   * The companion of [[LabelTransformation]]; it defines no transformations.
+   */
   object LabelTransformation {}
 
   private def matchedSubtrees(

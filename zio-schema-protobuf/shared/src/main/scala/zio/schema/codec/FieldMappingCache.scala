@@ -16,7 +16,9 @@ private class FieldMappingCache {
 }
 
 /**
- * The Protobuf field numbers of one record's fields: `indexToFieldNumber` maps a field's 0-based position in the record to its field number, and `fieldNumberToIndex` maps back.
+ * The Protobuf field numbers of one record's fields: `indexToFieldNumber` maps
+ * a field's 0-based position in the record to its field number, and
+ * `fieldNumberToIndex` maps back.
  */
 final case class FieldMapping(indexToFieldNumber: Map[Int, Int], fieldNumberToIndex: Map[Int, Int])
 
@@ -24,7 +26,10 @@ final case class FieldMapping(indexToFieldNumber: Map[Int, Int], fieldNumberToIn
 object FieldMapping {
 
   /**
-   * Returns the mapping for `schema`: the field at position `i` gets the number from its [[fieldNumber]] annotation, or `i + 1` without one. A record whose second field of three is annotated `@fieldNumber(5)` maps positions 0, 1, 2 to 1, 5, 3.
+   * Returns the mapping for `schema`: the field at position `i` gets the number
+   * from its [[fieldNumber]] annotation, or `i + 1` without one. A record whose
+   * second field of three is annotated `@fieldNumber(5)` maps positions 0, 1, 2
+   * to 1, 5, 3.
    */
   def fromSchema(schema: Schema.Record[_]): FieldMapping = {
     val indexToFieldNumber = schema.fields.zipWithIndex.map {
@@ -37,7 +42,10 @@ object FieldMapping {
     FieldMapping(indexToFieldNumber, fieldNumberToIndex)
   }
 
-  /** Returns the number from the field's [[fieldNumber]] annotation, or `None` when it has none. */
+  /**
+   * Returns the number from the field's [[fieldNumber]] annotation, or `None`
+   * when it has none.
+   */
   def getFieldNumber(field: Schema.Field[_, _]): Option[Int] =
     field.annotations.collectFirst { case fieldNumber(n) =>
       n

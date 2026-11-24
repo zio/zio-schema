@@ -3,7 +3,9 @@ package zio.schema.annotation
 import zio.schema.validation.Validation
 
 /**
- * Attaches a [[zio.schema.validation.Validation]] to a case class field. `DeriveSchema.gen` combines the `validate` annotations of a field with `&&` into the field's `validation`, which `Schema.validate` checks.
+ * Attaches a [[zio.schema.validation.Validation]] to a case class field.
+ * `DeriveSchema.gen` combines the `validate` annotations of a field with `&&`
+ * into the field's `validation`, which `Schema.validate` checks.
  *
  * {{{
  * import zio.schema.{DeriveSchema, Schema}

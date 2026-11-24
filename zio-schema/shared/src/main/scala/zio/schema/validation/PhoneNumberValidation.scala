@@ -1,7 +1,8 @@
 package zio.schema.validation
 
 /**
- * Phone number validations for each country, named `phoneNumber` plus the two-letter country code (`phoneNumberDE`, `phoneNumberUS`).
+ * Phone number validations for each country, named `phoneNumber` plus the
+ * two-letter country code (`phoneNumberDE`, `phoneNumberUS`).
  *
  * {{{
  * import zio.schema.validation.PhoneNumberValidation
@@ -16,30 +17,45 @@ package zio.schema.validation
 object PhoneNumberValidation extends PhoneNumberValidation {}
 
 /**
- * Phone number validations for each country, one `phoneNumberXX` value per two-letter country code, and the `Regex` building blocks they share. Each country's validation checks a prefix (an international prefix such as `+` or `00` with the country code, or for many countries a national trunk prefix such as `0`) followed by a country-specific number of digits, with an optional `-` or space between them.
+ * Phone number validations for each country, one `phoneNumberXX` value per
+ * two-letter country code, and the `Regex` building blocks they share. Each
+ * country's validation checks a prefix (an international prefix such as `+` or
+ * `00` with the country code, or for many countries a national trunk prefix
+ * such as `0`) followed by a country-specific number of digits, with an
+ * optional `-` or space between them.
  */
 trait PhoneNumberValidation {
 
   /** Matches an optional single space. */
-  val optionalSpace: Regex       = Regex.literal(" ").?
+  val optionalSpace: Regex = Regex.literal(" ").?
+
   /** Matches an optional `-` or space. */
-  val optionalSeparator: Regex   = Regex.oneOf('-', ' ').?
+  val optionalSeparator: Regex = Regex.oneOf('-', ' ').?
+
   /** Matches exactly two digits. */
-  val twoDigits: Regex           = Regex.digit.exactly(2)
+  val twoDigits: Regex = Regex.digit.exactly(2)
+
   /** Matches exactly three digits. */
-  val threeDigits: Regex         = Regex.digit.exactly(3)
+  val threeDigits: Regex = Regex.digit.exactly(3)
+
   /** Matches the `+` international prefix. */
-  val plus: Regex                = Regex.literal("+")
+  val plus: Regex = Regex.literal("+")
+
   /** Matches the `00` international prefix. */
-  val doubleZero: Regex          = Regex.literal("00")
+  val doubleZero: Regex = Regex.literal("00")
+
   /** Matches the international prefix `+` or `00`. */
   val internationalPrefix: Regex = plus | doubleZero
+
   /** Matches the national trunk prefix `0`. */
-  val nationalPrefixZero: Regex  = Regex.literal("0")
+  val nationalPrefixZero: Regex = Regex.literal("0")
+
   /** Matches the national trunk prefix `1`. */
-  val nationalPrefixOne: Regex   = Regex.literal("1")
+  val nationalPrefixOne: Regex = Regex.literal("1")
+
   /** Matches the national trunk prefix `8`. */
   val nationalPrefixEight: Regex = Regex.literal("8")
+
   /** Matches one digit followed by an optional `-` or space. */
   val digitsWithSeparator: Regex = Regex.digit.exactly(1) ~ optionalSeparator
 

@@ -21,11 +21,16 @@ trait SchemaInstances[As <: TypeList] {
   def all: List[Schema[_]]
 }
 
-/** Implicit [[SchemaInstances]] for any type list whose types have a `Schema`. */
+/**
+ * Implicit [[SchemaInstances]] for any type list whose types have a `Schema`.
+ */
 object SchemaInstances {
   import TypeList._
 
-  /** Builds the instances for `A :: As` from a `Schema[A]` and the instances for `As`. */
+  /**
+   * Builds the instances for `A :: As` from a `Schema[A]` and the instances for
+   * `As`.
+   */
   implicit def instancesCons[A, As <: TypeList](implicit
     c: Schema[A],
     ev: SchemaInstances[As]

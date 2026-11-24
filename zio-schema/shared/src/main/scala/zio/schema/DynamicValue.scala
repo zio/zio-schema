@@ -11,9 +11,14 @@ import zio.schema.meta.{MetaSchema, Migration}
 import zio.{Cause, Chunk, Unsafe}
 
 /**
- * A `DynamicValue` is a value of any type in a generic form that needs no Scala type: records become maps from field names to values, enum values become a case name with a value, and primitives keep their [[StandardType]]. A [[Schema]] converts between a typed value and its `DynamicValue`.
+ * A `DynamicValue` is a value of any type in a generic form that needs no Scala
+ * type: records become maps from field names to values, enum values become a
+ * case name with a value, and primitives keep their [[StandardType]]. A
+ * [[Schema]] converts between a typed value and its `DynamicValue`.
  *
- * Use it to inspect or transform data whose type is known only at runtime, to migrate values between schema versions, and as the common form that codecs and patches work on.
+ * Use it to inspect or transform data whose type is known only at runtime, to
+ * migrate values between schema versions, and as the common form that codecs
+ * and patches work on.
  *
  * {{{
  * val dynamic = DynamicValue(("Ana", 31))
@@ -27,7 +32,8 @@ sealed trait DynamicValue {
   self =>
 
   /**
-   * Applies `transforms` to this value, starting from the last migration in the chunk, and returns the first error message if one fails.
+   * Applies `transforms` to this value, starting from the last migration in the
+   * chunk, and returns the first error message if one fails.
    */
   def transform(transforms: Chunk[Migration]): Either[String, DynamicValue] =
     transforms.foldRight[Either[String, DynamicValue]](Right(self)) {
@@ -36,18 +42,21 @@ sealed trait DynamicValue {
     }
 
   /**
-   * Converts this value to an `A` with `schema`, or returns `Left` with the error message when the value doesn't match the schema.
+   * Converts this value to an `A` with `schema`, or returns `Left` with the
+   * error message when the value doesn't match the schema.
    */
   def toTypedValue[A](implicit schema: Schema[A]): Either[String, A] =
     toTypedValueLazyError.left.map(_.message)
 
   /**
-   * Converts this value to an `A` with `schema`, or returns the [[zio.schema.codec.DecodeError]] when the value doesn't match the schema.
+   * Converts this value to an `A` with `schema`, or returns the
+   * [[zio.schema.codec.DecodeError]] when the value doesn't match the schema.
    */
   def toValue[A](implicit schema: Schema[A]): Either[DecodeError, A] = toTypedValueLazyError
 
   /**
-   * Converts this value to an `A` with `schema`, or returns `None` when the value doesn't match the schema.
+   * Converts this value to an `A` with `schema`, or returns `None` when the
+   * value doesn't match the schema.
    */
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
@@ -217,7 +226,8 @@ sealed trait DynamicValue {
 }
 
 /**
- * Constructors and cases of [[DynamicValue]], and the schema of `DynamicValue` itself.
+ * Constructors and cases of [[DynamicValue]], and the schema of `DynamicValue`
+ * itself.
  */
 object DynamicValue {
 
@@ -289,13 +299,18 @@ object DynamicValue {
 
   // scalafmt: { maxColumn = 400 }
   /**
-   * Converts `value` to a `DynamicValue` with `schema`. When `schema` is a `Transform` whose reverse function fails, the result holds an `Error` with that message.
+   * Converts `value` to a `DynamicValue` with `schema`. When `schema` is a
+   * `Transform` whose reverse function fails, the result holds an `Error` with
+   * that message.
    */
   def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue =
     FromSchemaAndValue.process(schema, value)
 
   /**
-   * Converts the field values of a record to typed values with the schemas of the fields in `structure`, matched by name. Returns `DecodeError.IncompatibleShape` when `values` holds a name that `structure` lacks.
+   * Converts the field values of a record to typed values with the schemas of
+   * the fields in `structure`, matched by name. Returns
+   * `DecodeError.IncompatibleShape` when `values` holds a name that `structure`
+   * lacks.
    */
   def decodeStructure(
     values: ListMap[String, DynamicValue],
@@ -320,12 +335,14 @@ object DynamicValue {
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
 
   /**
-   * An enum value: its type id and the pair of the case name and the case's value.
+   * An enum value: its type id and the pair of the case name and the case's
+   * value.
    */
   final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue
 
   /**
-   * A sequence value, such as a `List`, `Vector`, `Chunk` or non-empty collection.
+   * A sequence value, such as a `List`, `Vector`, `Chunk` or non-empty
+   * collection.
    */
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
 
@@ -345,7 +362,8 @@ object DynamicValue {
   sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
 
   /**
-   * A singleton value. `DynamicValue.schema` encodes it as a `Unit` and decodes it as `Singleton(())`.
+   * A singleton value. `DynamicValue.schema` encodes it as a `Unit` and decodes
+   * it as `Singleton(())`.
    */
   sealed case class Singleton[A](instance: A) extends DynamicValue
 
@@ -365,12 +383,14 @@ object DynamicValue {
   sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue
 
   /**
-   * The `Left` case of an `Either`, or the `Left` case of a [[zio.schema.Fallback]].
+   * The `Left` case of an `Either`, or the `Left` case of a
+   * [[zio.schema.Fallback]].
    */
   final case class LeftValue(value: DynamicValue) extends DynamicValue
 
   /**
-   * The `Right` case of an `Either`, or the `Right` case of a [[zio.schema.Fallback]].
+   * The `Right` case of an `Either`, or the `Right` case of a
+   * [[zio.schema.Fallback]].
    */
   final case class RightValue(value: DynamicValue) extends DynamicValue
 
@@ -385,7 +405,8 @@ object DynamicValue {
   final case class DynamicAst(ast: MetaSchema) extends DynamicValue
 
   /**
-   * A conversion that failed, with its error message. Converting it to a typed value, for example with `toTypedValue`, returns `Left(message)`.
+   * A conversion that failed, with its error message. Converting it to a typed
+   * value, for example with `toTypedValue`, returns `Left(message)`.
    */
   final case class Error(message: String) extends DynamicValue
 
@@ -396,7 +417,11 @@ object DynamicValue {
 
   // TODO: Refactor case set so that adding a new type to StandardType without updating the below list will trigger a compile error
   /**
-   * The schema of `DynamicValue` itself, so that dynamic values can be encoded and decoded like other data. It is an enum with a case for each primitive type and for each other kind of `DynamicValue` except `BothValue`: converting a `BothValue` with this schema gives `Error("Invalid enum constructor")`.
+   * The schema of `DynamicValue` itself, so that dynamic values can be encoded
+   * and decoded like other data. It is an enum with a case for each primitive
+   * type and for each other kind of `DynamicValue` except `BothValue`:
+   * converting a `BothValue` with this schema gives
+   * `Error("Invalid enum constructor")`.
    */
   lazy val schema: Schema[DynamicValue] =
     Schema.EnumN(

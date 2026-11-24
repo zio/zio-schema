@@ -6,10 +6,10 @@ import zio.Chunk
 import zio.schema.Schema._
 
 /**
- * The cases of an enum schema as a type-level list, built from
- * [[CaseSet.Cons]] cells that end in [[CaseSet.Empty]]. `Schema.enumeration`
- * and `Schema.EnumN` take a `CaseSet` to describe an enum with any number of
- * cases; [[CaseSet.caseOf]] builds a one-case set and `++` joins sets.
+ * The cases of an enum schema as a type-level list, built from [[CaseSet.Cons]]
+ * cells that end in [[CaseSet.Empty]]. `Schema.enumeration` and `Schema.EnumN`
+ * take a `CaseSet` to describe an enum with any number of cases;
+ * [[CaseSet.caseOf]] builds a one-case set and `++` joins sets.
  */
 sealed trait CaseSet { self =>
 
@@ -18,10 +18,16 @@ sealed trait CaseSet { self =>
   /** The type of the enum whose cases this set holds. */
   type EnumType
 
-  /** The type of the tuple of prisms that [[makeAccessors]] returns, one per case. */
+  /**
+   * The type of the tuple of prisms that [[makeAccessors]] returns, one per
+   * case.
+   */
   type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]
 
-  /** Returns a set with `head` as its first case, followed by the cases of this set. */
+  /**
+   * Returns a set with `head` as its first case, followed by the cases of this
+   * set.
+   */
   def :+:[A](head: Case[EnumType, A]): A :+: CaseSet.Aux[EnumType]
 
   // def ++[That](that: That)(implicit append: Append[EnumType, self.type, That]): append.Out
@@ -39,11 +45,13 @@ sealed trait CaseSet { self =>
 
 /** The cells of a [[CaseSet]] and the ways to build one. */
 object CaseSet {
+
   /** A [[CaseSet]] for the enum type `EnumType0`. */
   type Aux[EnumType0] = CaseSet { type EnumType = EnumType0 }
 
   /** The case set with no cases, which ends every [[CaseSet]]. */
   final case class Empty[Z]() extends CaseSet { self =>
+
     /** The enum type `Z`. */
     type EnumType = Z
 
@@ -69,18 +77,21 @@ object CaseSet {
 
   /** Holds the [[Empty.Aux]] alias. */
   object Empty {
+
     /** An empty case set for the enum type `Z`. */
     type Aux[Z] = CaseSet.Empty[Z] { type EnumType = Z }
   }
 
   /** A case set whose first case has the type `A`, followed by the set `T`. */
   sealed trait :+:[A, +T <: CaseSet] extends CaseSet {
+
     /** The first case. */
     def head: Case[EnumType, A]
   }
 
   /** A case set cell: the case `head` followed by the cases in `tail`. */
   final case class Cons[A, +T <: CaseSet.Aux[Z], Z](head: Case[Z, A], tail: T) extends :+:[A, T] { self =>
+
     /** The enum type `Z`. */
     type EnumType = Z
 
@@ -89,7 +100,9 @@ object CaseSet {
 
     override def :+:[B](head2: Case[Z, B]): Cons[B, Cons[A, T, Z], Z] = Cons(head2, self)
 
-    /** Returns a set with the cases of this set followed by the cases of `that`. */
+    /**
+     * Returns a set with the cases of this set followed by the cases of `that`.
+     */
     def ++[That](that: That)(implicit append: Append[Z, Cons[A, T, Z], That]): append.Out =
       append(self, that)
 
@@ -106,7 +119,10 @@ object CaseSet {
 
     override def toString: String = s"$head :+: $tail"
   }
-  /** Another name for the [[Cons]] companion, for building and matching sets. */
+
+  /**
+   * Another name for the [[Cons]] companion, for building and matching sets.
+   */
   val :+: = Cons
 
   /**
@@ -137,6 +153,7 @@ object CaseSet {
 
 /** Holds the [[Cons0.Aux]] alias. */
 object Cons0 {
+
   /** A [[CaseSet.Cons]] whose `EnumType` is known to be `Z`. */
   type Aux[A, T <: CaseSet.Aux[Z], Z] = CaseSet.Cons[A, T, Z] { type EnumType = Z }
 }
@@ -146,8 +163,10 @@ object Cons0 {
  * can be joined, used by `CaseSet.Empty#++` and `CaseSet.Cons#++`.
  */
 sealed trait Append[EnumType, -Left, -Right] {
+
   /** The type of the joined case set. */
   type Out <: CaseSet.Aux[EnumType]
+
   /** Joins `left` and `right`, with the cases of `left` first. */
   def apply(left: Left, right: Right): Out
 }
@@ -174,6 +193,7 @@ object Append extends AppendLowPriority {
 
 /** Lower-priority [[Append]] instances. */
 trait AppendLowPriority extends AppendLowPriority2 {
+
   /** Joins a set with an empty set on the right, returning the left set. */
   implicit def AppendEmptyRight[T <: CaseSet.Aux[Z], Z]: Append.WithOut[Z, T, CaseSet.Empty[Z], T] =
     new Append[Z, T, CaseSet.Empty[Z]] {
@@ -184,6 +204,7 @@ trait AppendLowPriority extends AppendLowPriority2 {
 
 /** Lowest-priority [[Append]] instances. */
 trait AppendLowPriority2 {
+
   /** Joins an empty set on the left with a set, returning the right set. */
   implicit def AppendEmptyLeft[T <: CaseSet.Aux[Z], Z]: Append.WithOut[Z, CaseSet.Empty[Z], T, T] =
     new Append[Z, CaseSet.Empty[Z], T] {
