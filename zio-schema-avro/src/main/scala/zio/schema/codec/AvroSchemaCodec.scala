@@ -20,20 +20,52 @@ import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
 import zio.schema.meta.MetaSchema
 
+/** Converts between ZIO Schemas and Apache Avro schema JSON text. */
 trait AvroSchemaCodec {
+  /**
+   * Returns the Avro schema JSON text for `schema`, or a `Left` with a message when a part of the schema cannot be written, such as a `Schema.fail` or an invalid `AvroAnnotations.name`.
+   */
   def encode(schema: Schema[_]): scala.util.Either[String, String]
 
+  /**
+   * Parses Avro schema JSON text from UTF-8 `bytes` and builds a ZIO Schema for it. Returns a `Left` with the parser's message for invalid JSON, and with a message such as `Unsupported long logical type timestamp-nanos` for an Avro logical type it does not map.
+   */
   def decode(bytes: Chunk[Byte]): scala.util.Either[String, Schema[_]]
 }
 
+/**
+ * Converts between ZIO Schemas and Apache Avro schemas. `encode` generates the Avro schema of a ZIO Schema, which is the schema [[AvroCodec]] writes values with, and `decode` builds a ZIO Schema from Avro schema JSON text. [[AvroAnnotations]] change the generated schema.
+ *
+ * {{{
+ * import zio.Chunk
+ * import zio.schema.{DeriveSchema, Schema}
+ *
+ * final case class Point(x: Int, y: Int)
+ * val schema: Schema[Point] = DeriveSchema.gen[Point]
+ *
+ * val json = AvroSchemaCodec.encode(schema)
+ * // Right({"type":"record","name":"Point","fields":[{"name":"x","type":"int"},{"name":"y","type":"int"}]})
+ * val decoded = json.flatMap(text => AvroSchemaCodec.decode(Chunk.fromArray(text.getBytes("UTF-8"))))
+ * // decoded.isRight == true
+ * }}}
+ *
+ * @see [[https://zio.dev/zio-schema/derivations/codecs/avro/ Avro codec]]
+ */
 object AvroSchemaCodec extends AvroSchemaCodec {
 
+  /**
+   * Returns the Avro schema JSON text for `schema`, or a `Left` with a message when a part of the schema cannot be written, such as a `Schema.fail` (its message) or an invalid `AvroAnnotations.name`. An `AvroAnnotations.default` value that does not match its field's type makes it throw an `org.apache.avro.AvroTypeException`.
+   */
   def encode(schema: Schema[_]): scala.util.Either[String, String] =
     toAvroSchema(schema).map(_.toString)
 
+  /** Same as `encode`, but returns the Apache Avro `Schema` object instead of its JSON text. */
   def encodeToApacheAvro(schema: Schema[_]): scala.util.Either[String, SchemaAvro] =
     toAvroSchema(schema)
 
+  /**
+   * Parses Avro schema JSON text from UTF-8 `bytes` and builds a ZIO Schema for it. Returns a `Left` with the parser's message for invalid JSON, and with a message such as `Unsupported long logical type timestamp-nanos` for an Avro logical type it does not map. The Avro `string` schemas that `encode` generates for `MonthDay`, `Period`, `YearMonth`, `Duration` and `Currency` come back as `String` schemas.
+   */
   def decode(bytes: Chunk[Byte]): scala.util.Either[String, Schema[_]] = {
     val avroSchemaParser = new SchemaAvro.Parser()
     val avroSchema       = Try {
@@ -45,6 +77,7 @@ object AvroSchemaCodec extends AvroSchemaCodec {
     avroSchema.flatMap(toZioSchema)
   }
 
+  /** Builds a ZIO Schema from an Apache Avro `Schema` object, as `decode` does after parsing. */
   def decodeFromApacheAvro: SchemaAvro => scala.util.Either[String, Schema[_]] = toZioSchema
 
   private def toZioSchema(avroSchema: SchemaAvro): scala.util.Either[String, Schema[_]] =
@@ -198,6 +231,9 @@ object AvroSchemaCodec extends AvroSchemaCodec {
                 }
     } yield result
 
+  /**
+   * Returns the Avro schema of a binary value: a `fixed` when `schema` has an `AvroAnnotations.bytes(BytesType.Fixed(...))` annotation, `bytes` otherwise.
+   */
   def toAvroBinary(schema: Schema[_]): SchemaAvro =
     schema.annotations.collectFirst { case AvroAnnotations.bytes(BytesType.Fixed(size, name, doc, space)) =>
       SchemaAvro.createFixed(name, doc, space, size)
@@ -516,11 +552,15 @@ object AvroSchemaCodec extends AvroSchemaCodec {
       }
     }
 
+  /** Returns `true` when `annotations` contains `AvroAnnotations.avroEnum()`. */
   def hasAvroEnumAnnotation(annotations: Chunk[Any]): Boolean = annotations.exists {
     case AvroAnnotations.avroEnum() => true
     case _                          => false
   }
 
+  /**
+   * Wraps `schemaAvro` in an Avro record with the single field `value`, named `wrapper_` followed by `name` in the namespace `zio.schema.codec.avro`, and adds the property of `marker`. `AvroSchemaCodec` uses it where Avro does not allow a union directly, and to attach a property to a union.
+   */
   def wrapAvro(schemaAvro: SchemaAvro, name: String, marker: AvroPropMarker): SchemaAvro = {
     val field  = new SchemaAvro.Field("value", schemaAvro)
     val fields = new java.util.ArrayList[SchemaAvro.Field]()

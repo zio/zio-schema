@@ -13,20 +13,49 @@ import zio.schema.codec._
 import zio.stream.ZPipeline
 import zio.{Cause, Chunk}
 
+/**
+ * Binary codecs that write and read values as XML text in UTF-8, derived from a ZIO Schema.
+ *
+ * A record becomes an element named after the record, with one child element per field; a field annotated with [[xmlAttribute]] becomes an attribute, and [[xmlNamespace]] adds its prefix to the element or attribute name (the codec writes no `xmlns` declaration for it). A sequence becomes an element with one `item` child per value. By default, a sealed trait value becomes an element, named after the field or the trait, that wraps an element named after the case.
+ *
+ * {{{
+ * import zio.Chunk
+ * import zio.schema.{DeriveSchema, Schema}
+ *
+ * final case class Person(@xmlAttribute id: Int, name: String, tags: List[String])
+ * implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+ *
+ * val codec = XmlCodec.schemaBasedBinaryCodec[Person]
+ * val bytes: Chunk[Byte] = codec.encode(Person(42, "Alice", List("admin", "dev")))
+ * // new String(bytes.toArray, "UTF-8") ==
+ * //   <Person id="42"><name>Alice</name><tags><item>admin</item><item>dev</item></tags></Person>
+ * val decoded = codec.decode(bytes)
+ * // Right(Person(42,Alice,List(admin, dev)))
+ * }}}
+ */
 object XmlCodec {
 
+  /** Options for an XML codec: `writerConfig` for encoding and `readerConfig` for decoding. */
   final case class Configuration(
     writerConfig: WriterConfig = WriterConfig.default,
     readerConfig: ReaderConfig = ReaderConfig.default
   )
 
+  /** Predefined codec options. */
   object Configuration {
+    /** `WriterConfig.default` and `ReaderConfig.default`. */
     val default: Configuration = Configuration()
   }
 
+  /** Derives a `BinaryCodec` for `A` from its implicit `Schema`, with `Configuration.default`. */
   implicit def schemaBasedBinaryCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     schemaBasedBinaryCodec(Configuration.default)
 
+  /**
+   * Derives a `BinaryCodec` for `A` from its implicit `Schema`, with the writer and reader options in `config`.
+   *
+   * `decode` returns a `Left` for malformed XML (a `DecodeError.ReadError` whose message is the `XmlError` text), for a missing field (a `DecodeError.MissingField`) and for text that does not parse as the expected primitive, such as `Invalid Int: 'x'`. Input that ends inside a start tag, right after the element name, throws a `java.lang.IllegalStateException` instead. A top-level `String` value of `""` encodes to empty output, which `decode` rejects with the message `XmlError: Empty input at line 1, column 1`. `streamDecoder` decodes each incoming chunk as one document.
+   */
   def schemaBasedBinaryCodec[A](config: Configuration)(implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
 

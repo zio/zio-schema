@@ -2,8 +2,16 @@ package zio.schema.codec.xml
 
 import zio.Chunk
 
+/** Parses XML text into [[Xml]] trees. */
 object XmlReader {
 
+  /**
+   * Parses `input` into an `Xml` node. It skips a leading XML declaration and whitespace, parses one node, and ignores any text after that node.
+   *
+   * A prefixed name keeps its prefix in `XmlName.prefix` while `XmlName.namespace` stays `None`, and `xmlns` declarations are kept as ordinary attributes.
+   *
+   * Malformed input gives a `Left` with an `XmlError` that has the line and column, for example for an empty input, a mismatched closing tag or an unknown entity reference. Input that ends inside a start tag, right after the element name, throws a `java.lang.IllegalStateException` instead.
+   */
   def read(input: String, config: ReaderConfig): Either[XmlError, Xml] = {
     val parser = new Parser(input, config)
     parser.skipXmlDeclaration()
