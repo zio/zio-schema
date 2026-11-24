@@ -65,9 +65,9 @@ object TypeId {
 
   /**
    * Parses a dotted full name into a [[TypeId.Nominal]]. The last segment is
-   * the type name, the segments before it that start with an upper-case letter
-   * become object names, and the rest become package names. Returns
-   * [[TypeId.Structural]] for the empty string.
+   * the type name, the unbroken run of upper-case segments right before it
+   * become object names, and every other segment before it becomes a package
+   * name. Returns [[TypeId.Structural]] for the empty string.
    *
    * {{{
    * val person: TypeId = TypeId.parse("com.example.Person")

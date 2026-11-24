@@ -37,8 +37,8 @@ import zio.{Cause, Chunk, ChunkBuilder, ZIO, ZNothing}
  * Use it when values cross a JSON boundary (HTTP bodies, files, message queues)
  * and you already describe them with a `Schema`. Pass a
  * [[JsonCodec.Configuration]] to change how `None`, empty collections, enum
- * cases and field names are written and read; annotations such as `@fieldName`
- * and `@optionalField` on the type take precedence over it.
+ * cases and field names are written and read; annotations such as
+ * `@optionalField` on the type take precedence over it.
  *
  * {{{
  * import zio.schema.{DeriveSchema, Schema}
@@ -207,7 +207,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
 
   /**
    * Configuration for the JSON codec. Annotations on the schema that set the
-   * same behaviour take precedence over it.
+   * same behaviour take precedence over it, except that `fieldNameFormat` also
+   * rewrites the name that `@fieldName` gives a field of a derived schema.
    *
    * {{{
    * import zio.schema.{DeriveSchema, Schema}
@@ -240,7 +241,8 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
    * @param fieldNameFormat
    *   the `NameFormat` applied to record field names when encoding and
    *   decoding, for example `orderId` becomes `order_id` with
-   *   `NameFormat.SnakeCase`; a field renamed with `@fieldName` keeps that name
+   *   `NameFormat.SnakeCase`; for a derived schema it also rewrites the name
+   *   given by `@fieldName`
    * @param treatStreamsAsArrays
    *   `true` makes the stream encoder of `schemaBasedBinaryCodec` write one
    *   JSON array (`[1,2,3]`) and its stream decoder read the elements of one
