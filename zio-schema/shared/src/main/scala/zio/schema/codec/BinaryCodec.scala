@@ -16,15 +16,23 @@
 
 package zio.schema.codec
 
-import zio.Chunk
 import zio.stream.ZPipeline
+import zio.{Chunk, ZIO}
 
 /**
  * A `Codec` that encodes `A` to `Chunk[Byte]` and streams `Byte`s. Format
  * modules provide instances from a `Schema`, for example
  * `JsonCodec.schemaBasedBinaryCodec` and `ProtobufCodec.protobufCodec`.
  */
-trait BinaryCodec[A] extends Codec[Chunk[Byte], Byte, A]
+trait BinaryCodec[A] extends Codec[Chunk[Byte], Byte, A] {
+
+  override def transform[B](ab: A => B, ba: B => A): BinaryCodec[B] =
+    BinaryCodec.Transform(this, ab, ba)
+
+  override def transformOrFail[B](ab: A => Either[String, B], ba: B => A): BinaryCodec[B] =
+    BinaryCodec.TransformOrFail(this, ab, ba)
+
+}
 
 /**
  * Type aliases for the binary forms of encoders, decoders and stream pipelines.
@@ -45,5 +53,32 @@ object BinaryCodec {
    * a `DecodeError`.
    */
   type BinaryStreamDecoder[A] = ZPipeline[Any, DecodeError, Byte, A]
+
+  final case class Transform[A, B](inner: BinaryCodec[A], ab: A => B, ba: B => A) extends BinaryCodec[B] {
+    override def encode(value: B): Chunk[Byte]                       = inner.encode(ba(value))
+    override def streamEncoder: ZPipeline[Any, Nothing, B, Byte]     = inner.streamEncoder.contramap(ba)
+    override def decode(whole: Chunk[Byte]): Either[DecodeError, B]  = inner.decode(whole).map(ab)
+    override def streamDecoder: ZPipeline[Any, DecodeError, Byte, B] = inner.streamDecoder.map(ab)
+  }
+
+  final case class TransformOrFail[A, B](
+    inner: BinaryCodec[A],
+    ab: A => Either[String, B],
+    ba: B => A
+  ) extends BinaryCodec[B] {
+
+    override def encode(value: B): Chunk[Byte]                   = inner.encode(ba(value))
+    override def streamEncoder: ZPipeline[Any, Nothing, B, Byte] = inner.streamEncoder.contramap(ba)
+
+    override def decode(whole: Chunk[Byte]): Either[DecodeError, B] =
+      inner.decode(whole).flatMap { a =>
+        DecodeError.fromEither(ab(a))
+      }
+    override def streamDecoder: ZPipeline[Any, DecodeError, Byte, B] =
+      inner.streamDecoder.mapZIO { a =>
+        ZIO.fromEither(DecodeError.fromEither(ab(a)))
+      }
+
+  }
 
 }
