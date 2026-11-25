@@ -16,8 +16,8 @@
 
 package zio.schema.codec
 
-import zio.stream.ZPipeline
 import zio.ZIO
+import zio.stream.ZPipeline
 
 /**
  * Decodes a `Whole`, such as `Chunk[Byte]`, into a value of type `A`, or turns
