@@ -10,20 +10,54 @@ import zio.schema.codec.DecodeError
 import zio.schema.meta.{MetaSchema, Migration}
 import zio.{Cause, Chunk, Unsafe}
 
+/**
+ * A `DynamicValue` is a value of any type in a generic form that needs no Scala
+ * type: records become maps from field names to values, enum values become a
+ * case name with a value, and primitives keep their [[StandardType]]. A
+ * [[Schema]] converts between a typed value and its `DynamicValue`.
+ *
+ * Use it to inspect or transform data whose type is known only at runtime, to
+ * migrate values between schema versions, and as the common form that codecs
+ * and patches work on.
+ *
+ * {{{
+ * val dynamic = DynamicValue(("Ana", 31))
+ * // Tuple(Primitive(Ana,string),Primitive(31,int))
+ *
+ * dynamic.toTypedValue[(String, Int)] // Right((Ana,31))
+ * dynamic.toTypedValue[Int]           // Left(Failed to cast ...)
+ * }}}
+ */
 sealed trait DynamicValue {
   self =>
 
+  /**
+   * Applies `transforms` to this value, starting from the last migration in the
+   * chunk, and returns the first error message if one fails.
+   */
   def transform(transforms: Chunk[Migration]): Either[String, DynamicValue] =
     transforms.foldRight[Either[String, DynamicValue]](Right(self)) {
       case (transform, Right(value)) => transform.migrate(value)
       case (_, error @ Left(_))      => error
     }
 
+  /**
+   * Converts this value to an `A` with `schema`, or returns `Left` with the
+   * error message when the value doesn't match the schema.
+   */
   def toTypedValue[A](implicit schema: Schema[A]): Either[String, A] =
     toTypedValueLazyError.left.map(_.message)
 
+  /**
+   * Converts this value to an `A` with `schema`, or returns the
+   * [[zio.schema.codec.DecodeError]] when the value doesn't match the schema.
+   */
   def toValue[A](implicit schema: Schema[A]): Either[DecodeError, A] = toTypedValueLazyError
 
+  /**
+   * Converts this value to an `A` with `schema`, or returns `None` when the
+   * value doesn't match the schema.
+   */
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
 
@@ -54,6 +88,34 @@ sealed trait DynamicValue {
       case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
         value.toTypedValueLazyError(schema1).map(Right(_))
 
+      case (DynamicValue.LeftValue(value), Schema.Fallback(leftSchema, _, _, _)) =>
+        value.toTypedValueLazyError(leftSchema).map(Fallback.Left(_))
+
+      case (DynamicValue.RightValue(value), Schema.Fallback(_, rightSchema, _, _)) =>
+        value.toTypedValueLazyError(rightSchema).map(Fallback.Right(_))
+
+      case (DynamicValue.BothValue(leftValue, rightValue), Schema.Fallback(leftSchema, rightSchema, _, _)) =>
+        val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
+        val typedRight = rightValue.toTypedValueLazyError(rightSchema)
+        (typedLeft, typedRight) match {
+          case (Left(e1), Left(e2)) =>
+            Left(DecodeError.And(e1, e2))
+          case (_, Left(e))         => Left(e)
+          case (Left(e), _)         => Left(e)
+          case (Right(a), Right(b)) => Right(Fallback.Both(a, b))
+        }
+
+      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Fallback(leftSchema, rightSchema, _, _)) =>
+        val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
+        val typedRight = rightValue.toTypedValueLazyError(rightSchema)
+        (typedLeft, typedRight) match {
+          case (Left(e1), Left(e2)) =>
+            Left(DecodeError.And(e1, e2))
+          case (_, Left(e))         => Left(e)
+          case (Left(e), _)         => Left(e)
+          case (Right(a), Right(b)) => Right(Fallback.Both(a, b))
+        }
+
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
         val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
         val typedRight = rightValue.toTypedValueLazyError(rightSchema)
@@ -74,12 +136,38 @@ sealed trait DynamicValue {
           }
           .map(schema.fromChunk)
 
+      case (DynamicValue.Sequence(values), schema: Schema.NonEmptySequence[col, t, _]) =>
+        values
+          .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
+            case (err @ Left(_), _)     => err
+            case (Right(values), value) =>
+              value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
+          }
+          .flatMap { chunk =>
+            schema
+              .fromChunkOption(chunk)
+              .toRight(DecodeError.MalformedField(schema, "Empty NonEmptySequence"))
+          }
+
       case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
         values.foldLeft[Either[DecodeError, Set[t]]](Right[DecodeError, Set[t]](Set.empty)) {
           case (err @ Left(_), _)     => err
           case (Right(values), value) =>
             value.toTypedValueLazyError(schema.elementSchema).map(values + _)
         }
+
+      case (DynamicValue.SetValue(values), schema: Schema.NonEmptySequence[col, t, _]) =>
+        values
+          .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
+            case (err @ Left(_), _)     => err
+            case (Right(values), value) =>
+              value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
+          }
+          .flatMap { chunk =>
+            schema
+              .fromChunkOption(chunk)
+              .toRight(DecodeError.MalformedField(schema, "Empty NonEmptySequence"))
+          }
 
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
         value.toTypedValueLazyError(schema).map(Some(_))
@@ -103,6 +191,22 @@ sealed trait DynamicValue {
           }
         }
 
+      case (DynamicValue.Dictionary(entries), schema: Schema.NonEmptyMap[k, v]) =>
+        entries
+          .foldLeft[Either[DecodeError, Map[k, v]]](Right[DecodeError, Map[k, v]](Map.empty)) {
+            case (err @ Left(_), _)  => err
+            case (Right(map), entry) =>
+              for {
+                key   <- entry._1.toTypedValueLazyError(schema.keySchema)
+                value <- entry._2.toTypedValueLazyError(schema.valueSchema)
+              } yield map ++ Map(key -> value)
+          }
+          .flatMap { map =>
+            schema
+              .fromChunkOption(Chunk.fromIterable(map))
+              .toRight(DecodeError.MalformedField(schema, "Empty NonEmptyMap"))
+          }
+
       case (_, l @ Schema.Lazy(_)) =>
         toTypedValueLazyError(l.schema)
 
@@ -121,6 +225,10 @@ sealed trait DynamicValue {
 
 }
 
+/**
+ * Constructors and cases of [[DynamicValue]], and the schema of `DynamicValue`
+ * itself.
+ */
 object DynamicValue {
 
   private object FromSchemaAndValue extends SimpleMutableSchemaBasedValueProcessor[DynamicValue] {
@@ -184,12 +292,26 @@ object DynamicValue {
       DynamicValue.Error(message)
   }
 
+  /**
+   * Converts `a` to a `DynamicValue` with its implicit schema.
+   */
   def apply[A](a: A)(implicit ev: Schema[A]): DynamicValue = ev.toDynamic(a)
 
   // scalafmt: { maxColumn = 400 }
+  /**
+   * Converts `value` to a `DynamicValue` with `schema`. When `schema` is a
+   * `Transform` whose reverse function fails, the result holds an `Error` with
+   * that message.
+   */
   def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue =
     FromSchemaAndValue.process(schema, value)
 
+  /**
+   * Converts the field values of a record to typed values with the schemas of
+   * the fields in `structure`, matched by name. Returns
+   * `DecodeError.IncompatibleShape` when `values` holds a name that `structure`
+   * lacks.
+   */
   def decodeStructure(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
@@ -207,39 +329,100 @@ object DynamicValue {
     }
   }
 
+  /**
+   * A record value: its type id and its field values by field name, in order.
+   */
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
 
+  /**
+   * An enum value: its type id and the pair of the case name and the case's
+   * value.
+   */
   final case class Enumeration(id: TypeId, value: (String, DynamicValue)) extends DynamicValue
 
+  /**
+   * A sequence value, such as a `List`, `Vector`, `Chunk` or non-empty
+   * collection.
+   */
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
 
+  /**
+   * A map value, as its key-value pairs.
+   */
   final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
 
+  /**
+   * A set value.
+   */
   final case class SetValue(values: Set[DynamicValue]) extends DynamicValue
 
+  /**
+   * A primitive value with its [[StandardType]].
+   */
   sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
 
+  /**
+   * A singleton value. `DynamicValue.schema` encodes it as a `Unit` and decodes
+   * it as `Singleton(())`.
+   */
   sealed case class Singleton[A](instance: A) extends DynamicValue
 
+  /**
+   * The `Some` case of an optional value.
+   */
   final case class SomeValue(value: DynamicValue) extends DynamicValue
 
+  /**
+   * The `None` case of an optional value.
+   */
   case object NoneValue extends DynamicValue
 
+  /**
+   * A pair of values.
+   */
   sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue
 
+  /**
+   * The `Left` case of an `Either`, or the `Left` case of a
+   * [[zio.schema.Fallback]].
+   */
   final case class LeftValue(value: DynamicValue) extends DynamicValue
 
+  /**
+   * The `Right` case of an `Either`, or the `Right` case of a
+   * [[zio.schema.Fallback]].
+   */
   final case class RightValue(value: DynamicValue) extends DynamicValue
 
+  /**
+   * The `Both` case of a [[zio.schema.Fallback]].
+   */
   final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue
 
+  /**
+   * A schema, as its [[zio.schema.meta.MetaSchema]].
+   */
   final case class DynamicAst(ast: MetaSchema) extends DynamicValue
 
+  /**
+   * A conversion that failed, with its error message. Converting it to a typed
+   * value, for example with `toTypedValue`, returns `Left(message)`.
+   */
   final case class Error(message: String) extends DynamicValue
 
+  /**
+   * The type id of `DynamicValue`, `zio.schema.DynamicValue`.
+   */
   lazy val typeId: TypeId = TypeId.parse("zio.schema.DynamicValue")
 
   // TODO: Refactor case set so that adding a new type to StandardType without updating the below list will trigger a compile error
+  /**
+   * The schema of `DynamicValue` itself, so that dynamic values can be encoded
+   * and decoded like other data. It is an enum with a case for each primitive
+   * type and for each other kind of `DynamicValue` except `BothValue`:
+   * converting a `BothValue` with this schema gives
+   * `Error("Invalid enum constructor")`.
+   */
   lazy val schema: Schema[DynamicValue] =
     Schema.EnumN(
       typeId,
@@ -289,24 +472,45 @@ object DynamicValue {
         .:+:(singletonCase)
     )
 
+  /**
+   * The [[StandardType]] of `java.time.Instant`.
+   */
   implicit val instantStandardType: StandardType[Instant] =
     StandardType.InstantType
 
+  /**
+   * The [[StandardType]] of `java.time.LocalDate`.
+   */
   implicit val localDateStandardType: StandardType[LocalDate] =
     StandardType.LocalDateType
 
+  /**
+   * The [[StandardType]] of `java.time.LocalTime`.
+   */
   implicit val localTimeStandardType: StandardType[LocalTime] =
     StandardType.LocalTimeType
 
+  /**
+   * The [[StandardType]] of `java.time.LocalDateTime`.
+   */
   implicit val localDateTimeStandardType: StandardType[LocalDateTime] =
     StandardType.LocalDateTimeType
 
+  /**
+   * The [[StandardType]] of `java.time.OffsetTime`.
+   */
   implicit val offsetTimeStandardType: StandardType[OffsetTime] =
     StandardType.OffsetTimeType
 
+  /**
+   * The [[StandardType]] of `java.time.OffsetDateTime`.
+   */
   implicit val offsetDateTimeStandardType: StandardType[OffsetDateTime] =
     StandardType.OffsetDateTimeType
 
+  /**
+   * The [[StandardType]] of `java.time.ZonedDateTime`.
+   */
   implicit val zonedDateTimeStandardType: StandardType[ZonedDateTime] =
     StandardType.ZonedDateTimeType
 

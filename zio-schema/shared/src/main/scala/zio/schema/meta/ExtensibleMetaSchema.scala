@@ -10,12 +10,50 @@ import zio.schema._
 import zio.schema.annotation.simpleEnum
 import zio.{Chunk, ChunkBuilder}
 
+/**
+ * A schema described as a tree of plain data nodes, which can itself be
+ * serialized with [[ExtensibleMetaSchema.schema]]. [[MetaSchema]] is the
+ * version used in most code; this trait adds the type list `BuiltIn` of types
+ * that are kept by reference instead of being expanded.
+ *
+ * When [[ExtensibleMetaSchema.fromSchema]] meets a record, enum or dynamic
+ * schema equal to one in [[builtInInstances]], it writes a
+ * [[ExtensibleMetaSchema.Known]] node with that schema's [[zio.schema.TypeId]],
+ * and [[toSchema]] puts the built-in schema back. The other nodes describe
+ * records ([[ExtensibleMetaSchema.Product]]), enums
+ * ([[ExtensibleMetaSchema.Sum]]), primitives ([[ExtensibleMetaSchema.Value]]),
+ * collections, tuples, `Either`, `Fallback`, failures and recursive references
+ * ([[ExtensibleMetaSchema.Ref]]).
+ *
+ * `toString` renders the tree as indented text, for example `product` followed
+ * by one `|--name: type` line per field.
+ *
+ * @tparam BuiltIn
+ *   the type list of built-in types, such as `DynamicValue :: End`
+ */
 sealed trait ExtensibleMetaSchema[BuiltIn <: TypeList] { self =>
+
+  /** The schemas of the built-in types listed in `BuiltIn`. */
   def builtInInstances: SchemaInstances[BuiltIn]
 
+  /** The path from the root of the tree to this node. */
   def path: NodePath
+
+  /**
+   * Returns `true` when the described value is wrapped in an `Option`. A
+   * `Schema.Optional` becomes this flag on its inner node, not a node of its
+   * own.
+   */
   def optional: Boolean
 
+  /**
+   * Builds a schema from this tree. The result works on generic values: a
+   * record node becomes a schema of `ListMap[String, _]`, an enum node a schema
+   * of `Any`, a list node a schema of `Chunk`, and a built-in node the schema
+   * from [[builtInInstances]] with the same type id (or `Schema.Fail` when none
+   * has it). Transformations, annotations and validations of the original
+   * schema are not part of the tree, so they are not in the result.
+   */
   def toSchema: Schema[_] = {
     val refMap = mutable.HashMap.empty[NodePath, Schema[_]]
     ExtensibleMetaSchema.materialize(self, refMap)(builtInInstances)
@@ -24,12 +62,19 @@ sealed trait ExtensibleMetaSchema[BuiltIn <: TypeList] { self =>
   override def toString: String = AstRenderer.render(self)
 }
 
+/**
+ * The node types of [[ExtensibleMetaSchema]] and the conversion from a schema.
+ */
 object ExtensibleMetaSchema {
   import CaseSet._
 
+  /** A child node with its label: a record field name or an enum case id. */
   final case class Labelled[BuiltIn <: TypeList](label: String, schema: ExtensibleMetaSchema[BuiltIn])
 
+  /** Holds the schema of [[Labelled]]. */
   object Labelled {
+
+    /** The schema of [[Labelled]], encoded as a pair of label and node. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Labelled[BuiltIn]] =
@@ -38,23 +83,41 @@ object ExtensibleMetaSchema {
         .transform(tuple => Labelled(tuple._1, tuple._2), l => (l.label, l.schema))
   }
 
+  /**
+   * The record and enum schemas on the way from the root to the current node,
+   * as pairs of the schema's `hashCode` and its node path. Building a tree from
+   * a schema uses it to find recursion: a schema already in the lineage becomes
+   * a [[Ref]] to its path.
+   */
   final case class Lineage(paths: Chunk[(Int, NodePath)]) {
+
+    /** Returns this lineage with `pair` appended. */
     def :+(pair: (Int, NodePath)): Lineage = Lineage(paths :+ pair)
   }
 
+  /** Constructors and the schema of [[Lineage]]. */
   object Lineage {
+
+    /** Creates a lineage from the given pairs. */
     def apply(paths: (Int, NodePath)*): Lineage = Lineage(Chunk.fromIterable(paths))
 
+    /** The lineage with no entries. */
     lazy val empty: Lineage = Lineage(Chunk.empty)
 
+    /** The schema of [[Lineage]], encoded as a chunk of pairs. */
     implicit lazy val schema: Schema[Lineage] =
       Schema.chunk(Schema.tuple2(Schema[Int], Schema[NodePath])).transform(Lineage(_), _.paths)
   }
 
+  /** The schema of [[NodePath]], encoded as a sequence of strings. */
   implicit val nodePathSchema: Schema[NodePath] =
     Schema[String].repeated
       .transform(NodePath(_), NodePath.unwrap)
 
+  /**
+   * A record node: the record's type id and one labelled child per field, in
+   * field order. `fromSchema` creates it for a `Schema.Record`.
+   */
   final case class Product[BuiltIn <: TypeList](
     id: TypeId,
     override val path: NodePath,
@@ -63,7 +126,10 @@ object ExtensibleMetaSchema {
   )(implicit val builtInInstances: SchemaInstances[BuiltIn])
       extends ExtensibleMetaSchema[BuiltIn]
 
+  /** Holds the schema of [[Product]] nodes. */
   object Product {
+
+    /** The schema of `Product` nodes. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Product[BuiltIn]] =
@@ -96,6 +162,11 @@ object ExtensibleMetaSchema {
       )
 
   }
+
+  /**
+   * A pair node with the children `left` and `right`. `fromSchema` creates it
+   * for a `Schema.Tuple2`.
+   */
   final case class Tuple[BuiltIn <: TypeList](
     override val path: NodePath,
     left: ExtensibleMetaSchema[BuiltIn],
@@ -104,7 +175,10 @@ object ExtensibleMetaSchema {
   )(implicit val builtInInstances: SchemaInstances[BuiltIn])
       extends ExtensibleMetaSchema[BuiltIn]
 
+  /** Holds the schema of [[Tuple]] nodes. */
   object Tuple {
+
+    /** The schema of `Tuple` nodes. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Tuple[BuiltIn]] =
@@ -148,6 +222,10 @@ object ExtensibleMetaSchema {
 
   }
 
+  /**
+   * An enum node: the enum's type id and one labelled child per case, labelled
+   * with the case id. `fromSchema` creates it for a `Schema.Enum`.
+   */
   final case class Sum[BuiltIn <: TypeList](
     id: TypeId,
     override val path: NodePath,
@@ -156,7 +234,10 @@ object ExtensibleMetaSchema {
   )(implicit val builtInInstances: SchemaInstances[BuiltIn])
       extends ExtensibleMetaSchema[BuiltIn]
 
+  /** Holds the schema of [[Sum]] nodes. */
   object Sum {
+
+    /** The schema of `Sum` nodes. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Sum[BuiltIn]] =
@@ -188,6 +269,11 @@ object ExtensibleMetaSchema {
       )
   }
 
+  /**
+   * An `Either` node with the children `left` and `right`. `fromSchema` creates
+   * it for a `Schema.Either`, and for a `Schema.Fallback` that is not at the
+   * root.
+   */
   final case class Either[BuiltIn <: TypeList](
     override val path: NodePath,
     left: ExtensibleMetaSchema[BuiltIn],
@@ -196,7 +282,10 @@ object ExtensibleMetaSchema {
   )(implicit val builtInInstances: SchemaInstances[BuiltIn])
       extends ExtensibleMetaSchema[BuiltIn]
 
+  /** Holds the schema of [[Either]] nodes. */
   object Either {
+
+    /** The schema of `Either` nodes. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Either[BuiltIn]] =
@@ -240,6 +329,10 @@ object ExtensibleMetaSchema {
 
   }
 
+  /**
+   * A `Fallback` node with the children `left` and `right`. `fromSchema`
+   * creates it for a `Schema.Fallback` at the root of the schema.
+   */
   final case class Fallback[BuiltIn <: TypeList](
     override val path: NodePath,
     left: ExtensibleMetaSchema[BuiltIn],
@@ -248,7 +341,10 @@ object ExtensibleMetaSchema {
   )(implicit val builtInInstances: SchemaInstances[BuiltIn])
       extends ExtensibleMetaSchema[BuiltIn]
 
+  /** Holds the schema of [[Fallback]] nodes. */
   object Fallback {
+
+    /** The schema of `Fallback` nodes. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Fallback[BuiltIn]] =
@@ -292,6 +388,9 @@ object ExtensibleMetaSchema {
 
   }
 
+  /**
+   * A node for a `Schema.Fail`, holding its error message.
+   */
   final case class FailNode[BuiltIn <: TypeList](
     message: String,
     override val path: NodePath,
@@ -299,7 +398,10 @@ object ExtensibleMetaSchema {
   )(implicit val builtInInstances: SchemaInstances[BuiltIn])
       extends ExtensibleMetaSchema[BuiltIn]
 
+  /** Holds the schema of [[FailNode]] nodes. */
   object FailNode {
+
+    /** The schema of `FailNode` nodes. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[FailNode[BuiltIn]] =
@@ -324,6 +426,10 @@ object ExtensibleMetaSchema {
       )
   }
 
+  /**
+   * A collection node with the child `item`. `fromSchema` creates it for a
+   * `Schema.Sequence`, a `Schema.NonEmptySequence` and a `Schema.Set`.
+   */
   final case class ListNode[BuiltIn <: TypeList](
     item: ExtensibleMetaSchema[BuiltIn],
     override val path: NodePath,
@@ -331,7 +437,10 @@ object ExtensibleMetaSchema {
   )(implicit val builtInInstances: SchemaInstances[BuiltIn])
       extends ExtensibleMetaSchema[BuiltIn]
 
+  /** Holds the schema of [[ListNode]] nodes. */
   object ListNode {
+
+    /** The schema of `ListNode` nodes. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[ListNode[BuiltIn]] =
@@ -361,6 +470,10 @@ object ExtensibleMetaSchema {
       )
   }
 
+  /**
+   * A map node with the children `keys` and `values`. `fromSchema` creates it
+   * for a `Schema.Map` and a `Schema.NonEmptyMap`.
+   */
   final case class Dictionary[BuiltIn <: TypeList](
     keys: ExtensibleMetaSchema[BuiltIn],
     values: ExtensibleMetaSchema[BuiltIn],
@@ -369,7 +482,10 @@ object ExtensibleMetaSchema {
   )(implicit val builtInInstances: SchemaInstances[BuiltIn])
       extends ExtensibleMetaSchema[BuiltIn]
 
+  /** Holds the schema of [[Dictionary]] nodes. */
   object Dictionary {
+
+    /** The schema of `Dictionary` nodes. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Dictionary[BuiltIn]] =
@@ -410,6 +526,10 @@ object ExtensibleMetaSchema {
       )
   }
 
+  /**
+   * A primitive node holding its [[zio.schema.StandardType]]. `fromSchema`
+   * creates it for a `Schema.Primitive`.
+   */
   final case class Value[BuiltIn <: TypeList](
     valueType: StandardType[_],
     override val path: NodePath = NodePath.root,
@@ -417,7 +537,10 @@ object ExtensibleMetaSchema {
   )(implicit val builtInInstances: SchemaInstances[BuiltIn])
       extends ExtensibleMetaSchema[BuiltIn]
 
+  /** Holds the schema of [[Value]] nodes. */
   object Value {
+
+    /** The schema of `Value` nodes. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Value[BuiltIn]] =
@@ -454,6 +577,11 @@ object ExtensibleMetaSchema {
           .toRight(s"unkown standard type $s")
     }
   }
+
+  /**
+   * A reference to the ancestor node at `refPath`, written where a record or
+   * enum schema refers back to itself.
+   */
   final case class Ref[BuiltIn <: TypeList](
     refPath: NodePath,
     override val path: NodePath,
@@ -461,7 +589,10 @@ object ExtensibleMetaSchema {
   )(implicit val builtInInstances: SchemaInstances[BuiltIn])
       extends ExtensibleMetaSchema[BuiltIn]
 
+  /** Holds the schema of [[Ref]] nodes. */
   object Ref {
+
+    /** The schema of `Ref` nodes. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Ref[BuiltIn]] =
@@ -492,6 +623,11 @@ object ExtensibleMetaSchema {
       )
   }
 
+  /**
+   * A built-in type, kept as its type id instead of being expanded. `toSchema`
+   * replaces it with the schema in `builtInInstances` that has the same type
+   * id.
+   */
   final case class Known[BuiltIn <: TypeList](
     typeId: TypeId,
     override val path: NodePath,
@@ -499,7 +635,10 @@ object ExtensibleMetaSchema {
   )(implicit val builtInInstances: SchemaInstances[BuiltIn])
       extends ExtensibleMetaSchema[BuiltIn]
 
+  /** Holds the schema of [[Known]] nodes. */
   object Known {
+
+    /** The schema of `Known` nodes. */
     implicit def schema[BuiltIn <: TypeList](implicit
       builtInInstances: SchemaInstances[BuiltIn]
     ): Schema[Known[BuiltIn]] =
@@ -542,6 +681,16 @@ object ExtensibleMetaSchema {
     def buildSum(id: TypeId): Sum[BuiltIn] = Sum(id, path, children.result(), optional)
   }
 
+  /**
+   * Describes `schema` as a tree whose root has the path `NodePath.root`.
+   * Record, enum and dynamic schemas equal to one in `builtInInstances` become
+   * [[Known]] nodes, and a record or enum that refers back to itself becomes a
+   * [[Ref]] at the point of recursion. A `Schema.Transform` and a `Schema.Lazy`
+   * are described by the schema they wrap.
+   *
+   * A `Schema.Fallback` at the root becomes a [[Fallback]] node; a
+   * `Schema.Fallback` nested inside another schema becomes an [[Either]] node.
+   */
   @tailrec
   def fromSchema[A, BuiltIn <: TypeList](
     schema: Schema[A]
@@ -767,6 +916,11 @@ object ExtensibleMetaSchema {
     if (ast.optional) baseSchema.optional else baseSchema
   }
 
+  /**
+   * The schema of [[ExtensibleMetaSchema]] trees: an enum with one case per
+   * node type. Use it to encode a tree with a codec or to convert it to a
+   * [[zio.schema.DynamicValue]].
+   */
   implicit def schema[BuiltIn <: TypeList](implicit
     builtInInstances: SchemaInstances[BuiltIn]
   ): Schema[ExtensibleMetaSchema[BuiltIn]] =
@@ -831,6 +985,7 @@ object ExtensibleMetaSchema {
       )
     }
 
+  /** A ZIO Prelude `Equal` for [[MetaSchema]] that uses `==`. */
   implicit val equals: Equal[MetaSchema] = Equal.default
 
   private def getBuiltInTypeId[BuiltIn <: TypeList](

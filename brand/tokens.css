@@ -1,0 +1,34 @@
+/* ZIO Schema brand tokens. Light by default, dark through prefers-color-scheme. */
+:root {
+  --zs-bg: #FFFFFF;
+  --zs-surface: #F1F4F9;
+  --zs-line: #D5DBE5;
+  --zs-text: #101521;
+  --zs-text-2: #4A5568;
+  --zs-accent: #6D4AE0;      /* Helix violet: backbone, links, accents (5.67:1 on white) */
+  --zs-strand: #4A2FA6;      /* Deep strand: dark half of a pair, keywords (9.34:1) */
+  --zs-base: #B7A6F7;        /* Base light: light half of a pair, fills only (2.14:1) */
+  --zs-link: #6D4AE0;
+  --zs-on-accent: #FFFFFF;
+  --zs-code-type: #9A5B13;
+  --zs-code-string: #0B6E8A;
+  --zs-font-sans: "Space Grotesk", system-ui, sans-serif;
+  --zs-font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --zs-radius-tile: 22%;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --zs-bg: #101521;
+    --zs-surface: #1A2030;
+    --zs-line: #2B3448;
+    --zs-text: #F4F5F8;
+    --zs-text-2: #A9B4C6;
+    --zs-accent: #9C86F2;    /* 6.17:1 on Night */
+    --zs-strand: #8A72F0;    /* 4.99:1 */
+    --zs-base: #C9BCFA;      /* 10.47:1 */
+    --zs-link: #C9BCFA;
+    --zs-on-accent: #101521;
+    --zs-code-type: #E8B36A;
+    --zs-code-string: #7FCBE0;
+  }
+}

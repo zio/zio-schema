@@ -1,12 +1,29 @@
 package zio.schema.validation
 
+/**
+ * Predefined string validations built on `Regex`. `Validation` extends this
+ * trait, so they are available as `Validation.email`, `Validation.ipV4` and so
+ * on.
+ */
 trait Regexs {
 
+  /**
+   * Passes when the string has one or more ASCII letters, digits or underscores
+   * and nothing else. A leading digit passes (`1abc`); `a-b` and the empty
+   * string fail.
+   */
   val identifier: Validation[String] =
     Validation.regex((Regex.digitOrLetter | Regex.oneOf('_')).atLeast(1))
 
   /**
-   * Checks whether a certain string represents a valid email address.
+   * Passes when the string has the shape of an email address and at most 254
+   * characters: a local part of up to 64 characters, `@`, then a domain name, a
+   * bracketed IPv4 address (`a@[192.168.0.1]`) or a bracketed `IPv6:` address.
+   * The domain's last label needs at least two characters (`a@b.c` fails).
+   *
+   * The check is a pattern match only: `a..b@c.com` and `a.@b.com` pass. A
+   * bracketed IPv6 address follows the rules of `ipV6`, so `a@[IPv6:::1]`
+   * fails.
    */
   lazy val email: Validation[String] = {
     val localPart = (Regex.digitOrLetter | Regex.oneOf('_', '+', '-')) ~ (Regex.digitOrLetter | Regex.oneOf(
@@ -28,6 +45,12 @@ trait Regexs {
     Validation.regex(completeEmail) && Validation.maxLength(254)
   }
 
+  /**
+   * Passes when the string is an ISO-8601 duration such as `P1D`, `PT1H`, `P2W`
+   * or `P1Y2M3DT4H5M6S`. Fractions pass when their last digit is not `0`
+   * (`PT1.25S` passes, `PT0.50S` fails). Weeks combined with other units
+   * (`P1W1D`), negative durations (`-P1D`) and a bare `P` or `PT` fail.
+   */
   lazy val duration: Validation[String] = {
 
     val posDigit = Regex.between('1', '9')
@@ -64,7 +87,9 @@ trait Regexs {
   }
 
   /**
-   * Checks whether a certain string represents a valid IPv4 address.
+   * Passes when the string is four dot-separated decimal parts, each from 0 to
+   * 255, such as `192.168.0.1`; `256.1.1.1` and `1.2.3` fail. A part may have
+   * leading zeros (`001.02.3.4` passes) or be empty (`1..2.3` and `...` pass).
    */
   lazy val ipV4: Validation[String] = Validation.regex(ipV4Regex)
 
@@ -89,10 +114,21 @@ trait Regexs {
   }
 
   /**
-   * Checks whether a certain string represents a valid IPv6 address.
+   * Passes when the string is an IPv6 address written in full
+   * (`1:2:3:4:5:6:7:8`) or with `::` after at least one group (`2001:db8::1`,
+   * `1::`), optionally ending in an IPv4 address (`1::1.2.3.4`). Addresses that
+   * start with `::` fail (`::1`, `::`, `::ffff:192.168.0.1`), as do zone ids
+   * (`fe80::1%eth0`) and two- or three-digit groups with a leading `0`
+   * (`01::1`).
    */
   lazy val ipV6: Validation[String] = Validation.regex(ipV6Regex)
 
+  /**
+   * Passes when the string is a version 4 UUID in the 8-4-4-4-12 hexadecimal
+   * form, in upper or lower case: the version digit is `4`, and the variant
+   * digit is `8`, `9`, `a` or `b` (either case).
+   * `123e4567-e89b-42d3-a456-556642440000` passes.
+   */
   lazy val uuidV4: Validation[String] = {
     val hexOctect = Regex.hexDigit ~ Regex.hexDigit
     val sep       = Regex.oneOf('-')

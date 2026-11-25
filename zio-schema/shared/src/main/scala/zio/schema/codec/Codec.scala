@@ -1,8 +1,13 @@
 package zio.schema.codec
 
-import zio.stream.ZPipeline
 import zio.ZIO
+import zio.stream.ZPipeline
 
+/**
+ * An `Encoder` and a `Decoder` for the same type `A`, with `Whole` as the
+ * encoded form and `Element` as the unit of a stream. `BinaryCodec` fixes these
+ * to `Chunk[Byte]` and `Byte`.
+ */
 trait Codec[Whole, Element, A] extends Encoder[Whole, Element, A] with Decoder[Whole, Element, A] {
 
   def transform[B](ab: A => B, ba: B => A): Codec[Whole, Element, B] =

@@ -2,6 +2,9 @@ import sbtcrossproject.CrossPlugin.autoImport._
 import BuildHelper.{crossProjectSettings, _}
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 import com.typesafe.tools.mima.plugin.MimaKeys.mimaPreviousArtifacts
+import zio.sbt.ZioSbtCiPlugin
+import zio.sbt.ZioSbtCiPlugin._
+import zio.sbt.githubactions.{Job, Step, Strategy}
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
@@ -26,7 +29,7 @@ inThisBuild(
     ),
     scmInfo := Some(
       ScmInfo(
-        homepage.value.get,
+        url("https://github.com/zio/zio-schema"),
         "scm:git:git@github.com:zio/zio-schema.git"
       )
     ),
@@ -70,8 +73,62 @@ addCommandAlias(
     "zioSchemaZioTestJS/test; zioSchemaProtobufJS/test; zioSchemaXmlJS/test;"
 )
 
+addCommandAlias("lint", "fmtCheck; fixCheck")
+
+def platformTestJob(checkout: Step, platform: String, extraSteps: Step*): Job =
+  Job(
+    id = s"test-$platform",
+    name = s"Test $platform",
+    jobTimeout = Some(40),
+    strategy = Some(
+      Strategy(
+        matrix = Map(
+          "java"  -> List("17", "21"),
+          "scala" -> List(Scala212, Scala213, Scala3)
+        ),
+        failFast = false
+      )
+    ),
+    steps = Seq(checkout, SetupJava("${{ matrix.java }}"), SetupSBT, CacheDependencies) ++
+      extraSteps ++
+      Seq(Step.SingleStep(name = "Test", run = Some(s"sbt ++$${{ matrix.scala }}! test$platform")))
+  )
+
+ThisBuild / ciTargetJavaVersions := Seq("17", "21")
+
+ThisBuild / ciTestJobs := {
+  val checkout = Checkout.value
+  Seq(
+    platformTestJob(checkout, "JVM"),
+    platformTestJob(checkout, "JS"),
+    platformTestJob(
+      checkout,
+      "Native",
+      Step.SingleStep(name = "Install Boehm GC", run = Some("sudo apt-get update && sudo apt-get install -y libgc-dev"))
+    ),
+    Job(
+      id = "mima-check",
+      name = "MiMa Check",
+      jobTimeout = Some(20),
+      steps = Seq(
+        checkout,
+        SetupJava("21"),
+        SetupSBT,
+        CacheDependencies,
+        Step.SingleStep(name = "MiMa Check", run = Some("sbt +mimaReportBinaryIssues"))
+      )
+    )
+  )
+}
+
+// Preserve the JVM/Node tuning the handwritten workflow had (bigger heap/stack for
+// macro-heavy compilation and Node's docs/website build), which the plugin defaults don't include.
+ThisBuild / ciJvmOptions  := Seq("-Xmx6G", "-Xss4M", "-XX:+UseG1GC")
+ThisBuild / ciNodeOptions := Seq("--max_old_space_size=6144")
+
 lazy val root = project
   .in(file("."))
+  .enablePlugins(ZioSbtCiPlugin)
   .settings(
     name                  := "zio-schema",
     publish / skip        := true,
@@ -472,7 +529,26 @@ lazy val docs = project
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % zioVersion
     ),
-    projectName                                := "ZIO Schema",
+    projectName  := "ZIO Schema",
+    readmeBanner := {
+      val logoBase = "https://raw.githubusercontent.com/zio/zio-schema/main/brand"
+      // <picture> lets GitHub swap the logo per theme: the light logo's wordmark is near-black,
+      // which would be invisible on GitHub's dark canvas without the dark variant.
+      s"""|
+          |<picture>
+          |  <source media="(prefers-color-scheme: dark)" srcset="$logoBase/logo-dark.svg">
+          |  <img alt="ZIO Schema" src="$logoBase/logo-light.svg" width="520">
+          |</picture>
+          |""".stripMargin
+    },
+    // The banner already carries the "ZIO Schema" wordmark, so drop the "# ZIO Schema" heading
+    // that the plugin puts after it; otherwise the README shows the project name twice in a row.
+    // The image's alt text supplies the accessible name in its place.
+    generateReadme := {
+      generateReadme.value
+      val readme = (ThisBuild / baseDirectory).value / "README.md"
+      IO.write(readme, IO.read(readme).replaceFirst(s"(?m)^# ${projectName.value}\n\n", ""))
+    },
     mainModuleName                             := (zioSchemaJVM / moduleName).value,
     projectStage                               := ProjectStage.Development,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
@@ -502,7 +578,8 @@ lazy val docs = project
     zioSchemaBson,
     zioSchemaMsgPack,
     zioSchemaThrift,
-    zioSchemaXmlJVM
+    zioSchemaXmlJVM,
+    zioSchemaZioTestJVM
   )
   .enablePlugins(WebsitePlugin)
 

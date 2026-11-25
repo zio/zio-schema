@@ -17,8 +17,54 @@ import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
 import zio.{Cause, Chunk, ChunkBuilder, Unsafe}
 
+/**
+ * Reads and writes values in the Protocol Buffers binary wire format, driven by
+ * a `Schema` instead of a `.proto` file. A record's fields get the field
+ * numbers 1, 2, 3, ... in declaration order, unless a field has a
+ * [[fieldNumber]] annotation; integers are written as varints, `Float` and
+ * `Double` as fixed 4- and 8-byte values, and strings, bytes, records and
+ * sequences as length-delimited values.
+ *
+ * Use it when you need a compact binary form for values that have a `Schema`.
+ *
+ * {{{
+ * import zio.Chunk
+ * import zio.schema.{DeriveSchema, Schema}
+ * import zio.schema.codec.{BinaryCodec, ProtobufCodec}
+ *
+ * final case class Point(x: Int, y: Int)
+ * implicit val pointSchema: Schema[Point] = DeriveSchema.gen[Point]
+ *
+ * val codec: BinaryCodec[Point] = ProtobufCodec.protobufCodec[Point]
+ * val bytes: Chunk[Byte]        = codec.encode(Point(3, 4))
+ * // Chunk(8,3,16,4)
+ * codec.decode(bytes)
+ * // Right(Point(3,4))
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-schema/derivations/codecs/protobuf/ Protobuf Codec]]
+ */
 object ProtobufCodec {
 
+  /**
+   * Returns a `BinaryCodec` that reads and writes `A` in the Protobuf wire
+   * format, using the implicit `Schema[A]`.
+   *
+   * `decode` reads the whole chunk as one value. Decoding a record skips field
+   * numbers the schema does not have, and fails with a `DecodeError.ReadError`
+   * (`Failed to decode record. Missing fields: ...`) when a field is missing
+   * from the input and has no `@fieldDefaultValue`; this includes `Option`
+   * fields and empty input. Empty input for an `Int` fails with
+   * `DecodeError.MalformedField` (`Failed to decode VarInt. Unexpected end of
+   * chunk`).
+   *
+   * `streamEncoder` writes the encoded values back to back with no length
+   * prefix, and `streamDecoder` decodes each chunk it receives as one value. A
+   * chunk that holds two encoded records decodes as one record: Protobuf merges
+   * the fields, so `Point(1, 2)` followed by `Point(3, 4)` decodes as
+   * `Point(3,4)`.
+   */
   implicit def protobufCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
@@ -34,17 +80,47 @@ object ProtobufCodec {
         ZPipeline.mapChunks(_.flatMap(encode))
     }
 
+  /** Protobuf wire-format definitions used by the codec. */
   object Protobuf {
 
+    /**
+     * The wire type that a Protobuf field key carries in its low three bits; it
+     * tells the reader how long the value is.
+     */
     sealed trait WireType
 
+    /** The six Protobuf wire types. */
     object WireType {
-      case object VarInt                     extends WireType
-      case object Bit64                      extends WireType
+
+      /**
+       * Wire type 0: a variable-length integer, used for `Boolean`, `Byte`,
+       * `Short`, `Int` and `Long`.
+       */
+      case object VarInt extends WireType
+
+      /** Wire type 1: a fixed 8-byte value, used for `Double`. */
+      case object Bit64 extends WireType
+
+      /**
+       * Wire type 2: a value prefixed with its length in bytes, `width`; used
+       * for strings, bytes, records and sequences.
+       */
       case class LengthDelimited(width: Int) extends WireType
-      case object StartGroup                 extends WireType
-      case object EndGroup                   extends WireType
-      case object Bit32                      extends WireType
+
+      /**
+       * Wire type 3: the start of a group, from Protobuf's deprecated groups
+       * feature.
+       */
+      case object StartGroup extends WireType
+
+      /**
+       * Wire type 4: the end of a group, from Protobuf's deprecated groups
+       * feature.
+       */
+      case object EndGroup extends WireType
+
+      /** Wire type 5: a fixed 4-byte value, used for `Float`. */
+      case object Bit32 extends WireType
     }
 
     /**
@@ -104,6 +180,10 @@ object ProtobufCodec {
 
   final private[codec] case class EncoderContext(fieldNumber: Option[Int], directByteEncoding: Boolean)
 
+  /**
+   * Encodes a value to Protobuf bytes by walking its schema; `protobufCodec`
+   * uses it for `encode`.
+   */
   object Encoder extends MutableSchemaBasedValueProcessor[Chunk[Byte], EncoderContext] {
     import Protobuf._
 
@@ -477,28 +557,57 @@ object ProtobufCodec {
       }.getOrElse(Chunk.empty)
   }
 
+  /** The read position of a [[ProtobufCodec.Decoder]] over its input bytes. */
   final class DecoderState(chunk: Chunk[Byte], private var position: Int) {
+
+    /**
+     * Returns the number of bytes left before the context's limit, or before
+     * the end of the input when the context has no limit.
+     */
     def length(context: DecoderContext): Int = context.limit.getOrElse(chunk.length) - position
 
+    /** Returns the next `count` bytes and moves past them. */
     def read(count: Int): Chunk[Byte] = {
       val oldPosition = position
       position += count
       chunk.slice(oldPosition, position)
     }
 
+    /**
+     * Returns every byte left within the context's limit and moves past them.
+     */
     def all(context: DecoderContext): Chunk[Byte] = read(length(context))
 
+    /** Returns every byte left within the context's limit without moving. */
     def peek(context: DecoderContext): Chunk[Byte] =
       chunk.slice(position, position + length(context))
 
+    /** Returns the byte at the current position without moving. */
     def peek: Byte = chunk.byte(position)
 
+    /** Moves the position forward by `count` bytes. */
     def move(count: Int): Unit =
       position += count
 
+    /** Returns the current position, in bytes from the start of the input. */
     def currentPosition: Int = position
   }
 
+  /**
+   * What a [[ProtobufCodec.Decoder]] knows about the value it is reading.
+   *
+   * @param limit
+   *   the input position where the current length-delimited value ends, or
+   *   `None` for the end of the input
+   * @param packed
+   *   whether the elements of the current sequence are packed (written without
+   *   field keys)
+   * @param dictionaryElementContext
+   *   the context of the current map entry, used to read its value after its
+   *   key
+   * @param directByteEncoding
+   *   whether a `Byte` is read as one raw byte instead of a varint
+   */
   final case class DecoderContext(
     limit: Option[Int],
     packed: Boolean,
@@ -506,10 +615,18 @@ object ProtobufCodec {
     directByteEncoding: Boolean
   ) {
 
+    /**
+     * Returns a copy whose limit is `w` bytes after the state's current
+     * position.
+     */
     def limitedTo(state: DecoderState, w: Int): DecoderContext =
       copy(limit = Some(state.currentPosition + w))
   }
 
+  /**
+   * Decodes one Protobuf value from `chunk` by walking a schema. It keeps its
+   * read position, so use one instance per input.
+   */
   class Decoder(chunk: Chunk[Byte]) extends MutableSchemaBasedValueBuilder[Any, DecoderContext] {
 
     import Protobuf._
@@ -517,6 +634,10 @@ object ProtobufCodec {
     private val state: DecoderState = new DecoderState(chunk, 0)
     private val fieldMappingCache   = new FieldMappingCache()
 
+    /**
+     * Decodes the input as an `A`. A failure is a `DecodeError`; any other
+     * exception thrown while decoding is returned as a `DecodeError.ReadError`.
+     */
     def decode[A](schema: Schema[A]): scala.util.Either[DecodeError, A] =
       try {
         Right(create(schema).asInstanceOf[A])

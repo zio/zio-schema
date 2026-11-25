@@ -5,9 +5,16 @@ import org.apache.thrift.transport.{TMemoryTransport, TTransport}
 
 import zio.Chunk
 
+/** Thrift transports over in-memory bytes, used by [[ThriftCodec]]. */
 object ChunkTransport {
 
+  /**
+   * A write-only Thrift transport that collects the written bytes in memory;
+   * `read` throws `java.lang.UnsupportedOperationException`.
+   */
   class Write extends TTransport {
+
+    /** The in-memory transport that holds the written bytes. */
     val underlying = new TMemoryTransport(Array.emptyByteArray)
 
     override def isOpen: Boolean = underlying.isOpen
@@ -31,11 +38,18 @@ object ChunkTransport {
     override def checkReadBytesAvailable(numBytes: Long): Unit =
       underlying.checkReadBytesAvailable(numBytes)
 
+    /** Returns every byte written so far, from the first write on. */
     def chunk: Chunk[Byte] =
       Chunk.fromArray(underlying.getOutput.toByteArray)
   }
 
+  /**
+   * A read-only Thrift transport over `input`; `write` throws
+   * `java.lang.UnsupportedOperationException`.
+   */
   class Read(input: Chunk[Byte]) extends TTransport {
+
+    /** The in-memory transport that reads `input`. */
     val underlying = new TMemoryTransport(input.toArray)
 
     override def isOpen: Boolean = underlying.isOpen

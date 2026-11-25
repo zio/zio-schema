@@ -8,10 +8,33 @@ import Schema._
 
 import zio.schema.annotation.fieldName
 
+/** Derives the `Schema[A]` at compile time, the same as `DeriveSchema.gen[A]`. A `derives Schema` clause on a type calls it. */
 extension (s: Schema.type) transparent inline def derived[A] = DeriveSchema.gen[A]
 
+/** Derives schemas for case classes, sealed traits and other supported types at compile time. */
 object DeriveSchema {
 
+  /**
+   * Derives the `Schema[T]` of a case class, case object or sealed trait at compile time, and on Scala 3 also of an `enum` or union type. A field or case whose type has a `Schema` in implicit scope uses that schema; the others are derived as well.
+   *
+   * On Scala 2, `gen` is an implicit whitebox macro, which implicit search uses only where `DeriveSchema._` is imported. On Scala 3, it is a `transparent inline` method that is not implicit; `Schema.derived[T]` and a `derives Schema` clause call it.
+   *
+   * {{{
+   * final case class Person(name: String, age: Int)
+   *
+   * object Person {
+   *   implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+   * }
+   *
+   * val fieldNames = Person.schema match {
+   *   case record: Schema.Record[_] => record.fields.map(_.name).toList
+   *   case _                        => Nil
+   * }
+   * // List(name, age)
+   * }}}
+   *
+   * @see [[https://zio.dev/zio-schema/automatic-schema-derivation/ Automatic Schema Derivation]]
+   */
   transparent inline def gen[T]: Schema[T] = ${ deriveSchema[T] }
 
   private def deriveSchema[T: Type](using Quotes): Expr[Schema[T]] =

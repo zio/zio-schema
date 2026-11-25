@@ -2,8 +2,26 @@ package zio.schema.codec.xml
 
 import zio.Chunk
 
+/** Renders [[Xml]] trees as XML text. */
 object XmlWriter {
 
+  /**
+   * Renders `xml` as a string, following `config`.
+   *
+   * {{{
+   * import zio.Chunk
+   *
+   * val order = Xml.Element(
+   *   XmlName("order"),
+   *   Chunk(XmlName("id") -> "7"),
+   *   Chunk(Xml.Element("item", Xml.Text("pen")), Xml.Element("item", Xml.Text("ink")))
+   * )
+   * val text = XmlWriter.write(order, WriterConfig.default)
+   * // <order id="7"><item>pen</item><item>ink</item></order>
+   * val back = XmlReader.read(text, ReaderConfig.default)
+   * // back == Right(order)
+   * }}}
+   */
   def write(xml: Xml, config: WriterConfig): String = {
     val sb = new StringBuilder
     if (config.includeDeclaration)

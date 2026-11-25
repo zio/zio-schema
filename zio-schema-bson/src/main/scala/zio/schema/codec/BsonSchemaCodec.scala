@@ -41,15 +41,61 @@ import zio.schema.codec.BsonSchemaCodec.SumTypeHandling.WrapperWithClassNameFiel
 import zio.schema.{DynamicValue, Fallback, Schema, StandardType, TypeId}
 import zio.{Chunk, ChunkBuilder, Unsafe}
 
+/**
+ * Derives `zio-bson` encoders, decoders and codecs (`BsonEncoder`,
+ * `BsonDecoder` and `BsonCodec`) from a ZIO Schema, to store values as BSON,
+ * for example in MongoDB.
+ *
+ * A case class becomes a BSON document with one field per case class field. A
+ * sealed trait whose cases are all case objects becomes a BSON string holding
+ * the case name; other sealed traits are encoded as `Config.sumTypeHandling`
+ * sets. Decoding a BSON value of the wrong shape gives a `Left` with a
+ * `BsonDecoder.Error`.
+ *
+ * {{{
+ * import org.bson.BsonValue
+ * import zio.bson.BsonCodec
+ * import zio.schema.{DeriveSchema, Schema}
+ *
+ * final case class Reading(sensor: String, celsius: Double)
+ * val schema: Schema[Reading] = DeriveSchema.gen[Reading]
+ *
+ * val readingCodec: BsonCodec[Reading] = BsonSchemaCodec.bsonCodec(schema)
+ * val value: BsonValue = readingCodec.encoder.toBsonValue(Reading("greenhouse-2", 21.5))
+ * // {"sensor": "greenhouse-2", "celsius": 21.5}
+ * val decoded = readingCodec.decoder.fromBsonValue(value)
+ * // Right(Reading(greenhouse-2,21.5))
+ * }}}
+ *
+ * @see
+ *   [[https://zio.dev/zio-schema/derivations/codecs/bson/ BSON codec]]
+ */
 object BsonSchemaCodec {
 
+  /**
+   * A function that maps a case name of a sealed trait to the name written in
+   * BSON, as set by `Config.withClassNameMapping`.
+   */
   type TermMapping = String => String
 
+  /**
+   * How the derived codecs encode a case of a sealed trait whose cases are not
+   * all case objects.
+   *
+   * An annotation on the sealed trait takes precedence: `@bsonDiscriminator` or
+   * `@discriminatorName` sets a discriminator field name, as
+   * `DiscriminatorField` does, and `@noDiscriminator` writes the case's own
+   * encoding with no case name at all.
+   */
   sealed trait SumTypeHandling
 
+  /** The two encodings of sealed trait cases. */
   object SumTypeHandling {
 
     /**
+     * Writes a case as a document with a single field, named after the case,
+     * that holds the encoded case. This is the default.
+     *
      * Sum type hierarchy:
      * {{{
      *   sealed trait MySum
@@ -59,20 +105,26 @@ object BsonSchemaCodec {
      *   case class Outer(mySum: MySum)
      * }}}
      *
-     * Result BSON for [[WrapperWithClassNameField]]:
+     * Result BSON for [[WrapperWithClassNameField]], built with the BSON Java
+     * API: the document that `Outer(SomeBranch(123))` encodes to.
      * {{{
-     *   {
-     *     mySum: {
-     *       SomeBranch: {
-     *         a: 123
-     *       }
-     *     }
-     *   }
+     *   import org.bson.{BsonDocument, BsonInt32}
+     *
+     *   val encoded: BsonDocument =
+     *     new BsonDocument(
+     *       "mySum",
+     *       new BsonDocument("SomeBranch", new BsonDocument("a", new BsonInt32(123)))
+     *     )
      * }}}
      */
     case object WrapperWithClassNameField extends SumTypeHandling
 
     /**
+     * Writes a case as its own document with an extra string field, called
+     * `name`, that holds the case name. A case that does not encode as a
+     * document makes `toBsonValue` throw a `java.lang.RuntimeException` with
+     * the message `Subtype is not encoded as an object`.
+     *
      * Sum type hierarchy:
      * {{{
      *   sealed trait MySum
@@ -82,14 +134,16 @@ object BsonSchemaCodec {
      *   case class Outer(mySum: MySum)
      * }}}
      *
-     * Result BSON for `DiscriminatorField("type")`:
+     * Result BSON for `DiscriminatorField("type")`, built with the BSON Java
+     * API: the document that `Outer(SomeBranch(123))` encodes to.
      * {{{
-     *   {
-     *     mySum: {
-     *       type: "SomeBranch"
-     *       a: 123
-     *     }
-     *   }
+     *   import org.bson.{BsonDocument, BsonInt32, BsonString}
+     *
+     *   val encoded: BsonDocument =
+     *     new BsonDocument(
+     *       "mySum",
+     *       new BsonDocument("type", new BsonString("SomeBranch")).append("a", new BsonInt32(123))
+     *     )
      * }}}
      */
     final case class DiscriminatorField(name: String) extends SumTypeHandling
@@ -101,20 +155,31 @@ object BsonSchemaCodec {
   }
 
   /**
-   * Configuration for the BSON schema codec.
+   * Configuration for the BSON schema codec. Start from the `Config` object,
+   * which holds the defaults, and change it with `withSumTypeHandling` and
+   * `withClassNameMapping`.
+   *
    * @param sumTypeHandling
-   *   The handling of sum types.
+   *   The handling of sum types: how a case of a sealed trait is encoded;
+   *   `SumTypeHandling.WrapperWithClassNameField` by default.
    * @param classNameMapping
-   *   The mapping of class names.
+   *   The mapping of class names: maps a case name before it is written as the
+   *   wrapper field name or the discriminator value; `identity` by default.
+   *   Sealed traits whose cases are all case objects are written as their case
+   *   names without this mapping.
    */
   class Config private (
     val sumTypeHandling: SumTypeHandling,
     val classNameMapping: TermMapping
   ) {
 
+    /** Returns a copy of this configuration with `sumTypeHandling` replaced. */
     def withSumTypeHandling(sumTypeHandling: SumTypeHandling): Config =
       copy(sumTypeHandling = sumTypeHandling)
 
+    /**
+     * Returns a copy of this configuration with `classNameMapping` replaced.
+     */
     def withClassNameMapping(classNameMapping: TermMapping): Config =
       copy(classNameMapping = classNameMapping)
 
@@ -125,30 +190,56 @@ object BsonSchemaCodec {
       new Config(sumTypeHandling, classNameMapping)
   }
 
+  /**
+   * The default configuration: `SumTypeHandling.WrapperWithClassNameField` and
+   * `identity` as the class name mapping. Change it with `withSumTypeHandling`
+   * and `withClassNameMapping`.
+   */
   object Config
       extends Config(
         sumTypeHandling = WrapperWithClassNameField,
         classNameMapping = identity
       )
 
+  /** Derives a `BsonEncoder` for `A` from `schema`, using `config`. */
   def bsonEncoder[A](schema: Schema[A], config: Config): BsonEncoder[A] =
     BsonSchemaEncoder.schemaEncoder(config)(schema)
 
+  /**
+   * Derives a `BsonEncoder` for `A` from `schema`, using the default `Config`.
+   */
   def bsonEncoder[A](schema: Schema[A]): BsonEncoder[A] =
     bsonEncoder(schema, Config)
 
+  /** Derives a `BsonDecoder` for `A` from `schema`, using `config`. */
   def bsonDecoder[A](schema: Schema[A], config: Config): BsonDecoder[A] =
     BsonSchemaDecoder.schemaDecoder(config)(schema)
 
+  /**
+   * Derives a `BsonDecoder` for `A` from `schema`, using the default `Config`.
+   */
   def bsonDecoder[A](schema: Schema[A]): BsonDecoder[A] =
     bsonDecoder(schema, Config)
 
+  /**
+   * Derives a `BsonCodec` for `A` from `schema`, pairing the encoder and the
+   * decoder derived with `config`.
+   */
   def bsonCodec[A](schema: Schema[A], config: Config): BsonCodec[A] =
     BsonCodec(bsonEncoder(schema, config), bsonDecoder(schema, config))
 
+  /**
+   * Derives a `BsonCodec` for `A` from `schema`, pairing the encoder and the
+   * decoder derived with the default `Config`.
+   */
   def bsonCodec[A](schema: Schema[A]): BsonCodec[A] =
     bsonCodec(schema, Config)
 
+  /**
+   * Codecs for primitives, tuples, `Either` and `Fallback` that the derived
+   * encoders and decoders use. Its members are visible only inside
+   * `zio.schema.codec`.
+   */
   object Codecs {
     protected[codec] val unitEncoder: BsonEncoder[Unit] = new BsonEncoder[Unit] {
       override def encode(writer: BsonWriter, value: Unit, ctx: BsonEncoder.EncoderContext): Unit =
@@ -550,6 +641,10 @@ object BsonSchemaCodec {
       }
   }
 
+  /**
+   * Builds the encoders that `bsonEncoder` returns. Its members are visible
+   * only inside `zio.schema.codec`.
+   */
   object BsonSchemaEncoder {
 
     import Codecs._
@@ -889,6 +984,10 @@ object BsonSchemaCodec {
       }
   }
 
+  /**
+   * Builds the decoders that `bsonDecoder` returns. Its members are visible
+   * only inside `zio.schema.codec`.
+   */
   object BsonSchemaDecoder {
 
     import Codecs._
