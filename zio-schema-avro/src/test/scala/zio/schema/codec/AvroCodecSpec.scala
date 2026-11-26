@@ -132,6 +132,37 @@ object AvroCodecSpec extends ZIOSpecDefault {
     implicit val schemaEnums: Schema[Enums] = DeriveSchema.gen[Enums]
   }
 
+  sealed trait Enum23Cases
+
+  object Enum23Cases {
+
+    case class Case1(value: String)  extends Enum23Cases
+    case class Case2(value: Int)     extends Enum23Cases
+    case class Case3(value: String)  extends Enum23Cases
+    case class Case4(value: String)  extends Enum23Cases
+    case class Case5(value: String)  extends Enum23Cases
+    case class Case6(value: String)  extends Enum23Cases
+    case class Case7(value: String)  extends Enum23Cases
+    case class Case8(value: String)  extends Enum23Cases
+    case class Case9(value: String)  extends Enum23Cases
+    case class Case10(value: String) extends Enum23Cases
+    case class Case11(value: String) extends Enum23Cases
+    case class Case12(value: String) extends Enum23Cases
+    case class Case13(value: String) extends Enum23Cases
+    case class Case14(value: String) extends Enum23Cases
+    case class Case15(value: String) extends Enum23Cases
+    case class Case16(value: String) extends Enum23Cases
+    case class Case17(value: String) extends Enum23Cases
+    case class Case18(value: String) extends Enum23Cases
+    case class Case19(value: String) extends Enum23Cases
+    case class Case20(value: String) extends Enum23Cases
+    case class Case21(value: String) extends Enum23Cases
+    case class Case22(value: String) extends Enum23Cases
+    case class Case23(value: String) extends Enum23Cases
+
+    implicit val schemaEnum23Cases: Schema[Enum23Cases] = DeriveSchema.gen[Enum23Cases]
+  }
+
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Avro Codec Spec")(
     primitiveEncoderSpec,
     collectionsEncoderSpec,
@@ -402,6 +433,11 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val codec = AvroCodec.schemaBasedBinaryCodec[OneOf]
       val bytes = codec.encode(OneOf.BooleanValue(true))
       assertTrue(bytes.length == 2)
+    },
+    test("Encode EnumN") {
+      val codec = AvroCodec.schemaBasedBinaryCodec[Enum23Cases]
+      val bytes = codec.encode(Enum23Cases.Case1("test"))
+      assertTrue(bytes.length == 6)
     }
   )
 
@@ -772,6 +808,12 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val bytes  = codec.encode(Enums.A)
       val result = codec.decode(bytes)
       assertTrue(result == Right(Enums.A))
+    },
+    test("Decode EnumN") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Enum23Cases]
+      val bytes  = codec.encode(Enum23Cases.Case1("test"))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Enum23Cases.Case1("test")))
     },
     test("Decode Person") {
       val codec  = AvroCodec.schemaBasedBinaryCodec[Person]
