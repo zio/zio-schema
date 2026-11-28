@@ -250,6 +250,7 @@ object AvroCodec {
         c21,
         c22
       ).map(_.asInstanceOf[A])
+    case Schema.EnumN(_, cs, _)          => decodeEnum(raw, cs.toSeq: _*).map(_.asInstanceOf[A])
     case s0 @ Schema.CaseClass0(_, _, _) =>
       decodePrimitiveValues(raw, StandardType.UnitType).map(_ => s0.defaultConstruct())
     case s1 @ Schema.CaseClass1(_, _, _, _)   => decodeCaseClass1(raw, s1)
@@ -736,6 +737,7 @@ object AvroCodec {
         c21,
         c22
       )
+    case Schema.EnumN(_, cs, _)                       => encodeEnum(schema, a, cs.toSeq: _*)
     case Schema.GenericRecord(typeId, structure, _)   => encodeGenericRecord(a, typeId, structure)
     case Schema.Primitive(standardType, _)            => encodePrimitive(a, standardType)
     case Schema.Sequence(element, _, g, _, _)         => encodeSequence(element, g(a))
